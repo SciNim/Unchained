@@ -36,8 +36,10 @@ type
   ElectricResistance* = distinct CompoundQuantity
   Capacitance* = distinct CompoundQuantity
   Inductance* = distinct CompoundQuantity
+  Pressure* = distinct CompoundQuantity
 
-  DerivedQuantity* = Velocity | Acceleration | Momentum | Force | Energy
+  DerivedQuantity* = Velocity | Acceleration | Momentum | Force | Energy | ElectricPotential | Voltage |
+    Frequency | Charge | Power | ElectricResistance | Capacitance | Inductance | Pressure
 
   SomeQuantity* = BaseQuantity | DerivedQuantity
 
