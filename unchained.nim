@@ -218,6 +218,8 @@ type
 ## parseing CT units is the basis of all functionality almost
 proc parseCTUnit(x: NimNode): CTCompoundUnit
 proc toNimType(x: CTCompoundUnit): NimNode
+proc flatten(units: CTCompoundUnit): CTCompoundUnit
+proc simplify(x: CTCompoundUnit): CTCompoundUnit
 
 proc enumerateTypesImpl*(t: NimNode): NimNode =
   result = nnkBracket.newTree()
@@ -583,8 +585,12 @@ macro defUnit*(arg: untyped): untyped =
   ## Helper template to define new units (not required to be used manually)
   let argCT = parseCTUnit(arg)
   let shortHand = argCT.units.allIt(it.isShortHand)
+
+  ## TODO: instead of just using the long version, what to do for
+  ## J•m or something like this? For max compatibility the RHS
+  ## should actually be the base unit stuff.
   if shortHand:
-    let resType = argCT.toNimType()
+    let resType = argCT.flatten.simplify.toNimType()
     result = quote do:
       when not declared(`resType`):
         type `resType` = distinct CompoundQuantity
