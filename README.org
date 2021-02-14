@@ -1,0 +1,161 @@
+* Unchained - Compile time only units checking
+
+=Unchained= is a fully type safe, compile time only units
+library. There is *absolutely no* performance loss over pure =float=
+based code (aside from insertion of possible conversion factors, but
+those would have to be written by hand otherwise of course).
+
+It supports:
+- all base SI units
+- some imperial units
+- all SI prefixes
+- arbitrary math with units composing to new units, e.g. (which do not have
+  to be defined previously!), e.g. =10.m * 10.m * 10.m * 10.m * 10.m=
+  without having to predefine a =Meter⁵= type
+- automatic conversion between SI prefixes if a mix is used
+- ...
+
+Aside from bugs and polish the main thing missing is proper handling
+of natural units (they exist, but are untested and their unit in terms
+of =eV= is not implemented).  
+
+In no particular order things that either are or need to be supported:
+(except the part where we don't have a working ~==~ implementation
+right now):
+#+begin_src nim
+## The following already work unless `TODO` (not all units implemented)
+block:
+  # defining simple units
+  let mass = 5.kg
+  let a = 9.81.m•s⁻²
+block:
+  # addition and subtraction of same units
+  let a = 5.kg
+  let b = 10.kg
+  check typeof(a + b) is Kg
+  check a + b == 15.kg
+  check typeof(a - b) is Kg
+  check a - b == 15.kg
+block:
+  # addition and subtraction of units of the same ``quantity`` but different scale
+  let a = 5.kg
+  let b = 500.g
+  check typeof(a + b) is Kg
+  check a + b == 5.5.kg
+  # if units do not match, the SI unit is used!
+block:
+  # product of prefixed SI unit keeps same prefix unless multiple units of same quantity involved
+  let a = 1.m•s⁻²
+  let b = 500.g
+  check typeof(a * b) is Gram•Meter•Second⁻²
+  check typeof(a * b) is MilliNewton
+  check a * b == 500.g•m•s⁻²
+block:
+  let mass = 5.kg
+  let a = 9.81.m•s⁻²
+  # unit multiplication has to be commutative
+  let F: Newton = mass * a
+  let F2: Newton = a * mass # TODO
+  # unit division works as expected
+  check typeof(F / mass) is Meter•Second⁻²
+  check F / mass == a
+block:
+  # conversion between units of the same quantity
+  let f = 10.N
+  check typeof(f.to(kN)) is KiloNewton
+  check f.to(kN) == 0.01.kN
+block:
+  # pre-defined physical constants
+  let E_e⁻_rest: Joule = m_e * c*c # math operations `*cannot*` use superscripts!
+  # m_e = electron mass in kg
+  # c = speed of light in vacuum in m/s
+block:
+  # automatic CT error if argument of e.g. sin, ln are not unit less
+  let x = 5.kg
+  let y = 10.kg
+  discard sin(x / y) ## compiles gives correct result (~0.48)
+  let x2 = 10.m
+  # sin(x2 / y) ## errors at CT due to non unit less argument
+block:
+  # imperial units (most are missing)
+  let mass = 100.lbs
+
+  
+## Yet to be implemented  
+block:
+  # units using english language (using accented quotes)
+  let a = 10.`meter per second squared`
+  let b = 5.`kilogram meter per second squared`
+  check typeof(a) is Meter•Second⁻²
+  check typeof(b) is Newton
+  check a == 10.m•s⁻²
+  check b == 5.N
+block:
+  # mixing of non SI and SI units (via conversion to SI units)
+  let m1 = 100.lbs
+  let m2 = 10.kg
+  check typeof(m1 + m2) is Kg
+  check m1 + m2 == 55.3592.Kg
+block:
+  # natural unit support (c = 1, h = 1)
+  let speed: NaturalVelocity = 0.1.UnitLess # fraction of c
+  let m_e: NaturalMass = 511.keV
+  # math between natural units remains natural
+  let p: NaturalMomentum = speed * m_e
+  check p == 51.1.keV
+block:
+  # auto conversion of natural units
+  let a = 10.MeV
+  let b = 200.eV
+  check typeof(a / b) is UnitLess # `UnitLess` is 
+  check a / b == 50_000.Unitless
+#+end_src
+
+Things to note:
+- real units use capital letters and are verbose
+- shorthands defined for all typical units
+- conversion of numbers to units done using `.` call and using
+  shorthand names  
+- `•` symbol is product of units to allow unambiguous parsing of units
+- no division of units, but negative exponents
+- exponents are in superscript
+- usage of `•` and superscript is to circumvent Nim's identifier
+  rules!
+- SI units are the base. If ambiguous operation that can be solved by
+  unit conversion, SI units are used.  
+- math operations *cannot* use superscripts!
+- physical units are defined
+- conversion from prefixed SI unit to non prefixed SI unit *only*
+  happens if multiple prefixed units of same quantity involved
+- =UnitLess= is a =distinct float= unit that has a converter to
+  =float= (such that =UnitLess= magically works with math functions
+  expecting floats).
+
+SI prefix unit generation can be done with something like this:
+
+For each base type define:
+#+begin_src nim
+## default assumes: `{siMilli .. siMega}`
+prefixGeneration:
+  Meter = {siYocto .. siYotta}
+  ElectronVolt = {siNano .. siPeta}
+  ...               
+#+end_src
+
+Is it really not possible to generate units on the fly?
+It doesn't seem to be given that macros can only affect the tree
+*down*. It is thinkable to attach a pragma to a procedure to auto add
+types found in the body to the list of types we generate.
+We can make it work still, by using local type definitions, but that
+seems sketchy, no?
+
+** Why "Unchained"?
+Un = Unit
+Chain = [[https://en.wikipedia.org/wiki/Chain_(unit)][A unit]]
+
+You shall be unchained from the shackles of dealing with painful
+errors due to unit mismatches by using this lib! Tada!
+
+*Hint*: The unit =Chain= does not exist in this library...
+
+
