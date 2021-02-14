@@ -70,7 +70,7 @@ type
   Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹* = distinct Capacitance
   KiloGram•Meter²•Ampere⁻¹•Second⁻³* = distinct ElectricPotential
   KiloGram•Meter²•Second⁻³•Ampere⁻²* = distinct ElectricResistance
-
+  KiloGram•Meter⁻¹•Second⁻² = distinct Pressure
 
   ## derived SI units
   Newton* = KiloGram•Meter•Second⁻²
@@ -82,8 +82,11 @@ type
   Ohm* = KiloGram•Meter²•Second⁻³•Ampere⁻²
   Henry* = KiloGram•Meter²•Second⁻²•Ampere⁻²
   Farad* = Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹
+  Pascal* = KiloGram•Meter⁻¹•Second⁻²
 
+  ## other units
   ElectronVolt* = distinct Energy
+  Bar* = distinct Pressure
 
   ## possibly define convenient overloads? Not really required, since we compute that these match after
   ## all, no? E.g. given Joule•Coulomb⁻¹. We would parse each, convert to base SI units and notice that
@@ -112,6 +115,8 @@ type
   H* = Henry
   F* = Farad
   eV* = ElectronVolt
+  Pa* = Pascal
+  bar* = Bar
 
   SiPrefix* = enum
     siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
@@ -123,7 +128,7 @@ type
     qkMass, qkLength, qkTime, qkCurrent, qkTemperature, qkAmountOfSubstance, qkLuminosity,
     # derived quantities
     qkFrequency, qkVelocity, qkAcceleration, qkMomentum, qkForce, qkEnergy, qkElectricPotential,
-    qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance
+    qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance, qkPressure
 
   ## enum storing all known units (their base form) to allow easier handling of unit conversions
   ## Enum value is the default name of the unit
@@ -145,6 +150,8 @@ type
     ukOhm = "Ohm"
     ukHenry = "Henry"
     ukFarad = "Farad"
+    ukPascal = "Pascal"
+    ukBar = "Bar"
     # other units
     ukElectronVolt = "ElectronVolt"
     # natural units
@@ -381,6 +388,8 @@ generateSiPrefixedUnits:
   (H, Henry)
   (F, Farad)
   (eV, ElectronVolt)
+  (Pa, Pascal)
+  (bar, Bar)
 
 proc isUnitLess(u: CTCompoundUnit): bool = u.units.len == 0
 
@@ -410,6 +419,8 @@ proc toQuantity(unitKind: UnitKind): QuantityKind =
   of ukOhm: result = qkElectricResistance
   of ukHenry: result = qkInductance
   of ukFarad: result = qkCapacitance
+  of ukPascal: result = qkPressure
+  of ukBar: result = qkPressure
   # natural units
   of ukNaturalLength: result = qkLength
   of ukNaturalMass: result = qkMass
@@ -503,6 +514,12 @@ proc toCTBaseUnitSeq(unitKind: UnitKind): seq[CTBaseUnit] =
     result.add toCTBaseUnit(ukAmpere, power = 2)
     result.add toCTBaseUnit(ukMeter, power = -2)
     result.add toCTBaseUnit(ukGram, siPrefix = siKilo, power = -1)
+  of ukPascal:
+    result.add toCTBaseUnit(ukGram, siPrefix = siKilo)
+    result.add toCTBaseUnit(ukMeter, power = -1)
+    result.add toCTBaseUnit(ukSecond, power = -2)
+  of ukBar:
+    result.add toCTBaseUnitSeq(ukPascal)
   of ukElectronVolt:
     ## our logic is incomplete, since it's missing proper conversions ouside of SI prefixes!
     result.add toCTBaseUnitSeq(ukJoule)
@@ -517,6 +534,7 @@ proc getConversionFactor(unitKind: UnitKind): float =
   of ukPound: result = 0.45359237 # relative to: kg
   of ukMile: result = 1600 # relative to: m
   of ukInch: result = 0.0254 # relative to: cm
+  of ukBar: result = 100_000 # relative to Pa
   else: result = 1.0
 
 proc toCTUnit(unitKind: UnitKind): CTUnit {.compileTime.} =
@@ -858,6 +876,8 @@ proc parseUnitKind(s: string): UnitKind =
   of "Ω", "Ohm": result = ukOhm
   of "H", "Henry": result = ukHenry
   of "F", "Farad": result = ukFarad
+  of "Pa", "Pascal": result = ukPascal
+  of "bar", "Bar": result = ukBar
   # natural units
   of "NaturalLength": result = ukNaturalLength # length:
   of "NaturalMass": result = ukNaturalMass # mass:
