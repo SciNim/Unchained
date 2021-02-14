@@ -25,6 +25,7 @@ type
   Momentum* = distinct CompoundQuantity
   Force* = distinct CompoundQuantity
   Energy* = distinct CompoundQuantity
+  Density* = distinct CompoundQuantity
 
   ElectricPotential* = distinct CompoundQuantity
   Voltage* = ElectricPotential
@@ -38,7 +39,7 @@ type
   Inductance* = distinct CompoundQuantity
   Pressure* = distinct CompoundQuantity
 
-  DerivedQuantity* = Velocity | Acceleration | Momentum | Force | Energy | ElectricPotential | Voltage |
+  DerivedQuantity* = Velocity | Acceleration | Momentum | Force | Energy | Density | ElectricPotential | Voltage |
     Frequency | Charge | Power | ElectricResistance | Capacitance | Inductance | Pressure
 
   SomeQuantity* = BaseQuantity | DerivedQuantity
@@ -71,6 +72,7 @@ type
   KiloGram•Meter²•Ampere⁻¹•Second⁻³* = distinct ElectricPotential
   KiloGram•Meter²•Second⁻³•Ampere⁻²* = distinct ElectricResistance
   KiloGram•Meter⁻¹•Second⁻² = distinct Pressure
+  KiloGram•Meter⁻³ = distinct Density
 
   ## derived SI units
   Newton* = KiloGram•Meter•Second⁻²
@@ -117,6 +119,7 @@ type
   eV* = ElectronVolt
   Pa* = Pascal
   bar* = Bar
+  g•cm⁻³* = distinct Density
 
   SiPrefix* = enum
     siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
@@ -128,7 +131,7 @@ type
     qkMass, qkLength, qkTime, qkCurrent, qkTemperature, qkAmountOfSubstance, qkLuminosity,
     # derived quantities
     qkFrequency, qkVelocity, qkAcceleration, qkMomentum, qkForce, qkEnergy, qkElectricPotential,
-    qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance, qkPressure
+    qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance, qkPressure, qkDensity
 
   ## enum storing all known units (their base form) to allow easier handling of unit conversions
   ## Enum value is the default name of the unit
