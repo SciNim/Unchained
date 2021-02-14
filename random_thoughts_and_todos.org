@@ -1,0 +1,165 @@
+* Random thoughts
+
+- when multiplying or dividing units resulting units need to use same
+  order always, e.g.
+  #+begin_src nim
+  let m: Meter
+  let s: Second
+  doAssert typeof(m * s) == typeof(s * m) == m•s
+  #+end_src
+  We can do this by having a specific order of all units, like an
+  importance ranking. Then when combining reflect that.
+  Once we have more complex units it's probably a good idea to bring
+  back the idea of the =SiUnit= compile time object, which should
+  abstract away many parts and result in simpler handling, because we
+  don't have to work with strings. Essentially should be able to
+  define a comparison operator of units that solves this for us and a
+  serialization procedure, which turns the =SiUnit= back into a
+  =distinct= unit.
+- add remaining SI prefixes and automate their units, i.e. write a
+  macro that generates all units with all prefixes
+- add combinatorical units <- not required I think
+- add remaining standard units 
+- add natural units (how to best do it? Something like "NaturalLength"
+  for full name?)
+- add imperial units
+- add physical constants
+- add support for affine unit conversions (Celsius -> Fahrenheit)
+- add parsing of english language units ("meterPerSecondSquared"); low
+  priority
+- generate all common units as english language (low priority). But
+  generation is much easier than parsing?
+- add option to change the `•` and `⁻` syntax? Easy for parsing, but
+  what about pre defined types?
+- add minute, hour, day, degree, arcminute, arcsecond
+  -> need a good way to have conversions between non base types. Base
+  conversion works well using SI prefix.
+  *On top of that* need a higher level conversion between individual
+  units! *lbs -> kg*, ...
+  For these probably a good idea to define conversion from and to
+  (which are the inverse for non affine, linear units), because that
+  allows to have non linear transformations as well (is that ever
+  needed? in the exp. sense of non linear?)
+- have converters from "specific unit X" to "base quantity
+  Y". E.g. allow conversion of =Meter•Second⁻¹= to =Velocity=, same
+  as =CentiMeter•Second⁻¹=. That allows to write:
+  #+begin_src nim
+  proc s(v: Velocity, t: Time): Length =
+    result = v * t
+  s(5.m•s⁻¹, 60.s) # result is units of `m`
+  s(10.km•h⁻¹, 5.h) # result units of `km`
+  s(8000.m•s⁻¹, 1.h) # result is units of `m`
+  #+end_src
+  
+
+Note: to resolve types like `Newton` or `N` manually, need to recurse
+the get type tree by:
+#+begin_src nim
+let xT = x.getTypeInst
+while xT.getType.kind != nnkDistinct and xT.getType.strVal.isNoBaseUnit():
+  if xT.len == 3:
+    xT = xT.getImpl[2]
+  else:
+    ???
+  # break if xT is just an ident
+#+end_src
+
+
+Have a clear unit hierarchy:
+#+begin_src
+Unit (distinct float)
+  -> UnitLess (distinct Unit) (allows auto conversion to float)
+  -> Quantity (distinct Unit)
+    -> CompoundQuantity (distinct Quantity) (product of different quantities, e.g. Length * Mass)
+    -> Base quantities: Time, Mass, Length, ... (distinct Quantity)
+      -> Derived compound quantities: Momentum, Velocity, ... (distinct Quantity)
+      ## from here is where actual units we work with start
+      -> Base SI units: Kilogram, Second, ... (distinct Time, distinct Mass, ...)
+        -> Derived SI units: specific form of CompoundQuantity containing non bare SI units: Newton, Joule, ...
+           Essentially just named CompoundQuantities
+        -> Other derived units / clarification of Compound (kg•m•s⁻¹: Momentum, ...)
+           -> Aliased names (not distinct)
+#+end_src
+Can we avoid having to define all types with SI prefixes? Should work:
+
+Define all relevant types as is w/o SI prefix:
+Then use approach similar to ggplotnim new formula macro. Emit code to
+add encountered type to a CT table, call another macro. Extract
+symbols from CT table.
+
+
+Note: only need to generate the SI prefixed units for all *individual*
+(and pre-defined compound units that have a name, e.g. Newton / N)
+units. From there we can simply construct the compound units in the
+macro. This is because we only care about being able to match the
+individual parts of the type we get.
+
+Possibly we will need a CT table for lookup of named compound types to
+be able to convert names to actual units easier. In theory this could
+already be implemented as pre defined CTCompoundUnit objects!
+
+
+
+To convert known units not in base units, do as follows:
+- read possible SI prefix and exponent from type string
+- ask for distinct base of given unit
+- convert distinct base and multiply possible exponents / factors
+This should work, because all SI prefixed units are =distinct
+<BaseUnit>=. So by accessing the distinct base we get the correct
+description in base units.
+That means we should define *all* units in base units first. *UPDATE*
+not true. We can always resolve aliases, see below.
+
+Accessing types:
+#+begin_src nim
+of nnkSym: getTypeInst
+of nnkBracketExpr: [1].getImpl # from typedesc
+of nnkDistinctTy: [0].getImpl
+#+end_src
+
+Resolving aliases: Since we know that *every* unit is always some
+*distinct* type and aliases are *not* distinct, we can always get the
+first unit of interest by recursing on =getType*/Impl= until we get
+the first distinct type!
+
+We know all base units with their SI prefixes. That means we can build
+a CT table of those to map them to their types from strings. That
+allows to work with untyped macros! While generating all SI prefixes,
+simply add to CT table.
+Then in untyped, split into pieces (• and powers) and feed each
+element into that table. Result is a known base unit (Newton, Farad,
+...). For these have another table to map them to SI base units.
+- "Newton" -> "KiloGram•Meter•Second⁻²"
+  etc ...
+Allows resolving from untyped context to something we can parse to CT
+unit.
+
+Only remaining thing then is to keep track of powers (multiply each
+base unit by power of alias) and SI prefix. For SI prefix maybe add a
+prefix field (or a scale) to =CTCompoundUnit=.
+
+Need ways to deal with typed and untyped contexts. Typed is easy,
+because compiler does checking for us. 
+
+
+Natural units:
+  - for natural units we need to have a notion of the quantity. The
+    distinct base gives us that, but in =CTCompoundUnit= we may need
+    the quantity kind field so that we are aware of what is what.
+Maybe in general better to have an enum of *all* available units (in
+their base form). By storing that in addition in the =CTUnit= it makes
+it much easier to reason. Conversion from unit A to B can then be done
+by dispatching on the unit type.
+In that vain we can do the following: have conversion procs for
+QuantityKind and UnitKind. Conversion between UnitKind of same
+QuantityKind possible, else error.
+In this context:
+How do we deal with CompoundUnits? They cannot be represented by a
+=BaseUnitKind=. In principle =CTUnit= would already be an object like
+=CTCompoundUnit=, i.e. store multiple base units.
+Maybe we can combine =CTUnit= and =CTCompoundUnit= into one variant object.
+
+
+
+Sounds like a lot...
+
