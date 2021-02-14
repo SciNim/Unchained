@@ -20,8 +20,6 @@ of natural units (they exist, but are untested and their unit in terms
 of =eV= is not implemented).  
 
 In no particular order things that either are or need to be supported:
-(except the part where we don't have a working ~==~ implementation
-right now):
 #+begin_src nim
 ## The following already work unless `TODO` (not all units implemented)
 block:
@@ -130,24 +128,10 @@ Things to note:
 - =UnitLess= is a =distinct float= unit that has a converter to
   =float= (such that =UnitLess= magically works with math functions
   expecting floats).
-
-SI prefix unit generation can be done with something like this:
-
-For each base type define:
-#+begin_src nim
-## default assumes: `{siMilli .. siMega}`
-prefixGeneration:
-  Meter = {siYocto .. siYotta}
-  ElectronVolt = {siNano .. siPeta}
-  ...               
-#+end_src
-
-Is it really not possible to generate units on the fly?
-It doesn't seem to be given that macros can only affect the tree
-*down*. It is thinkable to attach a pragma to a procedure to auto add
-types found in the body to the list of types we generate.
-We can make it work still, by using local type definitions, but that
-seems sketchy, no?
+- type comparison with =is= is somewhat broken, because it checks for
+  explicit equalness, but not up aliases. Due to that reason we will
+  provide a custom =is= operator that perform type equality checks in
+  the same way as it is done for ~==~.
 
 ** Why "Unchained"?
 Un = Unit
