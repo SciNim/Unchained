@@ -189,6 +189,7 @@ type
   ## M
   CTUnit* = object # compile time object that stores a unit
     name: string
+    isShortHand: bool ## stores if the given unit used shorthand `m` or verbose `Meter`
     ## TODO: can factor be a procedure? Then when generating code, we simply use `getAst` to
     ## get the body of the conversion and replace `x -> body(x)` inline?
     factor: float # stores possible conversion factors from converting to this unit
@@ -213,6 +214,10 @@ type
   CTCompoundUnit* = object
     #value: Option[float]
     units: seq[CTUnit]
+
+## parseing CT units is the basis of all functionality almost
+proc parseCTUnit(x: NimNode): CTCompoundUnit
+proc toNimType(x: CTCompoundUnit): NimNode
 
 proc enumerateTypesImpl*(t: NimNode): NimNode =
   result = nnkBracket.newTree()
@@ -245,7 +250,6 @@ proc resolveAlias(n: NimNode): NimNode =
     else: result = n[2].getImpl.resolveAlias
   else: result = newEmptyNode()
 
-proc parseCTUnit(x: NimNode): CTCompoundUnit
 macro isAUnit*(x: typed): untyped =
   let x = x.resolveAlias()
   case x.kind
@@ -562,21 +566,35 @@ proc toCTUnit(unitKind: UnitKind): CTUnit {.compileTime.} =
                     unitType: utCompoundQuantity,
                     bs: toCTBaseUnitSeq(unitKind))
 
-proc initCTUnit(name: string, unitKind: UnitKind, power: int, siPrefix: SiPrefix): CTUnit =
+proc initCTUnit(name: string, unitKind: UnitKind, power: int, siPrefix: SiPrefix,
+                isShortHand = false): CTUnit =
   result = unitKind.toCTUnit()
   result.name = name
   result.power = power
   result.siPrefix = siPrefix #if siPrefix == siIdentity and unitKind == ukGram: siKilo else: siPrefix
+  result.isShortHand = isShortHand
 
 #proc resolveToBaseType(n: NimNode):
 
 ## auto conversion of `UnitLess` to `float` is possible so that e.g. `sin(5.kg / 10.kg)` works as expected!
 converter toFloat*(x: UnitLess): float = x.float
 
-template defUnit*(arg: untyped): untyped =
+macro defUnit*(arg: untyped): untyped =
   ## Helper template to define new units (not required to be used manually)
-  when not declared(arg):
-    type arg = distinct CompoundQuantity
+  let argCT = parseCTUnit(arg)
+  let shortHand = argCT.units.allIt(it.isShortHand)
+  if shortHand:
+    let resType = argCT.toNimType()
+    result = quote do:
+      when not declared(`resType`):
+        type `resType` = distinct CompoundQuantity
+      when not declared(`arg`):
+        type `arg` = `resType`
+  else:
+    result = quote do:
+      when not declared(`arg`):
+        type `arg` = distinct CompoundQuantity
+  echo result.repr
 
 proc add(comp: var CTCompoundUnit, unit: CTUnit) =
   comp.units.add unit
@@ -792,7 +810,9 @@ proc parseSiPrefix(s: var string): SiPrefix =
   for (el, prefix) in SiPrefixStringsShort:
     ## NOTE: we store kg internally using g even though it's not the SI unit!
     if prefix == siIdentity: continue
+    ## TODO: properly fix this!!
     if prefix == siPeta and s.startsWith("Pound"): return siIdentity
+    if prefix == siExa and s.startsWith("ElectronVolt"): return siIdentity
     if s.startsWith(el):
       s.removePrefix(el)
       return prefix
@@ -959,7 +979,10 @@ proc parseCTUnit(x: NimNode): CTCompoundUnit =
     let negative = hasNegativeExp(mel)
     let exp = parseExponent(mel, negative)
     let unitKind = parseUnitKind(mel)
-    let ctUnit = initCTUnit(el, unitKind, exp, prefix)
+    ## hacky way to detect if this unit is written in short hand `m` vs. verbose `Meter`
+    let isShortHand = if parseEnum[UnitKind](mel, ukGram) == ukGram and mel != "Gram": true else: false
+    let ctUnit = initCTUnit(el, unitKind, exp, prefix,
+                            isShortHand = isShortHand)
     result.add ctUnit
 
 proc toBaseTypeScale(x: CTCompoundUnit): float =
