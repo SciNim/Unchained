@@ -128,7 +128,7 @@ type
 
   QuantityKind* = enum
     # base quantities
-    qkMass, qkLength, qkTime, qkCurrent, qkTemperature, qkAmountOfSubstance, qkLuminosity,
+    qkUnitLess, qkMass, qkLength, qkTime, qkCurrent, qkTemperature, qkAmountOfSubstance, qkLuminosity,
     # derived quantities
     qkFrequency, qkVelocity, qkAcceleration, qkMomentum, qkForce, qkEnergy, qkElectricPotential,
     qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance, qkPressure, qkDensity
@@ -136,6 +136,7 @@ type
   ## enum storing all known units (their base form) to allow easier handling of unit conversions
   ## Enum value is the default name of the unit
   UnitKind* = enum
+    ukUnitLess = "UnitLess"
     ukGram = "Gram"
     ukMeter = "Meter"
     ukSecond = "Second"
@@ -170,6 +171,7 @@ type
     # ...
 
   BaseUnitKind* = enum
+    buUnitLess = "UnitLess"
     buGram = "Gram"
     buMeter = "Meter"
     buSecond = "Second"
@@ -403,13 +405,14 @@ generateSiPrefixedUnits:
 proc isUnitLess(u: CTCompoundUnit): bool = u.units.len == 0
 
 proc isCompound(unitKind: UnitKind): bool =
-  result = unitKind notin {ukGram .. ukCandela,
+  result = unitKind notin {ukUnitLess .. ukCandela,
                            ukNaturalLength .. ukNaturalTime,
                            ukPound .. ukMile}
 
 proc toQuantity(unitKind: UnitKind): QuantityKind =
   ## SI units
   case unitKind
+  of ukUnitLess: result = qkUnitLess
   of ukSecond: result = qkTime
   of ukMeter: result = qkLength
   of ukGram: result = qkMass
@@ -444,6 +447,7 @@ proc toQuantity(unitKind: UnitKind): QuantityKind =
 proc toBaseUnit(unitKind: UnitKind): BaseUnitKind =
   ## SI units
   case unitKind
+  of ukUnitLess: result = buUnitLess
   of ukSecond: result = buSecond
   of ukMeter: result = buMeter
   of ukGram: result = buGram
@@ -580,6 +584,7 @@ proc initCTUnit(name: string, unitKind: UnitKind, power: int, siPrefix: SiPrefix
 
 ## auto conversion of `UnitLess` to `float` is possible so that e.g. `sin(5.kg / 10.kg)` works as expected!
 converter toFloat*(x: UnitLess): float = x.float
+converter toUnitLess*(x: SomeNumber): UnitLess = x.UnitLess
 
 macro defUnit*(arg: untyped): untyped =
   ## Helper template to define new units (not required to be used manually)
@@ -917,6 +922,7 @@ proc parseUnitKind(s: string): UnitKind =
   of "lbs", "Pound": result = ukPound # lbs (lb singular is too uncommon):
   of "inch", "Inch": result = ukInch # in ( or possibly "inch" due to in being keyword):
   of "mi", "Mile": result = ukMile
+  else: result = ukUnitLess
 
 proc getUnitTypeImpl(n: NimNode): NimNode =
   case n.kind
@@ -986,7 +992,7 @@ proc parseCTUnit(x: NimNode): CTCompoundUnit =
     let exp = parseExponent(mel, negative)
     let unitKind = parseUnitKind(mel)
     ## hacky way to detect if this unit is written in short hand `m` vs. verbose `Meter`
-    let isShortHand = if parseEnum[UnitKind](mel, ukGram) == ukGram and mel != "Gram": true else: false
+    let isShortHand = if parseEnum[UnitKind](mel, ukUnitLess) == ukUnitLess and mel != "UnitLess": true else: false
     let ctUnit = initCTUnit(el, unitKind, exp, prefix,
                             isShortHand = isShortHand)
     result.add ctUnit
