@@ -831,6 +831,8 @@ proc parseSiPrefix(s: var string): SiPrefix =
     ## TODO: properly fix this!!
     if prefix == siPeta and s.startsWith("Pound"): return siIdentity
     if prefix == siExa and s.startsWith("ElectronVolt"): return siIdentity
+    if prefix == siMilli and s.startsWith("mol"): return siIdentity
+    if prefix == siMega and s.startsWith("Mol"): return siIdentity
     if s.startsWith(el):
       s.removePrefix(el)
       return prefix
