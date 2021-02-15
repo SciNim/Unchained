@@ -223,6 +223,7 @@ proc toNimType(x: CTCompoundUnit): NimNode
 proc toNimType(u: CTUnit): string
 proc flatten(units: CTCompoundUnit): CTCompoundUnit
 proc simplify(x: CTCompoundUnit): CTCompoundUnit
+proc toBaseType(x: CTCompoundUnit): CTCompoundUnit
 
 proc pretty(x: CTUnit): string = x.toNimType()
 proc pretty(x: CTCompoundUnit): string = x.toNimType().strVal
@@ -600,15 +601,21 @@ macro defUnit*(arg: untyped): untyped =
   ## should actually be the base unit stuff.
   if shortHand:
     let resType = argCT.flatten.simplify.toNimType()
-    result = quote do:
-      when not declared(`resType`):
-        type `resType` = distinct CompoundQuantity
-      when not declared(`arg`):
-        type `arg` = `resType`
+    if resType.strVal != "UnitLess":
+      result = quote do:
+        when not declared(`resType`):
+          type `resType` = distinct CompoundQuantity
+        when not declared(`arg`):
+          type `arg` = `resType`
+    else:
+      result = quote do:
+        when not declared(`arg`):
+          type `arg` = `resType`
   else:
-    result = quote do:
-      when not declared(`arg`):
-        type `arg` = distinct CompoundQuantity
+    if arg.strVal != "UnitLess":
+      result = quote do:
+        when not declared(`arg`):
+          type `arg` = distinct CompoundQuantity
   echo result.repr
 
 proc add(comp: var CTCompoundUnit, unit: CTUnit) =
@@ -765,6 +772,7 @@ iterator getPow10Digits(x: int): int =
     yield el
 
 proc toNimType(u: CTUnit): string =
+  if u.unitKind == ukUnitLess: return
   let siPrefixStr = SiPrefixTable[u.siPrefix]
   result = siPrefixStr
   result.add $u.unitKind
@@ -781,11 +789,12 @@ proc toNimType(x: CTCompoundUnit): NimNode =
   let xSorted = x.units.sorted
   var name = ""
   for idx, u in xSorted:
+    if u.unitKind == ukUnitLess: continue
     var str = toNimType(u)
     if idx < xSorted.high:
       str.add "•"
     name.add str
-  result = ident(name)
+  result = if name.len == 0: ident("UnitLess") else: ident(name)
 
 proc parseUntil(s: string, chars: openArray[string]): int =
   ## parses until one of the runes in `chars` is found
