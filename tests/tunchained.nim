@@ -1,0 +1,319 @@
+import unchained
+
+import unittest
+
+template fails(x: untyped): untyped =
+  when compiles(x):
+    false
+  else:
+    true
+
+suite "Unchained - Basic definitions":
+  test "Simple type definitions":
+    let a = 9.81.m•s⁻²
+    let b = 4.2
+    let c = b.m•s⁻²
+    let mass = 12.kg
+    check typeof(a) is Meter•Second⁻²
+    check typeof(c) is Meter•Second⁻²
+    check typeof(mass) is KiloGram
+
+  test "Shorthand types are equal to long form types":
+    let a = 10.kg
+    let b = 10.KiloGram
+    let c = 9.81.m•s⁻²
+    let d = 9.81.Meter•Second⁻²
+    check a == b
+    check c == d
+
+suite "Unchained - UnitLess ⇔ floats":
+  test "Auto conversion from UnitLess ⇒ float":
+    let a = 10.UnitLess
+    var b = 10.0.float
+    b = b + a
+    check b == 20.0
+
+  test "Auto conversion from float ⇒ UnitLess":
+    let a = 10.0.float
+    var b = 10.0.UnitLess
+    b = b + a
+    check b == 20.0.UnitLess
+
+suite "Unchained - Basic unit math":
+  test "Math: `+` of units - same quantity and SI prefix":
+    let a = 10.kg
+    let b = 5.kg
+    check typeof(a + b) is KiloGram
+    check a + b == 15.kg
+
+  test "Math: `+` of units - same quantity, different SI prefix, auto conversion to base":
+    block:
+      let a = 10.kg
+      let b = 5000.g
+      check typeof(a + b) is KiloGram
+      check a + b == 15.kg
+    block:
+      let a = 10_000_000.mg
+      let b = 5000.g
+      check typeof(a + b) is KiloGram
+      check a + b == 15.kg
+
+  test "Math: `+` of units - explicit and implicit units can be added":
+    let expl = 5.N
+    let impl = 10.kg•m•s⁻²
+    check typeof(expl + impl) is Newton
+    check expl + impl == 15.Newton
+
+  test "Math: `+` of units - different quantities cannot be added":
+    let a = 10.kg
+    let b = 5.m
+    check fails(a + b)
+
+    let expl = 5.N
+    let impl = 10.kg•m•s⁻³
+    check fails(expl + impl)
+
+  test "Math: `-` of units - same quantity and SI prefix":
+    let a = 10.kg
+    let b = 5.kg
+    check typeof(a - b) is KiloGram
+    check a - b == 5.kg
+
+  test "Math: `-` of units - same quantity, different SI prefix, auto conversion to base":
+    block:
+      let a = 10.kg
+      let b = 5000.g
+      check typeof(a - b) is KiloGram
+      check a - b == 5.kg
+    block:
+      let a = 10_000_000.mg
+      let b = 5000.g
+      check typeof(a - b) is KiloGram
+      check a - b == 5.kg
+
+  test "Math: `-` of units - explicit and implicit units can be subtracted":
+    let expl = 10.N
+    let impl = 5.kg•m•s⁻²
+    check typeof(expl - impl) is Newton
+    check expl - impl == 5.Newton
+
+  test "Math: `-` of units - different quantities cannot be subtracted":
+    let a = 10.kg
+    let b = 5.m
+    check fails(a - b)
+
+    let expl = 10.N
+    let impl = 5.kg•m•s⁻³
+    check fails(expl - impl)
+
+  test "Math: `*` of units - same quantity and SI prefix":
+    let a = 10.m
+    let b = 2.m
+    check typeof(a * b) is Meter²
+    check a * b == 20.m²
+
+  test "Math: `*` of units - same quantity, different SI prefix, auto conversion to base":
+    let a = 10_000.mm
+    let b = 2.m
+    check typeof(a * b) is Meter²
+    check a * b == 20.m²
+
+  test "Math: `*` product of Unit and its inverse produce UnitLess":
+    let a = 5.m
+    let b = 5.m⁻¹
+    check typeof(a * b) is UnitLess
+    check a * b == 25.UnitLess
+
+  test "Math: `/` of units - same quantity and SI prefix":
+    let a = 20.m
+    let b = 2.m
+    check typeof(a / b) is UnitLess
+    check a / b == 10.UnitLess
+
+  test "Math: `/` of units - same quantity, different SI prefix, auto conversion to base":
+    let a = 20_000.mm
+    let b = 2.m
+    check typeof(a / b) is UnitLess
+    check a / b == 10.UnitLess
+
+suite "Unchained - Units and procedures":
+  test "Defining a function taking units and returning units":
+    let a = 9.81.m•s⁻²
+    let b = 4.2
+    let c = b.m•s⁻²
+    let mass = 12.kg
+
+    proc force(m: KiloGram, a: Meter•Second⁻²): Newton =
+      result = m * a
+
+    check typeof(force(mass, a)) is Newton
+    check force(mass, a) == 117.72.Newton
+    check fails(force(a, mass))
+
+suite "Unchained - Conversion between units":
+  test "Converting different SI prefixes":
+    let a = 10.kg
+    check a.to(g) == 10_000.Gram
+    check a.to(ng) == 10e12.NanoGram
+
+    let f = 1.N
+    check f.to(kN) == 0.001.KiloNewton
+    check f.to(MN) == 1e-6.MegaNewton
+
+  test "Converting different SI prefixes in product of units":
+    ## TODO: allow `to` to generate new units!
+    defUnit(kg•m⁻²)
+    let a = 10.g•m⁻2
+    ## TODO broken parsing of `a`?
+    #check a.to(kg•m⁻²) == 0.01.KiloGram•Meter⁻²
+
+  test "Converting fails for wrong powers":
+    let a = 10.m²
+    check fails(a.to(mm))
+
+  test "Converting fails for wrong quantities":
+    let a = 10.m²
+    check fails(a.to(kg))
+
+  test "Converting different SI prefixes including power != 1":
+    defUnit(m²)
+    defUnit(mm²)
+    defUnit(m⁻²)
+    defUnit(mm⁻²)
+    let a = 10.m²
+    check a.to(mm²) == 10_000_000.MilliMeter²
+
+    let b = 10.m⁻²
+    ## TODO: FIXME comparison fails due to ???. Values are correct though!
+    #check b.to(mm⁻²) == 10e-5.MilliMeter⁻²
+
+suite "Unchained - Type definitions":
+  test "Automatic type definitions: `.` operator defines not existing units":
+    ## have to trust me m⁶ is not pre defined :P
+    check fails(Meter⁶ is Meter⁶) # compare with itself to have meaningful statement
+    let x = 10.m⁶
+    # now works
+    check Meter⁶ is Meter⁶
+
+  test "Automatic type definitions: Non existing compound types are defined and can be used":
+    ## have to trust me m⁶ is not pre defined :P
+    let a = 10.m * 10.m * 10.m * 10.m * 10.m * 10.m
+    check typeof(a) is Meter⁶
+    check a == 1e6.Meter⁶
+
+    # can now be used
+    let b = 10.m⁶
+    check typeof(b) is Meter⁶
+    check b == 10.m⁶
+
+  test "Manual type definitons: using `defUnit`":
+    defUnit(Meter•Second⁻⁷)
+    proc foo(x: Meter•Second⁻⁷): Meter•Second⁻⁷ = result = 2 * x
+
+    let a = 10.Meter•Second⁻⁷
+    check foo(a) == 20.Meter•Second⁻⁷
+
+  test "Unit definition defines both shorthand and long hand":
+    ## TODO :fix
+    defUnit(kg•m•J•F)
+    when false:
+      let a = 10.kg•m•J•F
+      let b = 10.KiloGram•Meter•Joule•Farad
+
+suite "Unchained - isAUnit concept checking":
+  test "Matches units correctly":
+    check isAUnit(Meter)
+    check isAUnit(Newton)
+    defUnit(m•m•m•m•m•m)
+    check isAUnit(m•m•m•m•m•m)
+    defUnit(Kg•Meter•Joule)
+    check isAUnit(Kg•Meter•Joule)
+    check not isAUnit(float)
+    check not isAUnit(string)
+    check not isAUnit(seq[string])
+
+#converter to_eV(x: GeV): eV =
+#  echo "toEv!"
+#  (x.float * 1e-9).eV
+
+#proc E_to_γ(E: eV | GeV | Joule): UnitLess =
+#  result = E.to(Joule) / (m_μ * c * c) + 1
+#
+#let muE = 1.0.GeV #e.GeV # eV
+#let muγ = E_to_γ(muE)
+#echo muγ
+#
+#let gravity = 1.0.kg * 9.81.m•s⁻²
+#echo gravity
+
+
+
+
+
+
+
+
+#block:
+#  # product of prefixed SI unit keeps same prefix unless multiple units of same quantity involved
+#  let a = 1.m•s⁻²
+#  let b = 500.g
+#  check typeof(a * b) is Gram•Meter•Second⁻²
+#  #check typeof(a * b) is MilliNewton
+#  check a * b == 500.g•m•s⁻²
+#block:
+#  ## different order produces same units
+#  let mass = 5.kg
+#  let a = 9.81.m•s⁻²
+#  # unit multiplication has to be commutative
+#  let F: Newton = mass * a
+#  let F2: Newton = a * mass # TODO
+#  # unit division works as expected
+#  check typeof(F / mass) is Meter•Second⁻²
+#  check F / mass == a
+#block:
+# # pre-defined physical constants
+# let E_e⁻_rest: Joule = m_e * c*c # math operations `*cannot*` use superscripts!
+# # m_e = electron mass in kg
+# # c = speed of light in vacuum in m/s
+#block:
+#  # automatic CT error if argument of e.g. sin, ln are not unit less
+#  let x = 5.kg
+#  let y = 10.kg
+#  discard sin(x / y) ## compiles gives correct result (~0.48)
+#  let x2 = 10.m
+#  # sin(x2 / y) ## errors at CT due to non unit less argument
+#block:
+#  # imperial units
+#  let mass = 100.lbs
+#block:
+#  # mixing of non SI and SI units (via conversion to SI units)
+#  let m1 = 100.lbs
+#  let m2 = 10.kg
+#  # check typeof(m1 + m2) is Kg ## TODO: fix taking order on addition etc
+#  ## equal, but check is broken
+#  check m1.to(kg) + m2 == 55.36.KiloGram
+
+
+#block:
+#  # units using english language (using accented quotes)
+#  let a = 10.`meter per second squared`
+#  let b = 5.`kilogram meter per second squared`
+#  check typeof(a) is Meter•Second⁻²
+#  check typeof(b) is Newton
+#  check a == 10.m•s⁻²
+#  check b == 5.N
+
+## Yet to be implemented
+#block:
+#  # natural unit support (c = 1, h = 1)
+#  let speed: NaturalVelocity = 0.1.UnitLess # fraction of c
+#  let m_e: NaturalMass = 511.keV
+#  # math between natural units remains natural
+#  let p: NaturalMomentum = speed * m_e
+#  check p == 51.1.keV
+#block:
+#  # auto conversion of natural units
+#  let a = 10.MeV
+#  let b = 200.eV
+#  check typeof(a / b) is UnitLess # `UnitLess` is
+#  check a / b == 50_000.Unitless
