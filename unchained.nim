@@ -999,12 +999,21 @@ proc parseCTUnit(x: NimNode): CTCompoundUnit =
     let prefix = mel.parseSiPrefix
     let negative = hasNegativeExp(mel)
     let exp = parseExponent(mel, negative)
+    echo "PARSING ", mel
     let unitKind = parseUnitKind(mel)
+    echo unitKind
     ## hacky way to detect if this unit is written in short hand `m` vs. verbose `Meter`
     let isShortHand = if parseEnum[UnitKind](mel, ukUnitLess) == ukUnitLess and mel != "UnitLess": true else: false
     let ctUnit = initCTUnit(el, unitKind, exp, prefix,
                             isShortHand = isShortHand)
     result.add ctUnit
+
+proc toBaseTypeScale(u: CTUnit): float =
+  result = u.siPrefix.toFactor()
+  result *= u.factor
+  if u.unitKind == ukGram:
+    result /= 1e3 # base unit is `kg`!
+  result = pow(result, u.power.float)
 
 proc toBaseTypeScale(x: CTCompoundUnit): float =
   ## returns the scale required to turn `x` to its base type, i.e.
@@ -1012,12 +1021,17 @@ proc toBaseTypeScale(x: CTCompoundUnit): float =
   result = 1.0
   echo x.repr
   for u in x.units:
-    var factor = u.siPrefix.toFactor()
-    factor *= u.factor
-    if u.unitKind == ukGram:
-      factor /= 1e3 # base unit is `kg`!
-    factor = pow(factor, u.power.float)
-    result *= factor
+    result *= toBaseTypeScale(u)
+
+proc toBaseType(u: CTUnit): CTUnit =
+  result = u
+  case u.unitKind
+  of ukGram:
+    ## SI unit base of Gram is KiloGram
+    result.siPrefix = siKilo
+    result.b.baseUnit = buGram
+    result.b.siPrefix = siKilo
+  else: result.siPrefix = siIdentity
 
 proc toBaseType(x: CTCompoundUnit): CTCompoundUnit =
   ## converts `x` to a unit representing the base type.
@@ -1025,15 +1039,7 @@ proc toBaseType(x: CTCompoundUnit): CTCompoundUnit =
   ## conversion scales using `toBaseTypeScale` before doing this!
   ## TODO: can we add to `CTUnit` a scale?
   for u in x.units:
-    var unit = u
-    case u.unitKind
-    of ukGram:
-      ## SI unit base of Gram is KiloGram
-      unit.siPrefix = siKilo
-      unit.b.baseUnit = buGram
-      unit.b.siPrefix = siKilo
-    else: unit.siPrefix = siIdentity
-    result.add unit
+    result.add u.toBaseType
 
 macro `+`*(x, y: typed): untyped =
   var xCT = parseCTUnit(x)
@@ -1090,6 +1096,25 @@ macro `-`*(x, y: typed): untyped =
       (`x`.float * `xScale` - `y`.float * `yScale`).`resType`
   else:
     error("Different quantities cannot be subtracted! Quantity 1: " & $x.repr & ", Quantity 2: " & $y.repr)
+proc convertIfMultipleSiPrefixes(x: CTCompoundUnit): CTCompoundUnit =
+  ## checks if any CTUnit appears multiple times with a different SI prefixes
+  var unitTab = initTable[UnitKind, SiPrefix]()
+  var convertSet: set[UnitKind]
+  for u in x.units:
+    if u.unitKind in unitTab and unitTab[u.unitKind] != u.siPrefix:
+      convertSet.incl u.unitKind
+    else:
+      unitTab[u.unitKind] = u.siPrefix
+
+  for u in x.units:
+    if u.unitKind in convertSet:
+      echo "INFO: Auto converting units of ", $u, " to base unit to simplify"
+      let scale = u.toBaseTypeScale()
+      var uBase = u.toBaseType()
+      uBase.factor *= scale
+      result.add uBase
+    else:
+      result.add u
 
 macro `*`*(x, y: typed): untyped =
   var xCT = parseCTUnit(x)
@@ -1097,12 +1122,16 @@ macro `*`*(x, y: typed): untyped =
   # add `yCT` to xCT. Equates a product after simplification
   xCT.add yCT
   # TODO: automatically perform scaling to SI units?
-  let resType = xCT.simplify().toNimType() #newNameProduct(x.getTypeInst, y.getTypeInst)
+  var resTypeCT = xCT.flatten().convertIfMultipleSiPrefixes()
+  let scale = resTypeCT.toBaseTypeScale()
+  ## TODO: check if there are multiple SI prefixes of the same units present.
+  ## If so, convert to base units, else do not.
+  let resType = resTypeCT.simplify().toNimType()
   echo xCT.repr
   echo resType.treerepr
   result = quote do:
     defUnit(`resType`)
-    (`x`.float * `y`.float).`resType`
+    (`x`.float * `y`.float * `scale`).`resType`
 
 macro `/`*(x, y: typed): untyped =
   var xCT = parseCTUnit(x)
@@ -1110,10 +1139,12 @@ macro `/`*(x, y: typed): untyped =
   # add inverted `yCT` (power -> -power) to xCT. Equates a division after simplification
   xCT.add yCT.invert()
   ## TODO: automatically perform scaling to SI units?
-  let resType = xCT.simplify().toNimType()#newNameProduct(x.getTypeInst, y.getTypeInst)
+  var resTypeCT = xCT.flatten().convertIfMultipleSiPrefixes()
+  let scale = resTypeCT.toBaseTypeScale()
+  let resType = resTypeCT.simplify().toNimType()
   result = quote do:
     defUnit(`resType`)
-    (`x`.float / `y`.float).`resType`
+    (`x`.float / `y`.float * `scale`).`resType`
 
 proc commonQuantity(x: typedesc, y: typedesc): bool =
   ## checks if x and y share a common
