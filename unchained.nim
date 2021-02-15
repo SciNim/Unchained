@@ -713,8 +713,8 @@ proc commonQuantity(a, b: CTCompoundUnit): bool =
   ## comparison done by:
   ## - only equal if set of `baseUnit` is same
   ## - only equal if for each element of `baseUnit` set the `power` is the same
-  let aFlat = a.flatten.simplify.units.sorted
-  let bFlat = b.flatten.simplify.units.sorted
+  let aFlat = a.flatten.toBaseType().simplify.units.sorted
+  let bFlat = b.flatten.toBaseType().simplify.units.sorted
   # to really make sure they are equal have to compare the si prefix of each
   if aFlat.len != bFlat.len:
     return false
