@@ -220,8 +220,12 @@ type
 ## parseing CT units is the basis of all functionality almost
 proc parseCTUnit(x: NimNode): CTCompoundUnit
 proc toNimType(x: CTCompoundUnit): NimNode
+proc toNimType(u: CTUnit): string
 proc flatten(units: CTCompoundUnit): CTCompoundUnit
 proc simplify(x: CTCompoundUnit): CTCompoundUnit
+
+proc pretty(x: CTUnit): string = x.toNimType()
+proc pretty(x: CTCompoundUnit): string = x.toNimType().strVal
 
 proc enumerateTypesImpl*(t: NimNode): NimNode =
   result = nnkBracket.newTree()
@@ -760,6 +764,16 @@ iterator getPow10Digits(x: int): int =
   for el in digits.reversed:
     yield el
 
+proc toNimType(u: CTUnit): string =
+  let siPrefixStr = SiPrefixTable[u.siPrefix]
+  result = siPrefixStr
+  result.add $u.unitKind
+  if u.power < 0:
+    result.add "⁻"
+  if u.power > 1 or u.power < 0:
+    for digit in getPow10Digits(u.power):
+      result.add digits[digit]
+
 proc toNimType(x: CTCompoundUnit): NimNode =
   ## converts `x` to the correct
   # return early if no units in x
@@ -767,14 +781,7 @@ proc toNimType(x: CTCompoundUnit): NimNode =
   let xSorted = x.units.sorted
   var name = ""
   for idx, u in xSorted:
-    let siPrefixStr = SiPrefixTable[u.siPrefix]
-    var str = siPrefixStr
-    str.add $u.unitKind
-    if u.power < 0:
-      str.add "⁻"
-    if u.power > 1 or u.power < 0:
-      for digit in getPow10Digits(u.power):
-        str.add digits[digit]
+    var str = toNimType(u)
     if idx < xSorted.high:
       str.add "•"
     name.add str
