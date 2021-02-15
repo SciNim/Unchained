@@ -590,6 +590,7 @@ proc initCTUnit(name: string, unitKind: UnitKind, power: int, siPrefix: SiPrefix
 ## auto conversion of `UnitLess` to `float` is possible so that e.g. `sin(5.kg / 10.kg)` works as expected!
 converter toFloat*(x: UnitLess): float = x.float
 converter toUnitLess*(x: SomeNumber): UnitLess = x.UnitLess
+converter toUnitLess*(x: float64): UnitLess = x.UnitLess
 
 macro defUnit*(arg: untyped): untyped =
   ## Helper template to define new units (not required to be used manually)
