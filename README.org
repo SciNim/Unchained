@@ -1,4 +1,5 @@
 * Unchained - Compile time only units checking
+[[https://github.com/SciNim/unchained/workflows/unchained%20CI/badge.svg]]
 
 =Unchained= is a fully type safe, compile time only units
 library. There is *absolutely no* performance loss over pure =float=
