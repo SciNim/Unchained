@@ -1235,8 +1235,7 @@ macro `.`*(x: typed, y: untyped): untyped =
   let yCT = y.parseCTUnit()
   let resType = yCT.simplify().toNimType()
   result = quote do:
-    when not declared(`resType`):
-      type `resType` = distinct CompoundQuantity
+    defUnit(`resType`)
     (`x`.float).`resType`
 
 let
