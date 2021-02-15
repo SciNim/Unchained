@@ -1117,6 +1117,8 @@ proc convertIfMultipleSiPrefixes(x: CTCompoundUnit): CTCompoundUnit =
       result.add u
 
 macro `*`*(x, y: typed): untyped =
+  ## TODO: can we extract the actual mathy part from x, y instead of using the
+  ## whole expression? And then reinsert that after our change
   var xCT = parseCTUnit(x)
   let yCT = parseCTUnit(y)
   # add `yCT` to xCT. Equates a product after simplification
