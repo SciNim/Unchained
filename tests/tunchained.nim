@@ -8,6 +8,27 @@ template fails(x: untyped): untyped =
   else:
     true
 
+import math, fenv
+func almostEq(a, b: float, epsilon = 1e-8): bool =
+  # taken from
+  # https://floating-point-gui.de/errors/comparison/
+  let
+    absA = abs(a)
+    absB = abs(b)
+    diff = abs(a - b)
+  if a == b: # shortcut, handles infinities
+    result = true
+  elif a == 0 or b == 0 or (absA + absB) < minimumPositiveValue(float64):
+    # a or b is zero or both are extremely close to it
+    # relative error is less meaningful here
+    result = diff < (epsilon * minimumPositiveValue(float64))
+  else:
+    # use relative error
+    result = diff / min(absA + absB, maximumPositiveValue(float64)) < epsilon
+
+proc `=~=`(a, b: SomeUnit): bool =
+  result = almostEq(a.float, b.float) and type(a) is type(b)
+
 suite "Unchained - Basic definitions":
   test "Simple type definitions":
     let a = 9.81.m•s⁻²
@@ -136,6 +157,26 @@ suite "Unchained - Basic unit math":
     check typeof(a / b) is UnitLess
     check a / b == 10.UnitLess
 
+  test "Math: `*` with non base units w/o automatic conversion":
+    defUnit(g•mol⁻¹)
+    defUnit(mm•mol⁻¹)
+    let A = 39.95.UnitLess
+    let M_u = 0.99999999965e-3.kg•mol⁻¹
+    check A * M_u =~= 0.03995.kg•mol⁻¹
+    check A * M_u.to(g•mol⁻¹) =~= 39.95.g•mol⁻¹
+    # unrelated to special case of `g/kg`:
+    check A * 1e-3.mm•mol⁻¹ =~= 0.03995.mm•mol⁻¹
+
+  test "Math: `/` with non base units w/o automatic conversion":
+    defUnit(g•mol⁻¹)
+    defUnit(mm•mol⁻¹)
+    let A = 39.95.UnitLess
+    let M_u = 0.99999999965e-3.kg•mol⁻¹
+    check A / M_u =~= 39950.kg⁻¹•mol
+    check A / M_u.to(g•mol⁻¹) =~= 39.95.g⁻¹•mol
+    # unrelated to special case of `g/kg`:
+    check A / 1e-3.mm•mol⁻¹ =~= 39950.mm⁻¹•mol
+
 suite "Unchained - Units and procedures":
   test "Defining a function taking units and returning units":
     let a = 9.81.m•s⁻²
@@ -189,14 +230,6 @@ suite "Unchained - CT errors":
     let b = 10.m⁻²
     ## TODO: FIXME comparison fails due to ???. Values are correct though!
     #check b.to(mm⁻²) == 10e-5.MilliMeter⁻²
-
-import math
-proc `=~=`(a, b: SomeUnit): bool =
-  when (NimMajor, NimMinor, NimPatch) >= (1, 5, 1):
-    result = almostEqual(a.float, b.float) and type(a) is type(b)
-  else:
-    ## note, this is wrong, but I don't feel like reimplementing almostEqual here for older Nim
-    result = type(a) is type(b)
 
 suite "Unchained - Conversion between units requiring scale (no SI prefix)":
   test "Conversion of eV to Joule":
