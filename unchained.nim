@@ -749,6 +749,8 @@ proc toCTQuantity(a: CTCompoundUnit): CTCompoundQuantity =
       res[quantity] += power
     else:
       res[quantity] = power
+    if res[quantity] == 0:
+      res.del(quantity)
   ## A comment, because at first glance this might seem confusing.
   ##
   ## We walk over the CTCompoundUnit and for every unit:
