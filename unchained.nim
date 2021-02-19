@@ -170,6 +170,10 @@ type
     ukMile = "Mile"
     # ...
 
+  ## Base unit kind stores the fundamental units, which represent the SI units (except for Gram in place of kg)
+  ## that each represent one of the fundamental quantities (the "base quantities" in `QuantityKind`).
+  ## NOTE: The order of `BaseUnitKind`, `UnitKind` and `QuantityKind` is important, both for sorting
+  ## units as well as to allow conversion between the base units / quantities using `ord`.
   BaseUnitKind* = enum
     buUnitLess = "UnitLess"
     buGram = "Gram"
@@ -216,6 +220,15 @@ type
   CTCompoundUnit* = object
     #value: Option[float]
     units: seq[CTUnit]
+
+  ## `CTCompoundQuantity` is a helper that is used to determine if a unit is `equivalent` to one another.
+  ## Equivalence of units means that the actual `dimensions` (in terms of real base quantities:
+  ## time, length, mass, current, temperature, amount of substance, luminosity) are the same.
+  ## For this it does not matter if we compare `lbs` and `kg` or `eV` and `J`. Only the final
+  ## powers of the base quantities matters. The base quantities can be interpreted as a system of
+  ## basis vectors and equivalence implies two vectors are the same up to some scaling, i.e. they
+  ## are linearly dependent.
+  CTCompoundQuantity = Table[QuantityKind, int]
 
 ## parseing CT units is the basis of all functionality almost
 proc parseCTUnit(x: NimNode): CTCompoundUnit
@@ -486,6 +499,11 @@ proc toBaseUnit(unitKind: UnitKind): BaseUnitKind =
     # natural units
     of ukNaturalEnergy: result = ukEnergy
 
+proc toQuantity(baseUnit: BaseUnitKind): QuantityKind =
+  ## Convert a given base unit to its quantity
+  ## BaseUnitKind and QuantityKind `have` to have the same order!
+  result = QuantityKind(ord(baseUnit))
+
 proc toCTBaseUnit(unitKind: UnitKind, power = 1, siPrefix = siIdentity): CTBaseUnit =
   doAssert not unitKind.isCompound, "Invalid call to `toBaseUnit` for compound unit `" & $unitKind & "`!"
   result = CTBaseUnit(baseUnit: unitKind.toBaseUnit(),
@@ -601,6 +619,9 @@ macro defUnit*(arg: untyped): untyped =
   ## J•m or something like this? For max compatibility the RHS
   ## should actually be the base unit stuff.
   if shortHand:
+    ## note: flattening the given unit does *not* flatten units that have a conversion
+    ## factor relative to the SI base unit, e.g. eV -> J, lbs -> kg etc. Thus flattening
+    ## and simplifying yields, which is safely equivalent.
     let resType = argCT.flatten.simplify.toNimType()
     if resType.strVal != "UnitLess":
       result = quote do:
@@ -709,27 +730,47 @@ proc flatten(units: CTCompoundUnit): CTCompoundUnit =
       ## really. Can we do maths with them? Sure. Should they match in the
       ## concept `SomeUnit`? No! If `Meter•Second⁻¹` is demanded we need that and
       ## not allow `CentiMeter•Second⁻¹`?
-      let power = u.power
-      let prefix = u.siPrefix
-      for b in u.bs:
-        var mb = b
-        mb.power = mb.power * power
-        # prefix handle ?
-        result.add mb
+      case u.unitKind
+      of ukElectronVolt, ukPound, ukInch, ukMile, ukBar: result.add u
+      else:
+        let power = u.power
+        let prefix = u.siPrefix
+        for b in u.bs:
+          var mb = b
+          mb.power = mb.power * power
+          # prefix handle ?
+          result.add mb
+
+proc toCTQuantity(a: CTCompoundUnit): CTCompoundQuantity =
+  result = initTable[QuantityKind, int]()
+  proc addQuant(res: var Table[QuantityKind, int], bu: BaseUnitKind, power: int) =
+    let quantity = bu.toQuantity
+    if quantity in res:
+      res[quantity] += power
+    else:
+      res[quantity] = power
+  ## A comment, because at first glance this might seem confusing.
+  ##
+  ## We walk over the CTCompoundUnit and for every unit:
+  ## - if a unit is not a compound unit (is a base unit) we simply add its quantity with the
+  ##   power of the given unit to the table.
+  ## - for compound units we have to be more careful: take the power of the unit (e.g. N² -> power 2)
+  ##   and multiply with power of base units (e.g. Newton -> (kg•m•s⁻²)²). That's why we cannot just use
+  ##   `only` the base units power or `only` the units power.
+  for u in a.units:
+    if not u.unitKind.isCompound:
+      doAssert u.b.power == 1
+      result.addQuant(u.b.baseUnit, u.power)
+    else:
+      for bu in u.bs:
+        result.addQuant(bu.baseUnit, (u.power * bu.power))
 
 proc commonQuantity(a, b: CTCompoundUnit): bool =
-  ## comparison done by:
-  ## - only equal if set of `baseUnit` is same
-  ## - only equal if for each element of `baseUnit` set the `power` is the same
-  let aFlat = a.flatten.toBaseType().simplify.units.sorted
-  let bFlat = b.flatten.toBaseType().simplify.units.sorted
-  # to really make sure they are equal have to compare the si prefix of each
-  if aFlat.len != bFlat.len:
-    return false
-  for idx in 0 ..< aFlat.len:
-    if aFlat[idx].quantity != bFlat[idx].quantity or aFlat[idx].power != bFlat[idx].power:
-      return false
-  result = true
+  ## Comparison is done by checking for the same base units and powers using
+  ## `CTCompoundQuantity`.
+  let aQuant = a.toCTQuantity()
+  let bQuant = b.toCTQuantity()
+  result = aQuant == bQuant
 
 proc `==`(a, b: CTCompoundUnit): bool =
   ## comparison done by:
