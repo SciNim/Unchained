@@ -639,7 +639,6 @@ macro defUnit*(arg: untyped): untyped =
       result = quote do:
         when not declared(`arg`):
           type `arg` = distinct CompoundQuantity
-  echo result.repr
 
 proc add(comp: var CTCompoundUnit, unit: CTUnit) =
   comp.units.add unit
@@ -1042,9 +1041,7 @@ proc parseCTUnit(x: NimNode): CTCompoundUnit =
   ## c) "meter per second squared" -> "meterPerSecondSquared"
   ## a) and b) can be parsed together by both looking for `m` as well as `Meter` in each
   ## element. Verbose always start capital letters, shorthand depending on SI prefix / unit (N, V, A...)
-  echo x.treerepr
   if x.isUnitLessNumber:
-    echo "is unitless ", x.treerepr
     return # unit less number
   let x = x.getUnitType
   var xT = x.strVal
@@ -1054,9 +1051,7 @@ proc parseCTUnit(x: NimNode): CTCompoundUnit =
     let prefix = mel.parseSiPrefix
     let negative = hasNegativeExp(mel)
     let exp = parseExponent(mel, negative)
-    echo "PARSING ", mel
     let unitKind = parseUnitKind(mel)
-    echo unitKind
     ## hacky way to detect if this unit is written in short hand `m` vs. verbose `Meter`
     let isShortHand = if parseEnum[UnitKind](mel, ukUnitLess) == ukUnitLess and mel != "UnitLess": true else: false
     let ctUnit = initCTUnit(el, unitKind, exp, prefix,
@@ -1074,7 +1069,6 @@ proc toBaseTypeScale(x: CTCompoundUnit): float =
   ## returns the scale required to turn `x` to its base type, i.e.
   ## turn all units that are not already to SI form
   result = 1.0
-  echo x.repr
   for u in x.units:
     result *= toBaseTypeScale(u)
 
@@ -1184,8 +1178,6 @@ macro `*`*(x, y: typed): untyped =
   ## TODO: check if there are multiple SI prefixes of the same units present.
   ## If so, convert to base units, else do not.
   let resType = resTypeCT.simplify().toNimType()
-  echo xCT.repr
-  echo resType.treerepr
   result = quote do:
     defUnit(`resType`)
     (`x`.float * `y`.float * `scale`).`resType`
@@ -1198,14 +1190,15 @@ macro `/`*(x, y: typed): untyped =
   ## TODO: automatically perform scaling to SI units?
   var resTypeCT = xCT.flatten().convertIfMultipleSiPrefixes()
   let scale = resTypeCT.toBaseTypeScale()
+  ## TODO: check if there are multiple SI prefixes of the same units present.
+  ## If so, convert to base units, else do not.
   let resType = resTypeCT.simplify().toNimType()
   result = quote do:
     defUnit(`resType`)
     (`x`.float / `y`.float * `scale`).`resType`
 
 proc commonQuantity(x: typedesc, y: typedesc): bool =
-  ## checks if x and y share a common
-  ## NOTE: duplicate of above due to typedesc annoyances....
+  ## checks if x and y are equivalent quantities
   let xCT = x.getTypeInst.parseCTUnit()
   let yCT = y.getTypeInst.parseCTUnit()
   result = xCT.commonQuantity(yCT)
@@ -1249,7 +1242,7 @@ macro toImpl(x: typed, to: static CTCompoundUnit): NimNode =
   ##
   ## check if conversion possible
   let xCT = parseCTUnit(x)
-  let yCT = to #parseCTUnit(to)
+  let yCT = to
   if xCT == yCT:
     result = x
   elif xCT.commonQuantity(yCT):
