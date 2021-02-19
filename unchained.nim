@@ -313,6 +313,7 @@ when false:
     Fahrenheit <-> Celsius: (5.0/9.0 * (x - 32), 9.0/5.0 * x + 32.0)
 
 const digits = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
+const DigitsError = ["0","1","2","3","4","5","6","7","8","9"]
 const digitsAndMinus = ["⁻","⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
 
 const SiPrefixStringsLong = {
@@ -838,7 +839,7 @@ proc toNimType(x: CTCompoundUnit): NimNode =
     name.add str
   result = if name.len == 0: ident("UnitLess") else: ident(name)
 
-proc parseUntil(s: string, chars: openArray[string]): int =
+proc parseUntil(s: string, chars, errorOn: openArray[string]): int =
   ## parses until one of the runes in `chars` is found
   var idx = 0
   var rune: Rune
@@ -848,6 +849,9 @@ proc parseUntil(s: string, chars: openArray[string]): int =
     fastRuneAt(s, idx, rune)
     if rune.toUtf8 in chars:
       return oldIdx
+    elif rune.toUtf8 in errorOn:
+      error("Invalid rune in input string: " & $(rune.toUtf8()) & ". Did you type " &
+        "a non superscript power by accident?")
   when false:
     for rune in utf8(s):
       if rune in chars:
@@ -926,7 +930,7 @@ proc hasNegativeExp(s: var string): bool =
 
 proc parseExponent(s: var string, negative: bool): int =
   var buf: string
-  let idxStart = s.parseUntil(digits)
+  let idxStart = s.parseUntil(digits, errorOn = DigitsError)
   var idx = idxStart
   if idx > 0:
     let numDigits = s[idx .. ^1].runeLen
