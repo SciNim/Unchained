@@ -85,7 +85,7 @@ proc plotGammas(ρ: g•cm⁻³) =
   ggplot(df, aes("γs", "⟨dE_dx⟩", color = "Type")) +
     geom_line() +
     ylab("⟨dE/dx⟩ [keV/cm]") + xlab("γ (Lorentz factor)") +
-    ggtitle(&"Mean ionization energy of muons with γ in Ar at {ρ:.2s} g/cm³") +
+    ggtitle(&"Mean ionization energy of muons with γ in Ar at {ρ.float:.2e} g/cm³") +
     theme_opaque() +
     ggsave("media/bethe_bloch_gammas.png")
 

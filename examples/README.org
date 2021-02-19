@@ -81,7 +81,7 @@ proc density(p: mbar, M: g•mol⁻¹, temp: Kelvin): g•cm⁻³ =
   ## returns the density of the gas for the given pressure.
   ## The pressure is assumed in `mbar` and the temperature (in `K`).
   ## Returns the density in `g / cm^3`
-  let gasConstant = 8.314.J•K⁻¹•mol⁻¹ # joule K^-1 mol^-1
+  let gasConstant = 8.314.J•K⁻¹•mol⁻¹ 
   let pressure = p.to(Pa) # pressure in Pa (not necessarily needed to be done manually)
   # convert to `g•cm⁻³` as desired
   result = (pressure * M / (gasConstant * temp)).to(g•cm⁻³)
@@ -107,7 +107,7 @@ proc plotGammas(ρ: g•cm⁻³) =
   ggplot(df, aes("γs", "⟨dE_dx⟩", color = "Type")) +
     geom_line() +
     ylab("⟨dE/dx⟩ [keV/cm]") + xlab("γ (Lorentz factor)") +
-    ggtitle(&"Mean ionization energy of muons with γ in Ar at {ρ:.2s} g/cm³") +
+    ggtitle(&"Mean ionization energy of muons with γ in Ar at {ρ.float:.2e} g/cm³") +
     theme_opaque() +
     ggsave("media/bethe_bloch_gammas.png")
 
