@@ -116,4 +116,4 @@ plotGammas(ρAr)
 
 This yields the following comparison plot:
 
-[[media/bethe_bloch_equation.png]]
+[[media/bethe_bloch_gammas.png]]
