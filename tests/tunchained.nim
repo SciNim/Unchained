@@ -163,9 +163,12 @@ suite "Unchained - Conversion between units":
   test "Converting different SI prefixes in product of units":
     ## TODO: allow `to` to generate new units!
     defUnit(kg•m⁻²)
-    let a = 10.g•m⁻2
-    ## TODO broken parsing of `a`?
-    #check a.to(kg•m⁻²) == 0.01.KiloGram•Meter⁻²
+    let a = 10.g•m⁻²
+    check a.to(kg•m⁻²) == 0.01.KiloGram•Meter⁻²
+
+suite "Unchained - CT errors":
+  test "Error on regular digit as exponent":
+    doAssert fails(10.kg•m⁻2) # invalid `2` instead of `²`
 
   test "Converting fails for wrong powers":
     let a = 10.m²
