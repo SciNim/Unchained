@@ -1162,7 +1162,10 @@ proc convertIfMultipleSiPrefixes(x: CTCompoundUnit): CTCompoundUnit =
       echo "INFO: Auto converting units of ", $u, " to base unit to simplify"
       let scale = u.toBaseTypeScale()
       var uBase = u.toBaseType()
-      uBase.factor *= scale
+      ## TODO: idea here was to accomodate auto conversion eV -> Joule I think?!
+      ## Think about if we broke something outside of unit tests! Maybe implicit math with different units?
+      ## Or not a problem anymore, since eV -> Joule isn't done while flattened anymore?
+      #uBase.factor *= scale
       result.add uBase
     else:
       result.add u
@@ -1175,29 +1178,44 @@ macro `*`*(x, y: typed): untyped =
   # add `yCT` to xCT. Equates a product after simplification
   xCT.add yCT
   # TODO: automatically perform scaling to SI units?
-  var resTypeCT = xCT.flatten().convertIfMultipleSiPrefixes()
-  let scale = resTypeCT.toBaseTypeScale()
+  xCT = xCT.flatten()
+  var resTypeCT = xCT.convertIfMultipleSiPrefixes()
+  let scaleOriginal = xCT.toBaseTypeScale()
+  let scaleConv = resTypeCT.toBaseTypeScale() ## WRONG: must not *always* call conversion
   ## TODO: check if there are multiple SI prefixes of the same units present.
   ## If so, convert to base units, else do not.
   let resType = resTypeCT.simplify().toNimType()
-  result = quote do:
-    defUnit(`resType`)
-    (`x`.float * `y`.float * `scale`).`resType`
+  if scaleOriginal != scaleConv:
+    let scale = scaleOriginal / scaleConv
+    result = quote do:
+      defUnit(`resType`)
+      (`x`.float * `y`.float * `scale`).`resType`
+  else:
+    result = quote do:
+      defUnit(`resType`)
+      (`x`.float * `y`.float).`resType`
 
 macro `/`*(x, y: typed): untyped =
   var xCT = parseCTUnit(x)
   let yCT = parseCTUnit(y)
   # add inverted `yCT` (power -> -power) to xCT. Equates a division after simplification
   xCT.add yCT.invert()
-  ## TODO: automatically perform scaling to SI units?
-  var resTypeCT = xCT.flatten().convertIfMultipleSiPrefixes()
-  let scale = resTypeCT.toBaseTypeScale()
+  xCT = xCT.flatten()
+  var resTypeCT = xCT.convertIfMultipleSiPrefixes()
+  let scaleOriginal = xCT.toBaseTypeScale()
+  let scaleConv = resTypeCT.toBaseTypeScale() ## WRONG: must not *always* call conversion
   ## TODO: check if there are multiple SI prefixes of the same units present.
   ## If so, convert to base units, else do not.
   let resType = resTypeCT.simplify().toNimType()
-  result = quote do:
-    defUnit(`resType`)
-    (`x`.float / `y`.float * `scale`).`resType`
+  if scaleOriginal != scaleConv:
+    let scale = scaleOriginal / scaleConv
+    result = quote do:
+      defUnit(`resType`)
+      (`x`.float / `y`.float * `scale`).`resType`
+  else:
+    result = quote do:
+      defUnit(`resType`)
+      (`x`.float / `y`.float).`resType`
 
 proc commonQuantity(x: typedesc, y: typedesc): bool =
   ## checks if x and y are equivalent quantities
