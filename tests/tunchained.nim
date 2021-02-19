@@ -190,6 +190,38 @@ suite "Unchained - CT errors":
     ## TODO: FIXME comparison fails due to ???. Values are correct though!
     #check b.to(mm⁻²) == 10e-5.MilliMeter⁻²
 
+import math
+proc `=~=`(a, b: SomeUnit): bool =
+  when (NimMajor, NimMinor, NimPatch) >= (1, 5, 1):
+    result = almostEqual(a.float, b.float) and type(a) is type(b)
+  else:
+    ## note, this is wrong, but I don't feel like reimplementing almostEqual here for older Nim
+    result = type(a) is type(b)
+
+suite "Unchained - Conversion between units requiring scale (no SI prefix)":
+  test "Conversion of eV to Joule":
+    let x = 1.eV
+    # use `e` as `float` and manually convert `Joule` to guarantee same number
+    check x.to(Joule) == e.float.Joule
+
+    let y = 10.kg * 9.81.m•s⁻² * 10.m # Potential energy of 10 kg on Earth in 10m height
+    check y == (10 * 9.81 * 10).Joule
+    check y.to(eV) =~= (981.0 / e.float).eV
+
+    defUnit(J•m⁻¹)
+    defUnit(eV•m⁻¹)
+    defUnit(MeV•m⁻¹)
+
+    let z = 10.kg * 9.81.m•s⁻²
+    check z.to(J•m⁻¹) =~= 98.1.J•m⁻¹
+    check z.to(eV•m⁻¹) =~= (98.1 / e.float).eV•m⁻¹
+    check z.to(MeV•m⁻¹) =~= (98.1 / e.float / 1e6).MeV•m⁻¹
+
+  test "Conversion of Joule to eV":
+    # use `e` as `float` and manually convert `Joule` to guarantee same number
+    let x = e.float.J
+    check x.to(eV) == 1.eV
+
 suite "Unchained - Type definitions":
   test "Automatic type definitions: `.` operator defines not existing units":
     ## have to trust me m⁶ is not pre defined :P
