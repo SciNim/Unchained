@@ -1215,8 +1215,6 @@ macro determineScale(x: typedesc, y: typedesc): float =
   # - multiply `scale` by `factor`
   let xScale = x.parseCTUnit().toBaseTypeScale()
   let yScale = y.parseCTUnit().toBaseTypeScale()
-  echo "X ", xScale
-  echo "Y ", yScale
   result = newLit(xScale / yScale)
 
 proc to*[T; U](x: T, to: typedesc[U]): U =
