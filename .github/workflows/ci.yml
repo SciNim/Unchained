@@ -43,18 +43,18 @@ jobs:
           path: nim
           version: ${{ matrix.branch }}
 
-      - name: Setup nimble & deps
-        shell: bash
-        run: |
-          cd unchained
-          nimble refresh -y
-          nimble install -y
-
       - name: Setup SSL/TLS certificates (Windows)
         if: ${{matrix.target == 'windows'}}
         shell: powershell
         run: |
           bitsadmin.exe /rawreturn /transfer "cURL-certicates" /priority FOREGROUND https://curl.se/ca/cacert.pem D:\a\unchained\unchained\nim\bin\cacert.pem
+
+    - name: Setup nimble & deps
+        shell: bash
+        run: |
+          cd unchained
+          nimble refresh -y
+          nimble install -y
 
       - name: Run tests
         shell: bash
