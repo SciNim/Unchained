@@ -26,7 +26,7 @@ func almostEq(a, b: float, epsilon = 1e-8): bool =
     # use relative error
     result = diff / min(absA + absB, maximumPositiveValue(float64)) < epsilon
 
-proc `=~=`(a, b: SomeUnit): bool =
+proc `=~=`(a, b: SomeUnit|UnitLess): bool =
   result = almostEq(a.float, b.float) and type(a) is type(b)
 
 suite "Unchained - Basic definitions":
@@ -298,6 +298,16 @@ suite "Unchained - Units and procedures":
     check typeof(force(mass, a)) is Newton
     check force(mass, a) == 117.72.Newton
     check fails(force(a, mass))
+
+  test "Functions disallow wrong SI unit arguments":
+    proc E_to_γ(E: GeV): UnitLess =
+      result = E.to(Joule) / (m_μ * c * c) + 1
+    check E_to_γ(1.GeV) =~= 1.946446502980806.UnitLess
+    var res = 10.eV
+    res = res - 5.eV
+    check fails(E_to_γ(res))
+    ## NOTE: there is some sort of bug under which we can call procedures with
+    ## wrong arguments like here and it ``does not fail!``
 
 suite "Unchained - Conversion between units":
   test "Converting different SI prefixes":
