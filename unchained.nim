@@ -1118,7 +1118,7 @@ macro `+`*(x, y: typed): untyped =
       defUnit(`resType`)
       (`x`.float * `xScale` + `y`.float * `yScale`).`resType`
   else:
-    error("Different quantities cannot be added! Quantity 1: " & $x.repr & ", Quantity 2: " & $y.repr)
+    error("Different quantities cannot be added! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
 macro `-`*(x, y: typed): untyped =
   var xCT = parseCTUnit(x)
@@ -1146,7 +1146,7 @@ macro `-`*(x, y: typed): untyped =
       defUnit(`resType`)
       (`x`.float * `xScale` - `y`.float * `yScale`).`resType`
   else:
-    error("Different quantities cannot be subtracted! Quantity 1: " & $x.repr & ", Quantity 2: " & $y.repr)
+    error("Different quantities cannot be subtracted! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 proc convertIfMultipleSiPrefixes(x: CTCompoundUnit): CTCompoundUnit =
   ## checks if any CTUnit appears multiple times with a different SI prefixes
   var unitTab = initTable[UnitKind, SiPrefix]()
