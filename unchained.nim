@@ -1092,7 +1092,7 @@ proc toBaseType(x: CTCompoundUnit): CTCompoundUnit =
   for u in x.units:
     result.add u.toBaseType
 
-macro `+`*(x, y: typed): untyped =
+macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseCTUnit(x)
   var yCT = parseCTUnit(y)
   if xCT == yCT or xCT.isUnitLess or yCT.isUnitLess:
@@ -1120,7 +1120,7 @@ macro `+`*(x, y: typed): untyped =
   else:
     error("Different quantities cannot be added! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
-macro `-`*(x, y: typed): untyped =
+macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseCTUnit(x)
   var yCT = parseCTUnit(y)
   if xCT == yCT or xCT.isUnitLess or yCT.isUnitLess:
@@ -1170,7 +1170,7 @@ proc convertIfMultipleSiPrefixes(x: CTCompoundUnit): CTCompoundUnit =
     else:
       result.add u
 
-macro `*`*(x, y: typed): untyped =
+macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   ## TODO: can we extract the actual mathy part from x, y instead of using the
   ## whole expression? And then reinsert that after our change
   var xCT = parseCTUnit(x)
@@ -1195,7 +1195,7 @@ macro `*`*(x, y: typed): untyped =
       defUnit(`resType`)
       (`x`.float * `y`.float).`resType`
 
-macro `/`*(x, y: typed): untyped =
+macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseCTUnit(x)
   let yCT = parseCTUnit(y)
   # add inverted `yCT` (power -> -power) to xCT. Equates a division after simplification
