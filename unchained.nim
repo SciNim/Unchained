@@ -795,16 +795,6 @@ proc `==`(a, b: CTCompoundUnit): bool =
       return false
   result = true
 
-macro `==`*[T: SomeUnit](a, b: T): bool =
-  let xCT = parseCTUnit(a)
-  let yCT = parseCTUnit(b)
-  let units = xCT == yCT
-  if not units:
-    result = newLit false
-  else:
-    result = quote do:
-      `a`.float == `b`.float
-
 iterator getPow10Digits(x: int): int =
   ## yields all digits in given integer
   var digits: seq[int]
@@ -1091,6 +1081,68 @@ proc toBaseType(x: CTCompoundUnit): CTCompoundUnit =
   ## TODO: can we add to `CTUnit` a scale?
   for u in x.units:
     result.add u.toBaseType
+
+## TODO: we should really combine these macros somewhat?
+macro `==`*[T: SomeUnit](x, y: T): bool =
+  var xCT = parseCTUnit(x)
+  var yCT = parseCTUnit(y)
+  if xCT == yCT:
+    result = quote do:
+      (`x`.float == `y`.float)
+  elif xCT.commonQuantity(yCT):
+    # is there a scale difference between the two types?
+    let xScale = xCT.toBaseTypeScale()
+    let yScale = yCT.toBaseTypeScale()
+    # now convert x, y to base types
+    xCT = xCT.toBaseType().simplify()
+    yCT = yCT.toBaseType().simplify()
+    let resType = xCT.toNimType()
+    # compare scaled to base type units
+    ## TODO: use almostEqual?
+    result = quote do:
+      (`x`.float * `xScale` == `y`.float * `yScale`)
+  else:
+    error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
+
+macro `<`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
+  var xCT = parseCTUnit(x)
+  var yCT = parseCTUnit(y)
+  if xCT == yCT:
+    result = quote do:
+      (`x`.float < `y`.float)
+  elif xCT.commonQuantity(yCT):
+    # is there a scale difference between the two types?
+    let xScale = xCT.toBaseTypeScale()
+    let yScale = yCT.toBaseTypeScale()
+    # now convert x, y to base types
+    xCT = xCT.toBaseType().simplify()
+    yCT = yCT.toBaseType().simplify()
+    let resType = xCT.toNimType()
+    # compare scaled to base type units
+    result = quote do:
+      (`x`.float * `xScale` < `y`.float * `yScale`)
+  else:
+    error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
+
+macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
+  var xCT = parseCTUnit(x)
+  var yCT = parseCTUnit(y)
+  if xCT == yCT:
+    result = quote do:
+      (`x`.float <= `y`.float)
+  elif xCT.commonQuantity(yCT):
+    # is there a scale difference between the two types?
+    let xScale = xCT.toBaseTypeScale()
+    let yScale = yCT.toBaseTypeScale()
+    # now convert x, y to base types
+    xCT = xCT.toBaseType().simplify()
+    yCT = yCT.toBaseType().simplify()
+    let resType = xCT.toNimType()
+    # compare scaled to base type units
+    result = quote do:
+      (`x`.float * `xScale` <= `y`.float * `yScale`)
+  else:
+    error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
 macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseCTUnit(x)

@@ -177,6 +177,94 @@ suite "Unchained - Basic unit math":
     # unrelated to special case of `g/kg`:
     check A / 1e-3.mm•mol⁻¹ =~= 39950.mm⁻¹•mol
 
+suite "Unchained - Comparisons of units":
+  test "Comparisons: `<` for units of same type":
+    let x = 5.kg
+    let y = 10.kg
+    check x < y == true
+    check fails(5.kg < 10)
+
+  test "Comparisons: `>` for units of same type":
+    let x = 5.kg
+    let y = 10.kg
+    check x > y == false
+    check fails(5.kg > 10)
+
+  test "Comparisons: `<=` for units of same type":
+    let x = 5.kg
+    let y = 10.kg
+    let z = 10.kg
+    check x <= y == true
+    check z <= y == true
+    check fails(5.kg <= 10)
+
+  test "Comparisons: `>=` for units of same type":
+    let x = 5.kg
+    let y = 10.kg
+    let z = 10.kg
+    check x >= y == false
+    check z >= y == true
+    check fails(5.kg >= 10)
+
+  test "Comparisons: `==` for units of same type":
+    let x = 5.kg
+    let y = 10.kg
+    let z = 10.kg
+    check x == y == false
+    check z == y == true
+    check fails(5.kg == 10)
+
+  test "Comparisons: `!=` for units of same type":
+    let x = 5.kg
+    let y = 10.kg
+    let z = 10.kg
+    check x != y == true
+    check z != y == false
+    check fails(5.kg != 10)
+
+  test "Comparisons: `<` for units of different type of same quantity":
+    let x = 5.kg
+    let y = 10_000.g
+    check x < y == true
+
+  test "Comparisons: `>` for units of different type of same quantity":
+    let x = 5.kg
+    let y = 10_000.g
+    check x > y == false
+
+  test "Comparisons: `<=` for units of different type of same quantity":
+    let x = 5.kg
+    let y = 10_000.g
+    let z = 10.kg
+    check x <= y == true
+    check z <= y == true
+
+  test "Comparisons: `>=` for units of different type of same quantity":
+    let x = 5.kg
+    let y = 10_000.g
+    let z = 10.kg
+    check x >= y == false
+    check z >= y == true
+
+  test "Comparisons: `==` for units of different type of same quantity":
+    let x = 5.kg
+    let y = 10_000.kg
+    let z = 10.kg
+    check x == y == false
+    ## TODO: broken due to internal `==` of floating point numbers. Need `almostEqual`?
+    # check z == y == true
+
+  test "Comparisons: `!=` for units of different type of same quantity":
+    let x = 5.kg
+    let y = 10_000.kg
+    let z = 10.kg
+    check x != y == true
+    ## TODO: broken due to internal `==` of floating point numbers. Need `almostEqual`?
+    # check z != y == false
+
+#Suite "Unchained - other types do not match macros":
+  # how do we check this?
+
 suite "Unchained - Units and procedures":
   test "Defining a function taking units and returning units":
     let a = 9.81.m•s⁻²
