@@ -19,7 +19,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        branch: [version-1-2, version-1-4, devel]
+        #branch: [version-1-2, version-1-4, devel]
+        branch: [devel]
         target: [linux, macos, windows]
         include:
           - target: linux
@@ -48,6 +49,12 @@ jobs:
           cd unchained
           nimble refresh -y
           nimble install -y
+
+      - name: Setup SSL/TLS certificates (Windows)
+        if: ${{matrix.target == 'windows'}}
+        shell: powershell
+        run: |
+          bitsadmin.exe /rawreturn /transfer "cURL-certicates" /priority FOREGROUND https://curl.se/ca/cacert.pem D:\a\unchained\unchained\nim\bin\cacert.pem
 
       - name: Run tests
         shell: bash
