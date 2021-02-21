@@ -94,6 +94,16 @@ suite "Unchained - Basic unit math":
     let impl = 10.kg•m•s⁻³
     check fails(expl + impl)
 
+  test "Math: `+` of units - adding UnitLess and int results in float":
+    ## this was a regression.
+    let x = 10.UnitLess
+    let y = 12
+    let z = 12.5
+    check x + y == 22.UnitLess
+    check y + x == 22.UnitLess
+    check x + z == 22.5.UnitLess
+    check z + x == 22.5.UnitLess
+
   test "Math: `-` of units - same quantity and SI prefix":
     let a = 10.kg
     let b = 5.kg
@@ -126,6 +136,16 @@ suite "Unchained - Basic unit math":
     let expl = 10.N
     let impl = 5.kg•m•s⁻³
     check fails(expl - impl)
+
+  test "Math: `-` of units - subtracting UnitLess and int results in float":
+    ## this was a regression.
+    let x = 12.UnitLess
+    let y = 10
+    let z = 10.5
+    check x - y == 2.UnitLess
+    check y - x == -2.UnitLess
+    check x - z == 1.5.UnitLess
+    check z - x == -1.5.UnitLess
 
   test "Math: `*` of units - same quantity and SI prefix":
     let a = 10.m

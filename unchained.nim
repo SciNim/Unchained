@@ -1147,10 +1147,9 @@ macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped
 macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseCTUnit(x)
   var yCT = parseCTUnit(y)
-  if xCT == yCT or xCT.isUnitLess or yCT.isUnitLess:
+  if xCT == yCT:
     # excactly the same type, just add
-    # TODO: deduce the "nicest" type representation
-    let resType = if xCT.isUnitLess: y.getTypeInst else: x.getTypeInst
+    let resType = xCT.toNimType() # same type, just use `xCT`
     result = quote do:
       defUnit(`resType`)
       (`x`.float + `y`.float).`resType`
@@ -1175,10 +1174,9 @@ macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
 macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseCTUnit(x)
   var yCT = parseCTUnit(y)
-  if xCT == yCT or xCT.isUnitLess or yCT.isUnitLess:
+  if xCT == yCT:
     # excactly the same type, just add
-    # TODO: deduce the "nicest" type representation
-    let resType = if xCT.isUnitLess: y.getTypeInst else: x.getTypeInst
+    let resType = xCT.toNimType() # same type, just use `xCT`
     result = quote do:
       defUnit(`resType`)
       (`x`.float - `y`.float).`resType`
