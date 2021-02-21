@@ -49,7 +49,7 @@ jobs:
         run: |
           bitsadmin.exe /rawreturn /transfer "cURL-certicates" /priority FOREGROUND https://curl.se/ca/cacert.pem D:\a\unchained\unchained\nim\bin\cacert.pem
 
-    - name: Setup nimble & deps
+      - name: Setup nimble & deps
         shell: bash
         run: |
           cd unchained
