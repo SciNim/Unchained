@@ -308,6 +308,10 @@ suite "Unchained - Units and procedures":
     check fails(E_to_γ(res))
     ## NOTE: there is some sort of bug under which we can call procedures with
     ## wrong arguments like here and it ``does not fail!``
+    ## Namely the following: UFCS breaks type checking!
+    ## Value handed is simply `1.GeV` in this case, despite really being `5.eV`
+    # check fails(res.E_to_γ())
+    # echo res.E_to_γ()
 
 suite "Unchained - Conversion between units":
   test "Converting different SI prefixes":
