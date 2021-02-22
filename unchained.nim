@@ -1,4 +1,4 @@
-import math, macros, options, sequtils, algorithm, sets, tables, strutils, unicode, typetraits, strformat
+import math, macros, options, sequtils, algorithm, sets, tables, strutils, unicode, typetraits, strformat, parseutils
 
 type
   Unit* = distinct float
@@ -313,8 +313,9 @@ when false:
     Fahrenheit <-> Celsius: (5.0/9.0 * (x - 32), 9.0/5.0 * x + 32.0)
 
 const digits = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
-const DigitsError = ["0","1","2","3","4","5","6","7","8","9"]
 const digitsAndMinus = ["⁻","⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
+const DigitsAscii = ["0","1","2","3","4","5","6","7","8","9"]
+const AsciiChars = {'*', '^', '-', '0' .. '9'}
 
 const SiPrefixStringsLong = {
   "Yocto" :    siYocto,
@@ -921,7 +922,7 @@ proc hasNegativeExp(s: var string): bool =
 
 proc parseExponent(s: var string, negative: bool): int =
   var buf: string
-  let idxStart = s.parseUntil(digits, errorOn = DigitsError)
+  let idxStart = s.parseUntil(digits, errorOn = DigitsAscii)
   var idx = idxStart
   if idx > 0:
     let numDigits = s[idx .. ^1].runeLen
@@ -1006,12 +1007,20 @@ proc getUnitTypeImpl(n: NimNode): NimNode =
 proc getUnitType(n: NimNode): NimNode =
   case n.kind
   of nnkIdent: result = n
+  of nnkAccQuoted:
+    var s: string
+    for el in n:
+      s.add el.strVal
+    result = ident(s)
   else: result = n.getTypeInst.getUnitTypeImpl()
 
 proc isUnitLessNumber(n: NimNode): bool =
   case n.kind
   of nnkIntLit .. nnkFloatLit: result = true
   of nnkIdent: result = false # most likely direct unit
+  of nnkAccQuoted:
+    ## TODO: disallow things that are not a number?
+    result = false
   else:
     let nTyp = n.getTypeInst
     if nTyp.kind == nnkSym:
@@ -1019,7 +1028,7 @@ proc isUnitLessNumber(n: NimNode): bool =
       if nTyp.strVal in ["float", "float64", "int", "int64"]:
         result = true
 
-proc parseCTUnit(x: NimNode): CTCompoundUnit =
+proc parseCTUnitUnicode(x: string): CTCompoundUnit =
   ## 1. split by `•`
   ## for el in splits
   ##   2. parse possible si prefix
@@ -1033,11 +1042,7 @@ proc parseCTUnit(x: NimNode): CTCompoundUnit =
   ## c) "meter per second squared" -> "meterPerSecondSquared"
   ## a) and b) can be parsed together by both looking for `m` as well as `Meter` in each
   ## element. Verbose always start capital letters, shorthand depending on SI prefix / unit (N, V, A...)
-  if x.isUnitLessNumber:
-    return # unit less number
-  let x = x.getUnitType
-  var xT = x.strVal
-  let xTStrs = xT.split("•")
+  let xTStrs = x.split("•")
   for el in xTStrs:
     var mel = el
     let prefix = mel.parseSiPrefix
@@ -1049,6 +1054,42 @@ proc parseCTUnit(x: NimNode): CTCompoundUnit =
     let ctUnit = initCTUnit(el, unitKind, exp, prefix,
                             isShortHand = isShortHand)
     result.add ctUnit
+
+proc parseCTUnitAscii(x: string): CTCompoundUnit =
+  var idx = 0
+  var buf: string
+  while idx < x.len:
+    idx += x.parseUntil(buf, until = '*', start = idx)
+    let powIdx = buf.find("^")
+    doAssert powIdx < buf.high, "Invalid unit, ends with `^`: " & $buf
+    let exp = if powIdx > 0: parseInt(buf[powIdx + 1 .. buf.high])
+              else: 1
+    var mel = if powIdx > 0: buf[0 ..< powIdx]
+              else: buf
+    let prefix = mel.parseSiPrefix
+    let unitKind = parseUnitKind(mel)
+    let isShortHand = if parseEnum[UnitKind](mel, ukUnitLess) == ukUnitLess and mel != "UnitLess": true else: false
+    let ctUnit = initCTUnit(buf, unitKind, exp, prefix,
+                            isShortHand = isShortHand)
+    result.add ctUnit
+    inc idx
+
+proc parseCTUnit(x: NimNode): CTCompoundUnit =
+  if x.isUnitLessNumber:
+    return # unit less number
+  let xTyp = x.getUnitType
+  var xT = xTyp.strVal
+  ## TODO: avoid walking over `xT` so many times!
+  if "•" in xT or digitsAndMinus.anyIt(it in xT):
+    result = parseCTUnitUnicode(xT)
+  elif "*" in xT or xT.anyIt(it in AsciiChars):
+    result = parseCTUnitAscii(xT)
+  # TODO: add verbose mode
+  #elif "Per" in xT:
+  #  result = parseCTUnitVerbose(x)
+  else:
+    # else does not matter which proc, because it should be a single unit, e.g. `KiloGram`
+    result = parseCTUnitUnicode(xT)
 
 proc toBaseTypeScale(u: CTUnit): float =
   result = u.siPrefix.toFactor()

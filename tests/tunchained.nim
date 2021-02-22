@@ -427,6 +427,18 @@ suite "Unchained - isAUnit concept checking":
     check not isAUnit(string)
     check not isAUnit(seq[string])
 
+suite "Unchained - syntax in accented quotes":
+  test "Basic units in accented quotes":
+    check 5.`Meter*Second^-1` == 5.m•s⁻¹
+    check 5.`m*s^-1` == 5.m•s⁻¹
+    check 10.`Mol^-1*KiloGram^2` == 10.mol⁻¹•kg²
+
+    defUnit(`kg*m*s^-2`)
+    proc test(f: `kg*m*s^-2`): kg =
+      result = f / 9.81.m•s⁻²
+    check test(98.1.kg•m•s⁻²) =~= 10.kg
+    check test(98.1.`kg*m*s^-2`) =~= 10.kg
+
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
 #  (x.float * 1e-9).eV
