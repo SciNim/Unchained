@@ -306,12 +306,17 @@ suite "Unchained - Units and procedures":
     var res = 10.eV
     res = res - 5.eV
     check fails(E_to_γ(res))
-    ## NOTE: there is some sort of bug under which we can call procedures with
-    ## wrong arguments like here and it ``does not fail!``
-    ## Namely the following: UFCS breaks type checking!
-    ## Value handed is simply `1.GeV` in this case, despite really being `5.eV`
-    # check fails(res.E_to_γ())
-    # echo res.E_to_γ()
+    ## NOTE: we cannot use `fails` to check if this does not compile, because
+    ## `compiles` seems to only expand the `first` macro. But the expanded code
+    ## is the one that actually causes the CT error...
+    check fails(5.eV.E_to_γ)
+    check fails(5.eV.E_to_γ())
+    check 1.GeV.E_to_γ() =~= 1.946446502980806.UnitLess
+    check 1.GeV.E_to_γ =~= 1.946446502980806.UnitLess
+    check 9.mol•mol⁻¹ == 9.UnitLess
+    ## the following would work if `sqrt` was lifted to units of course!
+    check fails(9.eV.sqrt)
+    check fails(9.eV.sqrt.ln.sqrt)
 
 suite "Unchained - Conversion between units":
   test "Converting different SI prefixes":

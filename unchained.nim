@@ -1334,15 +1334,28 @@ macro toImpl(x: typed, to: static CTCompoundUnit): NimNode =
 #    toImpl(`x`, `yCT`)
 
 {.experimental: "dotOperators".}
-macro `.`*(x: typed, y: untyped): untyped =
+macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
   ## macro to allow to generate new types on the fly
-  ## TODO: still need a way to map e.g. `N` to newton from a string
+  ## TODO: maybe have an explicit distinction between already defined types
+  ## and not defined types? Use `.!` or something like this instead?
   let typX = x.getTypeInst()
   let yCT = y.parseCTUnit()
   let resType = yCT.simplify().toNimType()
-  result = quote do:
-    defUnit(`resType`)
-    (`x`.float).`resType`
+  # check whether argument is actually `UnitLess` and not something that fails
+  # parsing as a unit. TODO: improve unit parsing to handle this? Need a failed
+  # parsing state != UnitLess
+  let isUnitLess = y.strVal == "UnitLess" or
+    (yCT.units.len > 1 and # > 1 means something like mol•mol⁻¹ can work
+     resType.strVal == "UnitLess")
+  let rewrite = not isUnitLess and resType.strVal == "UnitLess" # parsing failed
+  if not rewrite:
+    result = quote do:
+      defUnit(`resType`)
+      (`x`.float).`resType`
+  else:
+    # parsing as a unit failed, rewrite to get possible CT error or correct result
+    result = quote do:
+      `y` `x`
 
 let
   c* = 299792458.0.Meter•Second⁻¹
