@@ -39,8 +39,12 @@ type
   Inductance* = distinct CompoundQuantity
   Pressure* = distinct CompoundQuantity
 
+  # angles and solid angles are technically UnitLess.
+  Angle* = UnitLess
+  SolidAngle* = UnitLess
+
   DerivedQuantity* = Velocity | Acceleration | Momentum | Force | Energy | Density | ElectricPotential | Voltage |
-    Frequency | Charge | Power | ElectricResistance | Capacitance | Inductance | Pressure
+    Frequency | Charge | Power | ElectricResistance | Capacitance | Inductance | Pressure | Angle | SolidAngle
 
   SomeQuantity* = BaseQuantity | DerivedQuantity
 
@@ -73,6 +77,8 @@ type
   KiloGram•Meter²•Second⁻³•Ampere⁻²* = distinct ElectricResistance
   KiloGram•Meter⁻¹•Second⁻² = distinct Pressure
   KiloGram•Meter⁻³ = distinct Density
+  Meter•Meter⁻¹ = distinct Angle
+  Meter²•Meter⁻² = distinct SolidAngle
 
   ## derived SI units
   Newton* = KiloGram•Meter•Second⁻²
@@ -85,10 +91,13 @@ type
   Henry* = KiloGram•Meter²•Second⁻²•Ampere⁻²
   Farad* = Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹
   Pascal* = KiloGram•Meter⁻¹•Second⁻²
+  Radian* = Meter•Meter⁻¹
+  Steradian* = Meter²•Meter⁻²
 
   ## other units
   ElectronVolt* = distinct Energy
   Bar* = distinct Pressure
+  Degree* = distinct Angle
 
   ## possibly define convenient overloads? Not really required, since we compute that these match after
   ## all, no? E.g. given Joule•Coulomb⁻¹. We would parse each, convert to base SI units and notice that
@@ -120,6 +129,9 @@ type
   Pa* = Pascal
   bar* = Bar
   g•cm⁻³* = distinct Density
+  rad* = Radian
+  sr* = Steradian
+  °* = Degree
 
   SiPrefix* = enum
     siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
@@ -131,7 +143,8 @@ type
     qkUnitLess, qkMass, qkLength, qkTime, qkCurrent, qkTemperature, qkAmountOfSubstance, qkLuminosity,
     # derived quantities
     qkFrequency, qkVelocity, qkAcceleration, qkMomentum, qkForce, qkEnergy, qkElectricPotential,
-    qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance, qkPressure, qkDensity
+    qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance, qkPressure, qkDensity,
+    qkAngle, qkSolidAngle
 
   ## enum storing all known units (their base form) to allow easier handling of unit conversions
   ## Enum value is the default name of the unit
@@ -156,15 +169,19 @@ type
     ukFarad = "Farad"
     ukPascal = "Pascal"
     ukBar = "Bar"
-    # other units
-    ukElectronVolt = "ElectronVolt"
+    ukRadian = "Radian"
+    ukSteradian = "Steradian"
     # natural units
     ukNaturalLength = "NaturalLength" # length
     ukNaturalMass = "NaturalMass" # mass
     ukNaturalTime = "NaturalTime" # time
     ukNaturalEnergy = "NaturalEnergy" # energy
     # ...
-    # additional units
+    # additional compound units
+    ukElectronVolt = "ElectronVolt"
+    # additional non compound units
+    ukDegree = "Degree"
+    # imperial units
     ukPound = "Pound" # lbs (lb singular is too uncommon)
     ukInch = "Inch" # in ( or possibly "inch" due to in being keyword)
     ukMile = "Mile"
@@ -421,13 +438,15 @@ generateSiPrefixedUnits:
   (eV, ElectronVolt)
   (Pa, Pascal)
   (bar, Bar)
+  (rad, Radian)
+  (sr, Steradian)
 
 proc isUnitLess(u: CTCompoundUnit): bool = u.units.len == 0
 
 proc isCompound(unitKind: UnitKind): bool =
   result = unitKind notin {ukUnitLess .. ukCandela,
                            ukNaturalLength .. ukNaturalTime,
-                           ukPound .. ukMile}
+                           ukDegree .. ukMile}
 
 proc toQuantity(unitKind: UnitKind): QuantityKind =
   ## SI units
@@ -453,6 +472,8 @@ proc toQuantity(unitKind: UnitKind): QuantityKind =
   of ukFarad: result = qkCapacitance
   of ukPascal: result = qkPressure
   of ukBar: result = qkPressure
+  of ukRadian: result = qkAngle
+  of ukSteradian: result = qkSolidAngle
   # natural units
   of ukNaturalLength: result = qkLength
   of ukNaturalMass: result = qkMass
@@ -460,6 +481,7 @@ proc toQuantity(unitKind: UnitKind): QuantityKind =
   of ukNaturalEnergy: result = qkEnergy
   # other units
   of ukElectronVolt: result = qkEnergy
+  of ukDegree: result = qkAngle
   of ukPound: result = qkMass
   of ukInch: result = qkLength
   of ukMile: result = qkLength
@@ -558,6 +580,12 @@ proc toCTBaseUnitSeq(unitKind: UnitKind): seq[CTBaseUnit] =
     result.add toCTBaseUnit(ukSecond, power = -2)
   of ukBar:
     result.add toCTBaseUnitSeq(ukPascal)
+  of ukRadian:
+    result.add toCTBaseUnit(ukMeter, power = 1)
+    result.add toCTBaseUnit(ukMeter, power = -1)
+  of ukSteradian:
+    result.add toCTBaseUnit(ukMeter, power = 2)
+    result.add toCTBaseUnit(ukMeter, power = -2)
   of ukElectronVolt:
     ## our logic is incomplete, since it's missing proper conversions ouside of SI prefixes!
     result.add toCTBaseUnitSeq(ukJoule)
@@ -573,6 +601,7 @@ proc getConversionFactor(unitKind: UnitKind): float =
   of ukMile: result = 1600 # relative to: m
   of ukInch: result = 0.0254 # relative to: cm
   of ukBar: result = 100_000 # relative to Pa
+  of ukDegree: result = PI / 180.0
   else: result = 1.0
 
 proc toCTUnit(unitKind: UnitKind): CTUnit {.compileTime.} =
@@ -611,6 +640,11 @@ proc initCTUnit(name: string, unitKind: UnitKind, power: int, siPrefix: SiPrefix
 converter toFloat*(x: UnitLess): float = x.float
 converter toUnitLess*(x: SomeNumber): UnitLess = x.UnitLess
 converter toUnitLess*(x: float64): UnitLess = x.UnitLess
+converter toFloat*(x: Radian): float = x.float
+converter toFloat*(x: Steradian): float = x.float
+converter toRadian*(x: float): Radian = x.Radian
+converter toSteradian*(x: float): Steradian = x.Steradian
+
 
 macro defUnit*(arg: untyped): untyped =
   ## Helper template to define new units (not required to be used manually)
@@ -732,7 +766,7 @@ proc flatten(units: CTCompoundUnit): CTCompoundUnit =
       ## concept `SomeUnit`? No! If `Meter•Second⁻¹` is demanded we need that and
       ## not allow `CentiMeter•Second⁻¹`?
       case u.unitKind
-      of ukElectronVolt, ukPound, ukInch, ukMile, ukBar: result.add u
+      of ukElectronVolt, ukPound, ukInch, ukMile, ukBar, ukSteradian, ukRadian: result.add u
       else:
         let power = u.power
         let prefix = u.siPrefix
@@ -968,6 +1002,8 @@ proc parseUnitKind(s: string): UnitKind =
   of "F", "Farad": result = ukFarad
   of "Pa", "Pascal": result = ukPascal
   of "bar", "Bar": result = ukBar
+  of "rad", "Radian": result = ukRadian
+  of "sr", "Steradian": result = ukSteradian
   # natural units
   of "NaturalLength": result = ukNaturalLength # length:
   of "NaturalMass": result = ukNaturalMass # mass:
@@ -975,6 +1011,7 @@ proc parseUnitKind(s: string): UnitKind =
   of "NaturalEnergy": result = ukNaturalEnergy# energy:
   # additional units
   of "eV", "ElectronVolt": result = ukElectronVolt
+  of "°", "Degree": result = ukDegree
   of "lbs", "Pound": result = ukPound # lbs (lb singular is too uncommon):
   of "inch", "Inch": result = ukInch # in ( or possibly "inch" due to in being keyword):
   of "mi", "Mile": result = ukMile
