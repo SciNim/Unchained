@@ -1,3 +1,4 @@
+import math
 import units
 
 ## A (so far small) set of (mostly physics related) constants defined

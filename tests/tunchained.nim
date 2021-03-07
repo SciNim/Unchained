@@ -302,7 +302,7 @@ suite "Unchained - Units and procedures":
   test "Functions disallow wrong SI unit arguments":
     proc E_to_γ(E: GeV): UnitLess =
       result = E.to(Joule) / (m_μ * c * c) + 1
-    check E_to_γ(1.GeV) =~= 1.946446502980806.UnitLess
+    check E_to_γ(1.GeV) =~= 10.46446502980806.UnitLess
     var res = 10.eV
     res = res - 5.eV
     check fails(E_to_γ(res))
@@ -311,8 +311,8 @@ suite "Unchained - Units and procedures":
     ## is the one that actually causes the CT error...
     check fails(5.eV.E_to_γ)
     check fails(5.eV.E_to_γ())
-    check 1.GeV.E_to_γ() =~= 1.946446502980806.UnitLess
-    check 1.GeV.E_to_γ =~= 1.946446502980806.UnitLess
+    check 1.GeV.E_to_γ() =~= 10.46446502980806.UnitLess
+    check 1.GeV.E_to_γ =~= 10.46446502980806.UnitLess
     check 9.mol•mol⁻¹ == 9.UnitLess
     ## the following would work if `sqrt` was lifted to units of course!
     check fails(9.eV.sqrt)
