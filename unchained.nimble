@@ -4,6 +4,7 @@ version       = "0.1.0"
 author        = "Vindaar"
 description   = "Fully type safe, compile time only units library"
 license       = "MIT"
+srcDir        = "src"
 
 # Dependencies
 
