@@ -98,6 +98,10 @@ type
   ElectronVolt* = distinct Energy
   Bar* = distinct Pressure
   Degree* = distinct Angle
+  Minute* = distinct Time
+  Hour* = distinct Time
+  Day* = distinct Time
+  Year* = distinct Time
 
   ## possibly define convenient overloads? Not really required, since we compute that these match after
   ## all, no? E.g. given Joule•Coulomb⁻¹. We would parse each, convert to base SI units and notice that
@@ -132,6 +136,11 @@ type
   rad* = Radian
   sr* = Steradian
   °* = Degree
+  min = Minute
+  h = Hour
+  day = Day
+  yr = Year
+
 
   SiPrefix* = enum
     siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
@@ -181,6 +190,10 @@ type
     ukElectronVolt = "ElectronVolt"
     # additional non compound units
     ukDegree = "Degree"
+    ukMinute = "Minute"
+    ukHour = "Hour"
+    ukDay = "Day"
+    ukYear = "Year"
     # imperial units
     ukPound = "Pound" # lbs (lb singular is too uncommon)
     ukInch = "Inch" # in ( or possibly "inch" due to in being keyword)
@@ -482,6 +495,10 @@ proc toQuantity(unitKind: UnitKind): QuantityKind =
   # other units
   of ukElectronVolt: result = qkEnergy
   of ukDegree: result = qkAngle
+  of ukMinute: result = qkTime
+  of ukHour: result = qkTime
+  of ukDay: result = qkTime
+  of ukYear: result = qkTime
   of ukPound: result = qkMass
   of ukInch: result = qkLength
   of ukMile: result = qkLength
@@ -503,6 +520,10 @@ proc toBaseUnit(unitKind: UnitKind): BaseUnitKind =
   of ukNaturalMass: result = buGram
   of ukNaturalTime: result = buSecond
   # other units
+  of ukMinute: result = buSecond
+  of ukHour: result = buSecond
+  of ukDay: result = buSecond
+  of ukYear: result = buSecond
   of ukPound: result = buGram
   of ukInch: result = buMeter
   of ukMile: result = buMeter
@@ -602,6 +623,10 @@ proc getConversionFactor(unitKind: UnitKind): float =
   of ukInch: result = 0.0254 # relative to: cm
   of ukBar: result = 100_000 # relative to Pa
   of ukDegree: result = PI / 180.0
+  of ukMinute: result = 60.0
+  of ukHour: result = 3600.0
+  of ukDay: result = 86400.0
+  of ukYear: result = 365.0 * 86400.0
   else: result = 1.0
 
 proc toCTUnit(unitKind: UnitKind): CTUnit {.compileTime.} =
@@ -914,6 +939,8 @@ proc parseSiPrefix(s: var string): SiPrefix =
     if prefix == siExa and s.startsWith("ElectronVolt"): return siIdentity
     if prefix == siMilli and s.startsWith("mol"): return siIdentity
     if prefix == siMega and s.startsWith("Mol"): return siIdentity
+    if prefix == siYocto and s.startsWith("yr"): return siIdentity
+    if prefix == siYotta and s.startsWith("Year"): return siIdentity
     if s.startsWith(el):
       s.removePrefix(el)
       return prefix
@@ -1012,6 +1039,10 @@ proc parseUnitKind(s: string): UnitKind =
   # additional units
   of "eV", "ElectronVolt": result = ukElectronVolt
   of "°", "Degree": result = ukDegree
+  of "min", "Minute": result = ukMinute
+  of "h", "Hour": result = ukHour
+  of "day", "Day": result = ukDay
+  of "yr", "Year": result = ukYear
   of "lbs", "Pound": result = ukPound # lbs (lb singular is too uncommon):
   of "inch", "Inch": result = ukInch # in ( or possibly "inch" due to in being keyword):
   of "mi", "Mile": result = ukMile
