@@ -260,7 +260,7 @@ type
   ## are linearly dependent.
   CTCompoundQuantity = Table[QuantityKind, int]
 
-## parseing CT units is the basis of all functionality almost
+# parsing CT units is the basis of all functionality almost
 proc parseCTUnit(x: NimNode): CTCompoundUnit
 proc toNimType(x: CTCompoundUnit): NimNode
 proc toNimType(u: CTUnit): string
