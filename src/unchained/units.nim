@@ -1144,7 +1144,9 @@ proc parseCTUnitAscii(x: string): CTCompoundUnit =
 
 proc parseCTUnit(x: NimNode): CTCompoundUnit =
   if x.isUnitLessNumber:
-    return # unit less number
+    let ctUnit = initCTUnit(x.getTypeImpl.repr, ukUnitLess, 1, siIdentity)
+    result.add ctUnit
+    return result
   let xTyp = x.getUnitType
   var xT = xTyp.strVal
   ## TODO: avoid walking over `xT` so many times!
