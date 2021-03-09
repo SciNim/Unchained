@@ -19,7 +19,16 @@ task regressionTests, "Run regression tests (require cligen)":
   # for that reason, locally we just test it by hand
   exec "nim c -r tests/test_issue04_modified.nim"
 
+import strformat
 task gen_docs, "Generate the docs":
-  exec "nim doc --hints:off --warnings:off --git.url:https://github.com/SciNim/unchained --git.commit:master --git.devel:master -o:docs/unchained.html --index:on src/unchained.nim"
+  let gitUrl = "https://github.com/SciNim/unchained"
+  let masterBranch = "master"
+  let defStr = "--hints:off --warnings:off"
+  proc genFile(str: string, prefix = "") =
+    exec &"nim doc {defStr} --git.url:{gitUrl} --git.commit:{masterBranch} --git.devel:{masterBranch} -o:docs/{str}.html --index:on src/{prefix}{str}.nim"
+  #genFile("unchained")
+  genFile("units", "unchained/")
+  genFile("constants", "unchained/")
+  genFile("utils", "unchained/")
   # now build  the index
   exec "nim buildIndex -o:docs/theindex.html docs"
