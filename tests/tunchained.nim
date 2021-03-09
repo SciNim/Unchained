@@ -1,5 +1,4 @@
 import unchained
-
 import unittest
 
 template fails(x: untyped): untyped =

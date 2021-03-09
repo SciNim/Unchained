@@ -1306,6 +1306,7 @@ macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       (`x`.float * `xScale` - `y`.float * `yScale`).`resType`
   else:
     error("Different quantities cannot be subtracted! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
+
 proc convertIfMultipleSiPrefixes(x: CTCompoundUnit): CTCompoundUnit =
   ## checks if any CTUnit appears multiple times with a different SI prefixes
   var unitTab = initTable[UnitKind, SiPrefix]()
