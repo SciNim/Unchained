@@ -8,7 +8,7 @@ type
 
   UnitLess* = distinct Unit
 
-  ## Baes Quantities
+  ## Base Quantities
   Time* = distinct Quantity
   Length* = distinct Quantity
   Mass* = distinct Quantity
@@ -75,10 +75,10 @@ type
   Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹* = distinct Capacitance
   KiloGram•Meter²•Ampere⁻¹•Second⁻³* = distinct ElectricPotential
   KiloGram•Meter²•Second⁻³•Ampere⁻²* = distinct ElectricResistance
-  KiloGram•Meter⁻¹•Second⁻² = distinct Pressure
-  KiloGram•Meter⁻³ = distinct Density
-  Meter•Meter⁻¹ = distinct Angle
-  Meter²•Meter⁻² = distinct SolidAngle
+  KiloGram•Meter⁻¹•Second⁻²* = distinct Pressure
+  KiloGram•Meter⁻³* = distinct Density
+  Meter•Meter⁻¹* = distinct Angle
+  Meter²•Meter⁻²* = distinct SolidAngle
 
   ## derived SI units
   Newton* = KiloGram•Meter•Second⁻²
@@ -115,32 +115,38 @@ type
   ## shorthand types
   m* = Meter
   s* = Second
-  m•s⁻²* = Meter•Second⁻²
-  meterPerSecondSquared* = Meter•Second⁻²
+  A* = Ampere
   g* = Gram
   Kg* = KiloGram
   kg* = Kg
+  K* = Kelvin
+  mol* = Mol
+  cd* = Candela
   N* = Newton
+  J* = Joule
   V* = Volt
   Hz* = Hertz
-  J* = Joule
   C* = Coulomb
   W* = Watt
   Ω* = Ohm
   H* = Henry
   F* = Farad
-  eV* = ElectronVolt
   Pa* = Pascal
   bar* = Bar
-  g•cm⁻³* = distinct Density
   rad* = Radian
   sr* = Steradian
+  eV* = ElectronVolt
   °* = Degree
-  min = Minute
-  h = Hour
-  day = Day
-  yr = Year
-
+  min* = Minute
+  h* = Hour
+  day* = Day
+  yr* = Year
+  # common compound units
+  m•s⁻²* = Meter•Second⁻²
+  ## TODO: this should just be the long form, no?
+  g•cm⁻³* = distinct Density
+  # english language versios
+  meterPerSecondSquared* = Meter•Second⁻²
 
   SiPrefix* = enum
     siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
