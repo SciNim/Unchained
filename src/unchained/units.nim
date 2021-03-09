@@ -311,16 +311,21 @@ proc resolveAlias(n: NimNode): NimNode =
     elif n.getImpl.kind != nnkSym: result = n.getImpl.resolveAlias
     else: result = n
   of nnkTypeDef:
-    if n[2].kind == nnkDistinctTy: result = n[0]
+    case n[2].kind
+    of nnkDistinctTy: result = n[0]
+    of nnkInfix: result = n[0]
+    of nnkObjectTy: result = newEmptyNode()
+    of nnkRefTy: result = newEmptyNode()
+    of nnkPtrTy: result = newEmptyNode()
     else: result = n[2].getImpl.resolveAlias
   else: result = newEmptyNode()
 
 macro isAUnit*(x: typed): untyped =
   let x = x.resolveAlias()
   case x.kind
-  of nnkSym:
+  of nnkSym, nnkDistinctTy:
     let typ = x
-    var xT = if typ.kind == nnkDistinctTy: typ[2] else: typ
+    var xT = if typ.kind == nnkDistinctTy: typ[0] else: typ
     while xT.strVal notin quantityList:
       xT = xT.getTypeImpl
       case xT.kind
