@@ -290,6 +290,13 @@ macro quantityList*(): untyped =
   result = enumerateTypesImpl(bindSym("SomeQuantity"))
   result.add newLit"Quantity"
   result.add newLit"CompoundQuantity"
+  result.add newLit"Unit"
+  result.add newLit"Quantity"
+  result.add newLit"SiUnit"
+  result.add newLit"DerivedSiUnits"
+  result.add newLit"SomeQuantity"
+  result.add newLit"DerivedQuantity"
+  result.add newLit"BaseQuantity"
 
 const qTypes* = quantityList()
 
