@@ -306,10 +306,10 @@ proc resolveAlias(n: NimNode): NimNode =
   of nnkDistinctTy: result = n
   of nnkBracketExpr: result = (n[1].getImpl).resolveAlias
   of nnkSym:
-    if n.getTypeInst != n:
-      result = n.getTypeInst.resolveAlias
-    else:
-      result = n.getImpl.resolveAlias
+    if n.getTypeInst.kind != nnkSym: result = n.getTypeInst.resolveAlias
+    elif n.getTypeImpl.kind != nnkSym: result = n.getTypeImpl.resolveAlias
+    elif n.getImpl.kind != nnkSym: result = n.getImpl.resolveAlias
+    else: result = n
   of nnkTypeDef:
     if n[2].kind == nnkDistinctTy: result = n[0]
     else: result = n[2].getImpl.resolveAlias
