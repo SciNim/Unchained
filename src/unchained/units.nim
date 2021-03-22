@@ -97,6 +97,7 @@ type
   ## other units
   ElectronVolt* = distinct Energy
   Bar* = distinct Pressure
+  Liter* = distinct Length # TODO make that Volume
   Degree* = distinct Angle
   Minute* = distinct Time
   Hour* = distinct Time
@@ -141,6 +142,7 @@ type
   h* = Hour
   day* = Day
   yr* = Year
+  L* = Liter
   # common compound units
   m•s⁻²* = Meter•Second⁻²
   ## TODO: this should just be the long form, no?
@@ -194,6 +196,7 @@ type
     # ...
     # additional compound units
     ukElectronVolt = "ElectronVolt"
+    ukLiter = "Liter"
     # additional non compound units
     ukDegree = "Degree"
     ukMinute = "Minute"
@@ -517,6 +520,7 @@ proc toQuantity(unitKind: UnitKind): QuantityKind =
   of ukHour: result = qkTime
   of ukDay: result = qkTime
   of ukYear: result = qkTime
+  of ukLiter: result = qkLength
   of ukPound: result = qkMass
   of ukInch: result = qkLength
   of ukMile: result = qkLength
@@ -628,6 +632,8 @@ proc toCTBaseUnitSeq(unitKind: UnitKind): seq[CTBaseUnit] =
   of ukElectronVolt:
     ## our logic is incomplete, since it's missing proper conversions ouside of SI prefixes!
     result.add toCTBaseUnitSeq(ukJoule)
+  of ukLiter:
+    result.add toCTBaseUnit(ukMeter, power = 3)
   # natural units
   of ukNaturalEnergy:
     result.add toCTBaseUnitSeq(ukJoule)
@@ -645,6 +651,7 @@ proc getConversionFactor(unitKind: UnitKind): float =
   of ukHour: result = 3600.0
   of ukDay: result = 86400.0
   of ukYear: result = 365.0 * 86400.0
+  of ukLiter: result = 1e-3 # relative to: m³
   else: result = 1.0
 
 proc toCTUnit(unitKind: UnitKind): CTUnit {.compileTime.} =
@@ -809,7 +816,8 @@ proc flatten(units: CTCompoundUnit): CTCompoundUnit =
       ## concept `SomeUnit`? No! If `Meter•Second⁻¹` is demanded we need that and
       ## not allow `CentiMeter•Second⁻¹`?
       case u.unitKind
-      of ukElectronVolt, ukPound, ukInch, ukMile, ukBar, ukSteradian, ukRadian: result.add u
+      # for these units we do `not` want to flatten them!
+      of ukElectronVolt, ukPound, ukInch, ukMile, ukBar, ukSteradian, ukRadian, ukLiter: result.add u
       else:
         let power = u.power
         let prefix = u.siPrefix
@@ -1061,6 +1069,7 @@ proc parseUnitKind(s: string): UnitKind =
   of "h", "Hour": result = ukHour
   of "day", "Day": result = ukDay
   of "yr", "Year": result = ukYear
+  of "L", "Liter": result = ukLiter
   of "lbs", "Pound": result = ukPound # lbs (lb singular is too uncommon):
   of "inch", "Inch": result = ukInch # in ( or possibly "inch" due to in being keyword):
   of "mi", "Mile": result = ukMile
