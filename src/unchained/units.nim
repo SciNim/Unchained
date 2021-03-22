@@ -852,6 +852,8 @@ proc toCTQuantity(a: CTCompoundUnit): CTCompoundQuantity =
     else:
       for bu in u.bs:
         result.addQuant(bu.baseUnit, (u.power * bu.power))
+  if result.len == 0:
+    result[qkUnitLess] = 1
 
 proc commonQuantity(a, b: CTCompoundUnit): bool =
   ## Comparison is done by checking for the same base units and powers using
