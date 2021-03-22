@@ -964,6 +964,8 @@ proc parseSiPrefix(s: var string): SiPrefix =
     if prefix == siPeta and s.startsWith("Pound"): return siIdentity
     if prefix == siExa and s.startsWith("ElectronVolt"): return siIdentity
     if prefix == siMilli and s.startsWith("mol"): return siIdentity
+    if prefix == siMilli and s.startsWith("min"): return siIdentity
+    if prefix == siMega and s.startsWith("Minute"): return siIdentity
     if prefix == siMega and s.startsWith("Mol"): return siIdentity
     if prefix == siYocto and s.startsWith("yr"): return siIdentity
     if prefix == siYotta and s.startsWith("Year"): return siIdentity
