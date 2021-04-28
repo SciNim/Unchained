@@ -26,7 +26,7 @@ func almostEq(a, b: float, epsilon = 1e-8): bool =
     result = diff / min(absA + absB, maximumPositiveValue(float64)) < epsilon
 
 proc `=~=`(a, b: SomeUnit|UnitLess): bool =
-  result = almostEq(a.float, b.float) and type(a) is type(b)
+  result = almostEq(a.float, b.float, epsilon = 1e-5) and type(a) is type(b)
 
 suite "Unchained - Basic definitions":
   test "Simple type definitions":
@@ -450,7 +450,7 @@ suite "Unchained - practical examples turned tests":
     proc vacTime(q_des: Pa•m³•s⁻¹•m⁻², A: m², t: s, S_HV: L•s⁻¹, p_3: mbar): Hour =
       result = (q_des * A * t / (4 * p_3.to(Pa) * S_HV.to(m³•s⁻¹))).to(Hour)
 
-    check vacTime((2.7e-4).Pa•m³•s⁻¹•m⁻², 35.311.m², 3600.s, 685.L•s⁻¹, 1.0e-7.mbar) =~= 348.0.Hour
+    check vacTime((2.7e-4).Pa•m³•s⁻¹•m⁻², 35.311.m², 3600.s, 685.L•s⁻¹, 1.0e-7.mbar) =~= 347.9551.Hour
 
 
 #converter to_eV(x: GeV): eV =
