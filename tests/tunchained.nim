@@ -438,6 +438,21 @@ suite "Unchained - syntax in accented quotes":
     check test(98.1.kg•m•s⁻²) =~= 10.kg
     check test(98.1.`kg*m*s^-2`) =~= 10.kg
 
+suite "Unchained - practical examples turned tests":
+  test "Vacuum pumping time":
+    defUnit(Pa•m³•s⁻¹•m⁻²)
+    defUnit(Pa•m³•s⁻¹)
+    defUnit(Pa•m³)
+    defUnit(m²)
+    defUnit(L•s⁻¹)
+    defUnit(m³•s⁻¹)
+
+    proc vacTime(q_des: Pa•m³•s⁻¹•m⁻², A: m², t: s, S_HV: L•s⁻¹, p_3: mbar): Hour =
+      result = (q_des * A * t / (4 * p_3.to(Pa) * S_HV.to(m³•s⁻¹))).to(Hour)
+
+    check vacTime((2.7e-4).Pa•m³•s⁻¹•m⁻², 35.311.m², 3600.s, 685.L•s⁻¹, 1.0e-7.mbar) =~= 348.0.Hour
+
+
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
 #  (x.float * 1e-9).eV

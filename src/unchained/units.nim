@@ -963,7 +963,7 @@ proc parseSiPrefix(s: var string): SiPrefix =
     ## NOTE: we store kg internally using g even though it's not the SI unit!
     if prefix == siIdentity: continue
     ## TODO: properly fix this!!
-    if prefix == siPeta and s.startsWith("Pound"): return siIdentity
+    if prefix == siPeta and (s.startsWith("Pound") or s == "Pa"): return siIdentity
     if prefix == siExa and s.startsWith("ElectronVolt"): return siIdentity
     if prefix == siMilli and s.startsWith("mol"): return siIdentity
     if prefix == siMilli and s.startsWith("min"): return siIdentity
