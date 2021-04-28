@@ -345,7 +345,12 @@ type
   SomeUnit* = concept x
     isAUnit(x)
 
-proc `$`*[T: SomeUnit](s: T): string = &"{s.float:.4g} {$type(s)}"
+proc pretty*[T: SomeUnit](s: T, precision: int): string =
+  result = s.float.formatFloat(precision = precision)
+  result.trimZeros()
+  result.add &" {$typeof(s)}"
+
+proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1)
 
 when false:
   ## declare conversions. Defines mappings from x -> y that we store internally as:
