@@ -13,7 +13,7 @@ let
   N_A* = 6.02214076e23.mol⁻¹
   M_u* = 0.99999999965e-3.kg•mol⁻¹
   m_μ_eV* = 105.6583755e6.eV # / c²
-  m_μ* = 1.883531627e-28.kg # 105.6583755e3 # MeV / c² # 1.883531627e-27 kg
+  m_μ* = 1.883531627e-28.kg # 105.6583755e3 # MeV / c²
   π* = PI
   r_e* = e*e / (4 * π * ε_0 * m_e * c * c) # classical electron radius
   #K = 4 * π * N_A * r_e * r_e * m_e_c2 * (100.0^2)# [MeV mol⁻¹ cm²]
