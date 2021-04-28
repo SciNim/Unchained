@@ -447,7 +447,10 @@ macro generateSiPrefixedUnits*(units: untyped): untyped =
   expectKind(units, nnkStmtList)
   result = nnkTypeSection.newTree()
   for unit in units:
-    expectKind(unit, nnkPar)
+    when (NimMajor, NimMinor, NimPatch) < (1, 5, 0):
+      expectKind(unit, nnkPar)
+    else:
+      expectKind(unit, nnkTupleConstr)
     let sisShort = genSiPrefixes(unit[0], true, false)
     let sisLong = genSiPrefixes(unit[1], false, true)
     for si in sisLong:
