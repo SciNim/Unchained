@@ -78,6 +78,29 @@ suite "Unchained - Basic unit math":
       check typeof(a + b) is KiloGram
       check a + b == 15.kg
 
+  test "Math: `+` of units - same quantity, different (non SI) units, conversion to SI":
+    block:
+      let a = 5.lbs
+      let b = 2.kg
+      check typeof(a + b) is KiloGram
+      check typeof(b + a) is KiloGram
+      check a + b =~= 4.267961.kg
+      check b + a =~= 4.267961.kg
+    block:
+      let a = 5.Minute
+      let b = 20.Second
+      check typeof(a + b) is Second
+      check typeof(b + a) is Second
+      check a + b == 320.Second
+      check b + a == 320.Second
+    block:
+      let a = 1.Minute
+      let b = 1.Hour
+      check typeof(a + b) is Second
+      check typeof(b + a) is Second
+      check a + b == 3660.Second
+      check b + a == 3660.Second
+
   test "Math: `+` of units - explicit and implicit units can be added":
     let expl = 5.N
     let impl = 10.kg•m•s⁻²
@@ -120,6 +143,29 @@ suite "Unchained - Basic unit math":
       let b = 5000.g
       check typeof(a - b) is KiloGram
       check a - b == 5.kg
+
+  test "Math: `+` of units - same quantity, different (non SI) units, conversion to SI":
+    block:
+      let a = 5.lbs
+      let b = 2.kg
+      check typeof(a -  b) is KiloGram
+      check typeof(b - a) is KiloGram
+      check a - b =~= 0.267961.kg
+      check b - a =~= -0.267961.kg
+    block:
+      let a = 5.Minute
+      let b = 20.Second
+      check typeof(a - b) is Second
+      check typeof(b - a) is Second
+      check a - b == 280.Second
+      check b - a == -280.Second
+    block:
+      let a = 1.Minute
+      let b = 1.Hour
+      check typeof(a - b) is Second
+      check typeof(b - a) is Second
+      check a - b == -3540.Second
+      check b - a == 3540.Second
 
   test "Math: `-` of units - explicit and implicit units can be subtracted":
     let expl = 10.N

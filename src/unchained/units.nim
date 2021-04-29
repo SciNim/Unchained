@@ -825,6 +825,7 @@ proc flatten(units: CTCompoundUnit): CTCompoundUnit =
       ## not allow `CentiMeter•Second⁻¹`?
       case u.unitKind
       # for these units we do `not` want to flatten them!
+      # TODO: most of these are not compound though?!
       of ukElectronVolt, ukPound, ukInch, ukMile, ukBar, ukSteradian, ukRadian, ukLiter: result.add u
       else:
         let power = u.power
@@ -1217,11 +1218,21 @@ proc toBaseTypeScale(x: CTCompoundUnit): float =
 proc toBaseType(u: CTUnit): CTUnit =
   result = u
   case u.unitKind
-  of ukGram:
+  of ukGram, ukPound:
     ## SI unit base of Gram is KiloGram
+    result.unitKind = ukGram # for non ukGram
     result.siPrefix = siKilo
     result.b.baseUnit = buGram
     result.b.siPrefix = siKilo
+  of ukMile, ukInch:
+    result.siPrefix = siIdentity
+    result.unitKind = ukMeter
+  of ukDegree:
+    result.siPrefix = siIdentity
+    result.unitKind = ukSteradian
+  of ukMinute, ukHour, ukDay, ukYear:
+    result.siPrefix = siIdentity
+    result.unitKind = ukSecond
   else: result.siPrefix = siIdentity
 
 proc toBaseType(x: CTCompoundUnit): CTCompoundUnit =
