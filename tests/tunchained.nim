@@ -144,7 +144,7 @@ suite "Unchained - Basic unit math":
       check typeof(a - b) is KiloGram
       check a - b == 5.kg
 
-  test "Math: `+` of units - same quantity, different (non SI) units, conversion to SI":
+  test "Math: `-` of units - same quantity, different (non SI) units, conversion to SI":
     block:
       let a = 5.lbs
       let b = 2.kg
