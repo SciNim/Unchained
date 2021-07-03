@@ -1668,7 +1668,7 @@ macro toNaturalUnit*[T: SomeUnit](t: T): untyped =
   ## parses the unit and converts it to natural units (`eV`) according to
   ## the contained
   var typ = t.parseCTUnit()
-    typ.toNaturalUnitImpl()
+    .toNaturalUnitImpl()
   let scale = typ.toNaturalScale()
   let resType = typ.simplify().toNimType()
   result = quote do:
