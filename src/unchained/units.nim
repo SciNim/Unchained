@@ -1508,11 +1508,6 @@ macro toImpl(x: typed, to: static CTCompoundUnit): NimNode =
     error("Cannot convert " & $(xCT.toNimType()) & " to " & $(yCT.toNimType()) & " as they represent different " &
       "quantities!")
 
-#macro to(x: untyped, to: untyped): untyped =
-#  let yCT = parseCTUnit(to)
-#  result = quote do:
-#    toImpl(`x`, `yCT`)
-
 {.experimental: "dotOperators".}
 macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
   ## macro to allow to generate new types on the fly
