@@ -1533,11 +1533,12 @@ macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
       `y` `x`
 
 proc baseUnitToNaturalUnit(b: CTBaseUnit): CTUnit =
+  ## Converts the given base unit to a natural unit, i.e. `eV` of the corresponding
+  ## power (according to the quantity).
   case b.baseUnit
   of buUnitLess:
     result = initCTUnit("", ukUnitLess, power = 1 * b.power, b.siPrefix, factor = some(1.0))
   of buGram:
-    echo "POWER ", b.power, " and siprefix ", b.siPrefix
     if b.siPrefix == siKilo:
       result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, siIdentity, factor = some(1.7826627e-36))
     else:
@@ -1546,9 +1547,8 @@ proc baseUnitToNaturalUnit(b: CTBaseUnit): CTUnit =
     result = initCTUnit("eV⁻¹", ukElectronVolt, power = -1 * b.power, b.siPrefix, factor = some(1.9732705e-7))
   of buSecond:
     result = initCTUnit("eV⁻¹", ukElectronVolt, power = -1 * b.power, b.siPrefix, factor = some(6.5821220e-16))
-    echo "/{}/{}/{} /, ", result
   of buAmpere:
-    result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, b.siPrefix, factor = some(0.00080381671)) #2.8494561e-3)
+    result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, b.siPrefix, factor = some(0.00080381671))
   of buKelvin: error("Broken")
   of buMol:
     result = initCTUnit("", ukUnitLess, power = 1 * b.power, b.siPrefix, factor = some(1.0))
@@ -1557,11 +1557,8 @@ proc baseUnitToNaturalUnit(b: CTBaseUnit): CTUnit =
   result.factor = 1.0 / result.factor
 
 proc toNaturalUnitImpl(t: CTUnit): CTUnit =
-  ##
-
-  ## TODOD: problem is T is converted into flattened type and mT is kept as milli tesla!!!
-  echo "T POWER ", t.power
-  echo "T SIPREFIX ", t.siPrefix
+  ## TODO: problem is T is converted into flattened type and mT is kept as milli tesla!!!
+  ## TODO2: is this still a problem?
   case t.unitType
   of utQuantity:
     var unit = baseUnitToNaturalUnit(t.b)
@@ -1569,63 +1566,33 @@ proc toNaturalUnitImpl(t: CTUnit): CTUnit =
                        else: t.siPrefix.toFactor()
     unit.factor = pow(unit.factor * prefixFactor, t.power.float)
     unit.power *= t.power
-    echo "unit power ", unit.power, " and factor ", unit.factor, " from unit ", t.b.baseUnit
-    echo "\n\n"
-
-    #unit.factor = pow(unit.factor, unit.power.float)
-    #unit.power *= t.power
-    #unit.factor *= t.factor# * (t.siPrefix.toFactor()) * unit.siPrefix.toFactor()
-    #unit.siPrefix = siIdentity
     result = unit
   of utCompoundQuantity:
-    #if true: error("not happening")
     ## NOTE: this should be a single eV CT unit. Need to merge factors
     result = initCTUnit("eV", ukElectronVolt, power = 0, siPrefix = siIdentity)
-    #echo "/{}=>/(}=:_[(}:=_>([}:=_>[}=:>_[}=:>_[(}=:>_[}=:>_[(}>\n\n"
     for b in t.bs:
       var unit = baseUnitToNaturalUnit(b)
       result.factor *= unit.factor
-      echo "unit power ", unit.power, " and factor ", unit.factor, " from unit ", b.baseUnit
-      echo "\n\n"
       result.power += unit.power
-
-      #unit.factor = pow(unit.factor * t.siPrefix.toFactor(), t.power.float)
-      #unit.factor = unit#pow(unit.factor, unit.power.float)
-      #unit.power = 1 #*= t.power
-      #unit.factor *= t.factor * (t.siPrefix.toFactor()) #* unit.siPrefix.toFactor()
-      #unit.siPrefix = siIdentity
-      #result.add unit
-    echo "PREF ", t.siPrefix, " as prr ", t.siPrefix.toFactor, " and POWER ", t.power
-    echo result.factor
     result.factor = pow(result.factor * t.siPrefix.toFactor(), t.power.float)
-    echo result.factor
-
-  #result = initCTUnit(name = "eV", unitKind = ukElectronVolt, power = t.power, siPrefix = t.siPrefix,
-  #                    isShortHand = true)
-  #result.factor = factor
 
 proc toNaturalUnitImpl(t: CTCompoundUnit): CTCompoundUnit =
-  ##
+  ## Converts a compound unit to natural units
   for unit in t.units:
-    echo "))) ", unit.siPrefix
-    echo unit
     result.add toNaturalUnitImpl(unit)
 
 proc toNaturalScale(t: CTCompoundUnit): float =
+  ## Returns the scaling factor associated with a unit converted
+  ## to natural units
   result = 1.0
   for unit in t.units:
-    result *= unit.factor #pow(unit.factor, unit.power.float)
-  echo "SCLLL ", result
+    result *= unit.factor
 
 macro toNaturalUnit*[T: SomeUnit](t: T): untyped =
-  ## parses the unit and converts it to natural units (`eV`)
+  ## parses the unit and converts it to natural units (`eV`) according to
+  ## the contained
   var typ = t.parseCTUnit()
-  echo typ
-  typ = typ
-    #.flatten()
-    #.convertIfMultipleSiPrefixes()
-    .toNaturalUnitImpl()
-  #let scale = typ.toBaseTypeScale()
+    typ.toNaturalUnitImpl()
   let scale = typ.toNaturalScale()
   let resType = typ.simplify().toNimType()
   result = quote do:
