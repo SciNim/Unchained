@@ -464,12 +464,14 @@ const SiPrefixTable = block:
     tab[val] = key
   tab
 
-proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool): seq[NimNode] =
+proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool,
+                   excludes: seq[string] = @[]): seq[NimNode] =
   ## get the type of the unit so that we know what to base these units on
   let typ = n
   if genLong:
     for (si, prefix) in SiPrefixStringsLong:
       if prefix == siIdentity: continue
+      if si in excludes: continue
       let typStr = ident($si & typ.strVal)
       if typStr.strVal == "KiloGram": continue # skip generation of `KiloGram`
       let isTyp = nnkDistinctTy.newTree(typ)
@@ -477,6 +479,7 @@ proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool): seq[NimNode] =
   if genShort:
     for (si, prefix) in SiPrefixStringsShort:
       if prefix == siIdentity: continue
+      if si in excludes: continue
       let typStr = ident($si & typ.strVal)
       if typStr.strVal == "kg": continue # predefined as well to have same number of elements in this seq
       result.add typStr
@@ -489,12 +492,24 @@ macro generateSiPrefixedUnits*(units: untyped): untyped =
   expectKind(units, nnkStmtList)
   result = nnkTypeSection.newTree()
   for unit in units:
-    when (NimMajor, NimMinor, NimPatch) < (1, 5, 0):
-      expectKind(unit, nnkPar)
+    doAssert unit.kind in {nnkTupleConstr, nnkPar, nnkCommand}
+    var sisShort: seq[NimNode]
+    var sisLong: seq[NimNode]
+    if unit.kind == nnkCommand:
+      var excludes: seq[string]
+      doAssert unit[0].kind in {nnkTupleConstr, nnkPar}
+      doAssert unit[1].kind == nnkCommand
+      let excls = unit[1]
+      doAssert excls[0].kind == nnkIdent and excls[0].strVal == "exclude"
+      doAssert excls[1].kind == nnkBracket
+      for br in excls[1]:
+        doAssert br.kind == nnkIdent
+        excludes.add br.strVal
+      sisShort = genSiPrefixes(unit[0][0], true, false, excludes = excludes)
+      sisLong = genSiPrefixes(unit[0][1], false, true, excludes = excludes)
     else:
-      expectKind(unit, nnkTupleConstr)
-    let sisShort = genSiPrefixes(unit[0], true, false)
-    let sisLong = genSiPrefixes(unit[1], false, true)
+      sisShort = genSiPrefixes(unit[0], true, false)
+      sisLong = genSiPrefixes(unit[1], false, true)
     for si in sisLong:
       result.add si
     ## generate cross references from long to short
@@ -519,7 +534,7 @@ generateSiPrefixedUnits:
   (bar, Bar)
   (rad, Radian)
   (sr, Steradian)
-  (T, Tesla)
+  (T, Tesla) exclude [f]
 
 proc isUnitLess(u: CTCompoundUnit): bool = u.units.len == 0
 
