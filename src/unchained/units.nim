@@ -38,13 +38,15 @@ type
   Capacitance* = distinct CompoundQuantity
   Inductance* = distinct CompoundQuantity
   Pressure* = distinct CompoundQuantity
+  MagneticFieldStrength* = distinct CompoundQuantity
 
   # angles and solid angles are technically UnitLess.
   Angle* = UnitLess
   SolidAngle* = UnitLess
 
   DerivedQuantity* = Velocity | Acceleration | Momentum | Force | Energy | Density | ElectricPotential | Voltage |
-    Frequency | Charge | Power | ElectricResistance | Capacitance | Inductance | Pressure | Angle | SolidAngle
+    Frequency | Charge | Power | ElectricResistance | Capacitance | Inductance | Pressure | Angle | SolidAngle |
+    MagneticFieldStrength
 
   SomeQuantity* = BaseQuantity | DerivedQuantity
 
@@ -79,6 +81,7 @@ type
   KiloGram•Meter⁻³* = distinct Density
   Meter•Meter⁻¹* = distinct Angle
   Meter²•Meter⁻²* = distinct SolidAngle
+  KiloGram•Ampere⁻¹•Second⁻²* = distinct MagneticFieldStrength
 
   ## derived SI units
   Newton* = KiloGram•Meter•Second⁻²
@@ -93,6 +96,8 @@ type
   Pascal* = KiloGram•Meter⁻¹•Second⁻²
   Radian* = Meter•Meter⁻¹
   Steradian* = Meter²•Meter⁻²
+  ## TODO: distinct quantity of Magnetic
+  Tesla* = KiloGram•Ampere⁻¹•Second⁻²
 
   ## other units
   ElectronVolt* = distinct Energy
@@ -143,6 +148,7 @@ type
   day* = Day
   yr* = Year
   L* = Liter
+  T* = Tesla
   # common compound units
   m•s⁻²* = Meter•Second⁻²
   ## TODO: this should just be the long form, no?
@@ -161,7 +167,7 @@ type
     # derived quantities
     qkFrequency, qkVelocity, qkAcceleration, qkMomentum, qkForce, qkEnergy, qkElectricPotential,
     qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance, qkPressure, qkDensity,
-    qkAngle, qkSolidAngle
+    qkAngle, qkSolidAngle, qkMagneticFieldStrength
 
   ## enum storing all known units (their base form) to allow easier handling of unit conversions
   ## Enum value is the default name of the unit
@@ -188,6 +194,7 @@ type
     ukBar = "Bar"
     ukRadian = "Radian"
     ukSteradian = "Steradian"
+    ukTesla = "Tesla"
     # natural units
     ukNaturalLength = "NaturalLength" # length
     ukNaturalMass = "NaturalMass" # mass
@@ -482,6 +489,7 @@ generateSiPrefixedUnits:
   (bar, Bar)
   (rad, Radian)
   (sr, Steradian)
+  (T, Tesla)
 
 proc isUnitLess(u: CTCompoundUnit): bool = u.units.len == 0
 
@@ -516,6 +524,7 @@ proc toQuantity(unitKind: UnitKind): QuantityKind =
   of ukBar: result = qkPressure
   of ukRadian: result = qkAngle
   of ukSteradian: result = qkSolidAngle
+  of ukTesla: result = qkMagneticFieldStrength
   # natural units
   of ukNaturalLength: result = qkLength
   of ukNaturalMass: result = qkMass
@@ -637,6 +646,10 @@ proc toCTBaseUnitSeq(unitKind: UnitKind): seq[CTBaseUnit] =
   of ukSteradian:
     result.add toCTBaseUnit(ukMeter, power = 2)
     result.add toCTBaseUnit(ukMeter, power = -2)
+  of ukTesla:
+    result.add toCTBaseUnit(ukGram, siPrefix = siKilo)
+    result.add toCTBaseUnit(ukAmpere, power = -1)
+    result.add toCTBaseUnit(ukSecond, power = -2)
   of ukElectronVolt:
     ## our logic is incomplete, since it's missing proper conversions ouside of SI prefixes!
     result.add toCTBaseUnitSeq(ukJoule)
@@ -685,9 +698,11 @@ proc toCTUnit(unitKind: UnitKind): CTUnit {.compileTime.} =
                     bs: toCTBaseUnitSeq(unitKind))
 
 proc initCTUnit(name: string, unitKind: UnitKind, power: int, siPrefix: SiPrefix,
-                isShortHand = false): CTUnit =
+                isShortHand = false, factor = none(float)): CTUnit =
   result = unitKind.toCTUnit()
   result.name = name
+  if factor.isSome:
+    result.factor = factor.get
   result.power = power
   result.siPrefix = siPrefix #if siPrefix == siIdentity and unitKind == ukGram: siKilo else: siPrefix
   result.isShortHand = isShortHand
@@ -980,6 +995,7 @@ proc parseSiPrefix(s: var string): SiPrefix =
     if prefix == siMega and s.startsWith("Mol"): return siIdentity
     if prefix == siYocto and s.startsWith("yr"): return siIdentity
     if prefix == siYotta and s.startsWith("Year"): return siIdentity
+    if prefix == siTera and (s == "T" or s.startsWith("Tesla")): return siIdentity
     if s.startsWith(el):
       s.removePrefix(el)
       return prefix
@@ -1070,6 +1086,7 @@ proc parseUnitKind(s: string): UnitKind =
   of "bar", "Bar": result = ukBar
   of "rad", "Radian": result = ukRadian
   of "sr", "Steradian": result = ukSteradian
+  of "T", "Tesla": result = ukTesla
   # natural units
   of "NaturalLength": result = ukNaturalLength # length:
   of "NaturalMass": result = ukNaturalMass # mass:
@@ -1203,6 +1220,7 @@ proc parseCTUnit(x: NimNode): CTCompoundUnit =
 
 proc toBaseTypeScale(u: CTUnit): float =
   result = u.siPrefix.toFactor()
+  echo u.factor
   result *= u.factor
   if u.unitKind == ukGram:
     result /= 1e3 # base unit is `kg`!
@@ -1377,7 +1395,7 @@ proc convertIfMultipleSiPrefixes(x: CTCompoundUnit): CTCompoundUnit =
       ## TODO: idea here was to accomodate auto conversion eV -> Joule I think?!
       ## Think about if we broke something outside of unit tests! Maybe implicit math with different units?
       ## Or not a problem anymore, since eV -> Joule isn't done while flattened anymore?
-      #uBase.factor *= scale
+      # uBase.factor *= scale
       result.add uBase
     else:
       result.add u
@@ -1490,11 +1508,6 @@ macro toImpl(x: typed, to: static CTCompoundUnit): NimNode =
     error("Cannot convert " & $(xCT.toNimType()) & " to " & $(yCT.toNimType()) & " as they represent different " &
       "quantities!")
 
-#macro to(x: untyped, to: untyped): untyped =
-#  let yCT = parseCTUnit(to)
-#  result = quote do:
-#    toImpl(`x`, `yCT`)
-
 {.experimental: "dotOperators".}
 macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
   ## macro to allow to generate new types on the fly
@@ -1518,3 +1531,70 @@ macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
     # parsing as a unit failed, rewrite to get possible CT error or correct result
     result = quote do:
       `y` `x`
+
+proc baseUnitToNaturalUnit(b: CTBaseUnit): CTUnit =
+  ## Converts the given base unit to a natural unit, i.e. `eV` of the corresponding
+  ## power (according to the quantity).
+  case b.baseUnit
+  of buUnitLess:
+    result = initCTUnit("", ukUnitLess, power = 1 * b.power, b.siPrefix, factor = some(1.0))
+  of buGram:
+    if b.siPrefix == siKilo:
+      result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, siIdentity, factor = some(1.7826627e-36))
+    else:
+      result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, b.siPrefix, factor = some(1.7826627e-36))
+  of buMeter:
+    result = initCTUnit("eV⁻¹", ukElectronVolt, power = -1 * b.power, b.siPrefix, factor = some(1.9732705e-7))
+  of buSecond:
+    result = initCTUnit("eV⁻¹", ukElectronVolt, power = -1 * b.power, b.siPrefix, factor = some(6.5821220e-16))
+  of buAmpere:
+    result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, b.siPrefix, factor = some(0.00080381671))
+  of buKelvin: error("Broken")
+  of buMol:
+    result = initCTUnit("", ukUnitLess, power = 1 * b.power, b.siPrefix, factor = some(1.0))
+  of buCandela: error("Broken")
+  result.factor = pow(result.factor, b.power.float)
+  result.factor = 1.0 / result.factor
+
+proc toNaturalUnitImpl(t: CTUnit): CTUnit =
+  ## TODO: problem is T is converted into flattened type and mT is kept as milli tesla!!!
+  ## TODO2: is this still a problem?
+  case t.unitType
+  of utQuantity:
+    var unit = baseUnitToNaturalUnit(t.b)
+    let prefixFactor = if t.unitKind == ukGram: t.siPrefix.toFactor() / 1000.0
+                       else: t.siPrefix.toFactor()
+    unit.factor = pow(unit.factor * prefixFactor, t.power.float)
+    unit.power *= t.power
+    result = unit
+  of utCompoundQuantity:
+    ## NOTE: this should be a single eV CT unit. Need to merge factors
+    result = initCTUnit("eV", ukElectronVolt, power = 0, siPrefix = siIdentity)
+    for b in t.bs:
+      var unit = baseUnitToNaturalUnit(b)
+      result.factor *= unit.factor
+      result.power += unit.power
+    result.factor = pow(result.factor * t.siPrefix.toFactor(), t.power.float)
+
+proc toNaturalUnitImpl(t: CTCompoundUnit): CTCompoundUnit =
+  ## Converts a compound unit to natural units
+  for unit in t.units:
+    result.add toNaturalUnitImpl(unit)
+
+proc toNaturalScale(t: CTCompoundUnit): float =
+  ## Returns the scaling factor associated with a unit converted
+  ## to natural units
+  result = 1.0
+  for unit in t.units:
+    result *= unit.factor
+
+macro toNaturalUnit*[T: SomeUnit](t: T): untyped =
+  ## parses the unit and converts it to natural units (`eV`) according to
+  ## the contained
+  var typ = t.parseCTUnit()
+    typ.toNaturalUnitImpl()
+  let scale = typ.toNaturalScale()
+  let resType = typ.simplify().toNimType()
+  result = quote do:
+    defUnit(`resType`)
+    (`t`.float * `scale`).`resType`
