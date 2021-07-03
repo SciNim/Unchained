@@ -242,6 +242,19 @@ suite "Unchained - Basic unit math":
     # unrelated to special case of `g/kg`:
     check A / 1e-3.mm•mol⁻¹ =~= 39950.mm⁻¹•mol
 
+  test "Math of compound units":
+    ## TODO: for certain compound units math is somewhat broken, as
+    ## we don't transform to the correct units.
+    ## Consider
+    let x = 1.Liter
+    let y = 1.m³
+    ## TODO: fix me. Should be m³!
+    check type(x + y) is Liter
+    check type(y + x) is Meter³
+    echo "I'm a *WRONG* test illustrating issue #9. Fix me!"
+    check x + y =~= 1.001.Liter ## WRONG!!!
+    check y + x =~= 1.001.Meter³ ## correct
+
 suite "Unchained - Comparisons of units":
   test "Comparisons: `<` for units of same type":
     let x = 5.kg
@@ -498,7 +511,102 @@ suite "Unchained - practical examples turned tests":
 
     check vacTime((2.7e-4).Pa•m³•s⁻¹•m⁻², 35.311.m², 3600.s, 685.L•s⁻¹, 1.0e-7.mbar) =~= 347.9551.Hour
 
+suite "Unchained - imperial units":
+  test "Pound":
+    block:
+      let x = 1.lbs
+      let y = 1.kg
+      check type(x + y) is KiloGram
+      check x + y =~= 1.45359237.KiloGram
+    block:
+      let x = 1.Pound
+      let y = 1.KiloGram
+      check type(x + y) is KiloGram
+      check x + y =~= 1.45359237.KiloGram
 
+  test "Inch":
+    block:
+      let x = 1.inch
+      let y = 1.m
+      check type(x + y) is Meter
+      check x + y =~= 1.0254.Meter
+    block:
+      let x = 1.Inch
+      let y = 1.Meter
+      check type(x + y) is Meter
+      check x + y =~= 1.0254.Meter
+
+  test "Foot":
+    block:
+      let x = 1.ft
+      let y = 1.m
+      check type(x + y) is Meter
+      check x + y =~= 1.3048.Meter
+    block:
+      let x = 1.Foot
+      let y = 1.Meter
+      check type(x + y) is Meter
+      check x + y =~= 1.3048.Meter
+
+  test "Yard":
+    block:
+      let x = 1.yd
+      let y = 1.m
+      check type(x + y) is Meter
+      check x + y =~= 1.9144.Meter
+    block:
+      let x = 1.Yard
+      let y = 1.Meter
+      check type(x + y) is Meter
+      check x + y =~= 1.9144.Meter
+
+  test "Ounce":
+    block:
+      let x = 1.oz
+      let y = 1.kg
+      check type(x + y) is KiloGram
+      check x + y =~= 1.028349523.KiloGram
+    block:
+      let x = 1.Ounce
+      let y = 1.KiloGram
+      check type(x + y) is KiloGram
+      check x + y =~= 1.028349523.KiloGram
+
+  test "Slug":
+    block:
+      let x = 1.slug
+      let y = 1.kg
+      check type(x + y) is KiloGram
+      check x + y =~= 15.593903.KiloGram
+    block:
+      let x = 1.Slug
+      let y = 1.KiloGram
+      check type(x + y) is KiloGram
+      check x + y =~= 15.593903.KiloGram
+
+  #test "Acre":
+  #  block:
+  #    let x = 1.acre
+  #    let y = 1.m²
+  #    check type(x + y) is Meter²
+  #    check x + y =~= 4047.8564.Meter²
+  #  block:
+  #    let x = 1.Acre
+  #    let y = 1.Meter²
+  #    check type(x + y) is Meter²
+  #    check x + y =~= 4047.8564.Meter²
+
+  test "Pound-force":
+    block:
+      let x = 1.lbf
+      let y = 1.N
+      check type(x + y) is Newton
+      check x + y =~= 5.4482216.Newton
+    block:
+      let x = 1.PoundForce
+      let y = 1.Newton
+      check type(x + y) is Newton
+      check x + y =~= 5.4482216.Newton
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
 #  (x.float * 1e-9).eV

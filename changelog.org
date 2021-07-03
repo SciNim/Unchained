@@ -2,3 +2,5 @@
 - support for all SI base units and most compound SI units
 - *experimental* SI unit support for converting SI units to natural
   units according to HEP Lorentz-Heaviside convention
+- add imperial units: =yard, foot, ounce, slug, lbf, acre=
+ 

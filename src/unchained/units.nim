@@ -26,6 +26,7 @@ type
   Force* = distinct CompoundQuantity
   Energy* = distinct CompoundQuantity
   Density* = distinct CompoundQuantity
+  Area* = distinct CompoundQuantity
 
   ElectricPotential* = distinct CompoundQuantity
   Voltage* = ElectricPotential
@@ -109,6 +110,17 @@ type
   Day* = distinct Time
   Year* = distinct Time
 
+  ## Imperial
+  Pound* = distinct Mass
+  Inch* = distinct Length
+  Mile* = distinct Length
+  Foot* = distinct Length
+  Yard* = distinct Length
+  Acre* = distinct Area
+  Ounce* = distinct Mass
+  Slug* = distinct Mass
+  PoundForce* = distinct Force
+
   ## possibly define convenient overloads? Not really required, since we compute that these match after
   ## all, no? E.g. given Joule•Coulomb⁻¹. We would parse each, convert to base SI units and notice that
   ## it's the same as required `Volt` after conversion to base SI units for V. That's how it should work
@@ -149,6 +161,18 @@ type
   yr* = Year
   L* = Liter
   T* = Tesla
+
+  ## imperial shorthand
+  inch* = Inch
+  mi* = Mile
+  lbs* = Pound
+  ft* = Foot
+  yd* = Yard
+  acre* = Acre
+  oz* = Ounce
+  slug* = Slug
+  lbf* = PoundForce
+
   # common compound units
   m•s⁻²* = Meter•Second⁻²
   ## TODO: this should just be the long form, no?
@@ -165,7 +189,7 @@ type
     # base quantities
     qkUnitLess, qkMass, qkLength, qkTime, qkCurrent, qkTemperature, qkAmountOfSubstance, qkLuminosity,
     # derived quantities
-    qkFrequency, qkVelocity, qkAcceleration, qkMomentum, qkForce, qkEnergy, qkElectricPotential,
+    qkFrequency, qkVelocity, qkAcceleration, qkArea, qkMomentum, qkForce, qkEnergy, qkElectricPotential,
     qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance, qkPressure, qkDensity,
     qkAngle, qkSolidAngle, qkMagneticFieldStrength
 
@@ -214,6 +238,12 @@ type
     ukPound = "Pound" # lbs (lb singular is too uncommon)
     ukInch = "Inch" # in ( or possibly "inch" due to in being keyword)
     ukMile = "Mile"
+    ukFoot = "Foot"
+    ukYard = "Yard"
+    ukOunce = "Ounce"
+    ukSlug = "Slug"
+    ukAcre = "Acre"
+    ukPoundForce = "Pound-force"
     # ...
 
   ## Base unit kind stores the fundamental units, which represent the SI units (except for Gram in place of kg)
@@ -434,12 +464,14 @@ const SiPrefixTable = block:
     tab[val] = key
   tab
 
-proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool): seq[NimNode] =
+proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool,
+                   excludes: seq[string] = @[]): seq[NimNode] =
   ## get the type of the unit so that we know what to base these units on
   let typ = n
   if genLong:
     for (si, prefix) in SiPrefixStringsLong:
       if prefix == siIdentity: continue
+      if si in excludes: continue
       let typStr = ident($si & typ.strVal)
       if typStr.strVal == "KiloGram": continue # skip generation of `KiloGram`
       let isTyp = nnkDistinctTy.newTree(typ)
@@ -447,6 +479,7 @@ proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool): seq[NimNode] =
   if genShort:
     for (si, prefix) in SiPrefixStringsShort:
       if prefix == siIdentity: continue
+      if si in excludes: continue
       let typStr = ident($si & typ.strVal)
       if typStr.strVal == "kg": continue # predefined as well to have same number of elements in this seq
       result.add typStr
@@ -459,12 +492,24 @@ macro generateSiPrefixedUnits*(units: untyped): untyped =
   expectKind(units, nnkStmtList)
   result = nnkTypeSection.newTree()
   for unit in units:
-    when (NimMajor, NimMinor, NimPatch) < (1, 5, 0):
-      expectKind(unit, nnkPar)
+    doAssert unit.kind in {nnkTupleConstr, nnkPar, nnkCommand}
+    var sisShort: seq[NimNode]
+    var sisLong: seq[NimNode]
+    if unit.kind == nnkCommand:
+      var excludes: seq[string]
+      doAssert unit[0].kind in {nnkTupleConstr, nnkPar}
+      doAssert unit[1].kind == nnkCommand
+      let excls = unit[1]
+      doAssert excls[0].kind == nnkIdent and excls[0].strVal == "exclude"
+      doAssert excls[1].kind == nnkBracket
+      for br in excls[1]:
+        doAssert br.kind == nnkIdent
+        excludes.add br.strVal
+      sisShort = genSiPrefixes(unit[0][0], true, false, excludes = excludes)
+      sisLong = genSiPrefixes(unit[0][1], false, true, excludes = excludes)
     else:
-      expectKind(unit, nnkTupleConstr)
-    let sisShort = genSiPrefixes(unit[0], true, false)
-    let sisLong = genSiPrefixes(unit[1], false, true)
+      sisShort = genSiPrefixes(unit[0], true, false)
+      sisLong = genSiPrefixes(unit[1], false, true)
     for si in sisLong:
       result.add si
     ## generate cross references from long to short
@@ -489,14 +534,14 @@ generateSiPrefixedUnits:
   (bar, Bar)
   (rad, Radian)
   (sr, Steradian)
-  (T, Tesla)
+  (T, Tesla) exclude [f]
 
 proc isUnitLess(u: CTCompoundUnit): bool = u.units.len == 0
 
 proc isCompound(unitKind: UnitKind): bool =
   result = unitKind notin {ukUnitLess .. ukCandela,
                            ukNaturalLength .. ukNaturalTime,
-                           ukDegree .. ukMile}
+                           ukDegree .. ukSlug}
 
 proc toQuantity(unitKind: UnitKind): QuantityKind =
   ## SI units
@@ -541,6 +586,12 @@ proc toQuantity(unitKind: UnitKind): QuantityKind =
   of ukPound: result = qkMass
   of ukInch: result = qkLength
   of ukMile: result = qkLength
+  of ukFoot: result = qkLength
+  of ukYard: result = qkLength
+  of ukOunce: result = qkMass
+  of ukSlug: result = qkMass
+  of ukAcre: result = qkArea
+  of ukPoundForce: result = qkForce
 
 proc toBaseUnit(unitKind: UnitKind): BaseUnitKind =
   ## SI units
@@ -566,6 +617,10 @@ proc toBaseUnit(unitKind: UnitKind): BaseUnitKind =
   of ukPound: result = buGram
   of ukInch: result = buMeter
   of ukMile: result = buMeter
+  of ukFoot: result = buMeter
+  of ukYard: result = buMeter
+  of ukOunce: result = buGram
+  of ukSlug: result = buGram
   else: error("Conversion to base unit not possible for compound units: " & $unitKind & "!")
 
   when false:
@@ -658,6 +713,10 @@ proc toCTBaseUnitSeq(unitKind: UnitKind): seq[CTBaseUnit] =
   # natural units
   of ukNaturalEnergy:
     result.add toCTBaseUnitSeq(ukJoule)
+  of ukAcre:
+    result.add toCtBaseUnit(ukMeter, power = 2)
+  of ukPoundForce:
+    result.add toCtBaseUnitSeq(ukNewton)
   else: error("Non compound unit `" & $unitKind & "` cannot be converted to sequence of CTBaseUnit!")
 
 proc getConversionFactor(unitKind: UnitKind): float =
@@ -673,6 +732,12 @@ proc getConversionFactor(unitKind: UnitKind): float =
   of ukDay: result = 86400.0
   of ukYear: result = 365.0 * 86400.0
   of ukLiter: result = 1e-3 # relative to: m³
+  of ukFoot: result = 0.3048 # relative to m
+  of ukYard: result = 0.9144 # relative to m
+  of ukOunce: result = 28.349523125 * 1e-3 # relative to kg
+  of ukSlug: result = 14.59390294 # relative to kg
+  of ukAcre: result = 4046.8564224 # relative to m²
+  of ukPoundForce: result = 4.44822162 # relative to N
   else: result = 1.0
 
 proc toCTUnit(unitKind: UnitKind): CTUnit {.compileTime.} =
@@ -841,7 +906,8 @@ proc flatten(units: CTCompoundUnit): CTCompoundUnit =
       case u.unitKind
       # for these units we do `not` want to flatten them!
       # TODO: most of these are not compound though?!
-      of ukElectronVolt, ukPound, ukInch, ukMile, ukBar, ukSteradian, ukRadian, ukLiter: result.add u
+      of ukElectronVolt, ukPound, ukInch, ukMile, ukBar, ukSteradian, ukRadian, ukLiter,
+         ukFoot, ukYard, ukSlug, ukOunce, ukAcre, ukPoundForce: result.add u
       else:
         let power = u.power
         let prefix = u.siPrefix
@@ -995,6 +1061,8 @@ proc parseSiPrefix(s: var string): SiPrefix =
     if prefix == siMega and s.startsWith("Mol"): return siIdentity
     if prefix == siYocto and s.startsWith("yr"): return siIdentity
     if prefix == siYotta and s.startsWith("Year"): return siIdentity
+    if prefix == siYocto and s.startsWith("yd"): return siIdentity
+    if prefix == siYotta and s.startsWith("Yard"): return siIdentity
     if prefix == siTera and (s == "T" or s.startsWith("Tesla")): return siIdentity
     if s.startsWith(el):
       s.removePrefix(el)
@@ -1103,6 +1171,12 @@ proc parseUnitKind(s: string): UnitKind =
   of "lbs", "Pound": result = ukPound # lbs (lb singular is too uncommon):
   of "inch", "Inch": result = ukInch # in ( or possibly "inch" due to in being keyword):
   of "mi", "Mile": result = ukMile
+  of "ft", "Foot": result = ukFoot
+  of "yd", "Yard": result = ukYard
+  of "oz", "Ounce": result = ukOunce
+  of "slug", "Slug": result = ukSlug
+  of "acre", "Acre": result = ukAcre
+  of "lbf", "PoundForce": result = ukPoundForce
   else: result = ukUnitLess
 
 proc getUnitTypeImpl(n: NimNode): NimNode =
@@ -1220,7 +1294,6 @@ proc parseCTUnit(x: NimNode): CTCompoundUnit =
 
 proc toBaseTypeScale(u: CTUnit): float =
   result = u.siPrefix.toFactor()
-  echo u.factor
   result *= u.factor
   if u.unitKind == ukGram:
     result /= 1e3 # base unit is `kg`!
@@ -1236,13 +1309,13 @@ proc toBaseTypeScale(x: CTCompoundUnit): float =
 proc toBaseType(u: CTUnit): CTUnit =
   result = u
   case u.unitKind
-  of ukGram, ukPound:
+  of ukGram, ukPound, ukOunce, ukSlug:
     ## SI unit base of Gram is KiloGram
     result.unitKind = ukGram # for non ukGram
     result.siPrefix = siKilo
     result.b.baseUnit = buGram
     result.b.siPrefix = siKilo
-  of ukMile, ukInch:
+  of ukMile, ukInch, ukYard, ukFoot:
     result.siPrefix = siIdentity
     result.unitKind = ukMeter
   of ukDegree:
@@ -1251,6 +1324,9 @@ proc toBaseType(u: CTUnit): CTUnit =
   of ukMinute, ukHour, ukDay, ukYear:
     result.siPrefix = siIdentity
     result.unitKind = ukSecond
+  of ukPoundForce:
+    result.siPrefix = siIdentity
+    result.unitKind = ukNewton
   else: result.siPrefix = siIdentity
 
 proc toBaseType(x: CTCompoundUnit): CTCompoundUnit =
@@ -1592,7 +1668,7 @@ macro toNaturalUnit*[T: SomeUnit](t: T): untyped =
   ## parses the unit and converts it to natural units (`eV`) according to
   ## the contained
   var typ = t.parseCTUnit()
-    typ.toNaturalUnitImpl()
+    .toNaturalUnitImpl()
   let scale = typ.toNaturalScale()
   let resType = typ.simplify().toNimType()
   result = quote do:
