@@ -250,6 +250,10 @@ suite "Unchained - Basic unit math":
     let y = 1.m³
     ## TODO: fix me. Should be m³!
     check type(x + y) is Liter
+    check type(y + x) is Meter³
+    echo "I'm a *WRONG* test illustrating issue #9. Fix me!"
+    check x + y =~= 1.001.Liter ## WRONG!!!
+    check y + x =~= 1.001.Meter³ ## correct
 
 suite "Unchained - Comparisons of units":
   test "Comparisons: `<` for units of same type":
