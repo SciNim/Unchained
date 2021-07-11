@@ -619,6 +619,22 @@ suite "Unchained - imperial units":
       check Ns =~= 4.44822.N•s
       check type(Ns) is N•s
 
+
+suite "Unchained - Bug issues":
+  test "Different names in equality operator":
+    block:
+      let a = 1.N•s
+      let b = 1.`N*s`
+      check typeof(a) is typeof(b)
+      check a == b
+    block:
+      let a = 1.N•s
+      let b = 1.kg•m•s⁻¹
+      # this cannot hold, as the nim compile does not recognize that they are the same
+      check typeof(a) isnot typeof(b)
+      # but this works
+      check a == b
+
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
 #  (x.float * 1e-9).eV
