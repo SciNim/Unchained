@@ -1176,7 +1176,7 @@ proc parseUnitKind(s: string): UnitKind =
   of "oz", "Ounce": result = ukOunce
   of "slug", "Slug": result = ukSlug
   of "acre", "Acre": result = ukAcre
-  of "lbf", "PoundForce": result = ukPoundForce
+  of "lbf", "PoundForce", "Pound-force": result = ukPoundForce
   else: result = ukUnitLess
 
 proc getUnitTypeImpl(n: NimNode): NimNode =
