@@ -607,6 +607,18 @@ suite "Unchained - imperial units":
       let y = 1.Newton
       check type(x + y) is Newton
       check x + y =~= 5.4482216.Newton
+
+    block:
+      # bug found by @hugogranstrom
+      defUnit(N•s)
+      defUnit(lbf•s)
+
+      let lbfs = 1.lbf•s
+      let Ns = lbfs.to(N•s)
+
+      check Ns =~= 4.44822.N•s
+      check type(Ns) is N•s
+
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
 #  (x.float * 1e-9).eV
