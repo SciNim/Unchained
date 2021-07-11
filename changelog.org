@@ -1,3 +1,6 @@
+* v0.1.2
+- fix ~==~ macro for same types of different names
+
 * v0.1.1
 - fix bug causing "Pound-force" parsing to fail
 
