@@ -1338,7 +1338,7 @@ proc toBaseType(x: CTCompoundUnit): CTCompoundUnit =
     result.add u.toBaseType
 
 ## TODO: we should really combine these macros somewhat?
-macro `==`*[T: SomeUnit](x, y: T): bool =
+macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
   var xCT = parseCTUnit(x)
   var yCT = parseCTUnit(y)
   if xCT == yCT:
