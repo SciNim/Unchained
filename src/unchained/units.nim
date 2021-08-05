@@ -552,7 +552,7 @@ proc isUnitLess(u: CTCompoundUnit): bool = u.units.len == 0
 proc isCompound(unitKind: UnitKind): bool =
   result = unitKind notin {ukUnitLess .. ukCandela,
                            ukNaturalLength .. ukNaturalTime,
-                           ukDegree .. ukSlug}
+                           ukMinute .. ukSlug}
 
 proc toQuantity(unitKind: UnitKind): QuantityKind =
   ## SI units
@@ -709,6 +709,8 @@ proc toCTBaseUnitSeq(unitKind: UnitKind): seq[CTBaseUnit] =
   of ukRadian:
     result.add toCTBaseUnit(ukMeter, power = 1)
     result.add toCTBaseUnit(ukMeter, power = -1)
+  of ukDegree:
+    result.add toCTBaseUnitSeq(ukRadian)
   of ukSteradian:
     result.add toCTBaseUnit(ukMeter, power = 2)
     result.add toCTBaseUnit(ukMeter, power = -2)
