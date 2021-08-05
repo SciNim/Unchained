@@ -440,6 +440,13 @@ suite "Unchained - Conversion between units requiring scale (no SI prefix)":
     let x = e.float.J
     check x.to(eV) == 1.eV
 
+  test "Conversion between degrees and radian":
+    let x = 180.Degree
+    check typeof(x.to(Radian)) is Radian
+    check typeof(x.to(Radian).to(Degree)) is Degree
+    check x.to(Radian) =~= Pi.Radian
+    check x.to(Radian).to(Degree) =~= x
+
 suite "Unchained - Type definitions":
   test "Automatic type definitions: `.` operator defines not existing units":
     ## have to trust me m⁶ is not pre defined :P
