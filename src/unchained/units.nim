@@ -881,9 +881,14 @@ proc `<`(a, b: CTUnit): bool =
   elif a.unitKind > b.unitKind:
     result = false
   else:
-    if a.power < b.power:
+    ## NOTE: the power seem "inverted". This is because we wish to have units with
+    ## larger powers ``in front`` of units with smaller powers. E.g.
+    ## `Meter•Meter⁻¹` instead of `Meter⁻¹•Meter`
+    ## We cannot sort in descending order, because the actual units in the `UnitKind`
+    ## enum needs to be respected.
+    if a.power > b.power:
       result = true
-    elif a.power > b.power:
+    elif a.power < b.power:
       result = false
     else:
       result = a.siPrefix < b.siPrefix
