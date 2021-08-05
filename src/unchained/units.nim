@@ -80,11 +80,18 @@ type
   KiloGram•Meter²•Second⁻³•Ampere⁻²* = distinct ElectricResistance
   KiloGram•Meter⁻¹•Second⁻²* = distinct Pressure
   KiloGram•Meter⁻³* = distinct Density
+  KiloGram•Ampere⁻¹•Second⁻²* = distinct MagneticFieldStrength
+  # the following two are a bit problematic, as this is not a rea
+  # identity. `Meter•Meter⁻¹` can, but does not ``need`` to be an angle.
   Meter•Meter⁻¹* = distinct Angle
   Meter²•Meter⁻²* = distinct SolidAngle
-  KiloGram•Ampere⁻¹•Second⁻²* = distinct MagneticFieldStrength
+
 
   ## derived SI units
+  ## TODO: are these actually needed? We do all work in the internal CT
+  ## unit base anyway.
+  ## Well, but these help if the user computes such combinations manually
+  ## and gets those units.
   Newton* = KiloGram•Meter•Second⁻²
   Joule* = KiloGram•Meter²•Second⁻²
   Volt* = KiloGram•Meter²•Ampere⁻¹•Second⁻³
@@ -95,10 +102,14 @@ type
   Henry* = KiloGram•Meter²•Second⁻²•Ampere⁻²
   Farad* = Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹
   Pascal* = KiloGram•Meter⁻¹•Second⁻²
-  Radian* = Meter•Meter⁻¹
-  Steradian* = Meter²•Meter⁻²
   ## TODO: distinct quantity of Magnetic
   Tesla* = KiloGram•Ampere⁻¹•Second⁻²
+  # radian and steradian are distinct versions as they should not be converted
+  # to that representation. Also Meter•Meter⁻¹ is not necessarily an angle.
+  # TODO: think about removing Meter•Meter⁻¹ from here and only writing as
+  # `distinct Angle`.
+  Radian* = distinct Meter•Meter⁻¹
+  Steradian* = distinct Meter²•Meter⁻²
 
   ## other units
   ElectronVolt* = distinct Energy
