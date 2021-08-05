@@ -511,6 +511,17 @@ suite "Unchained - practical examples turned tests":
 
     check vacTime((2.7e-4).Pa•m³•s⁻¹•m⁻², 35.311.m², 3600.s, 685.L•s⁻¹, 1.0e-7.mbar) =~= 347.9551.Hour
 
+  test "Cosine with radian argument":
+    let ω = 100.rad•s⁻¹
+    let A = 10.cm
+    let φ = Pi.rad
+    let t = 1.s
+    let argument = ω * t + φ
+    check typeof(argument) is Radian
+    check typeof(ω) is Second⁻¹•Radian
+    check typeof(A * cos(argument)) is CentiMeter
+    check A * cos(argument) =~= -8.62319.cm
+
 suite "Unchained - imperial units":
   test "Pound":
     block:
