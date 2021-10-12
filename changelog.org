@@ -1,3 +1,6 @@
+* v0.1.5
+- fix issue #16, division of compound units works correctly now
+- add Planck constant as =hp= and Boltzmann constant as =k=  
 * v0.1.4
 - fix issue #13, conversion of degrees and radians not possible with =to=
 
