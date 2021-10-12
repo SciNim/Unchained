@@ -877,12 +877,11 @@ proc invert(x: CTCompoundUnit): CTCompoundUnit =
     case u.unitType
     of utQuantity:
       unit.power = -unit.power
-      unit.b.power = -unit.b.power
+      # base units' powers ``not`` inverted!
       result.add unit
     of utCompoundQuantity:
       unit.power = -unit.power
-      for b in mitems(unit.bs):
-        b.power = -b.power
+      # base units' powers ``not`` inverted!
       result.add unit
 
 proc `==`(a, b: CTUnit): bool =

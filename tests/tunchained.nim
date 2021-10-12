@@ -653,6 +653,12 @@ suite "Unchained - Bug issues":
       # but this works
       check a == b
 
+  test "Division of compound units (issue #16)":
+    proc xrayEnergyToFreq(E: keV): Hz =
+      result = E.to(Joule) / hp
+    check 1.keV.xrayEnergyToFreq =~= 2.41799e17.Hz
+
+
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
 #  (x.float * 1e-9).eV
