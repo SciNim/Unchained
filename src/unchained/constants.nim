@@ -17,3 +17,5 @@ let
   π* = PI
   r_e* = e*e / (4 * π * ε_0 * m_e * c * c) # classical electron radius
   #K = 4 * π * N_A * r_e * r_e * m_e_c2 * (100.0^2)# [MeV mol⁻¹ cm²]
+  k* = 1.380649e-23.Joule•Kelvin⁻¹
+  hp* = 6.62607015e-34.Joule•Hertz⁻¹
