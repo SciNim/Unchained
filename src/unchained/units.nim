@@ -549,6 +549,7 @@ generateSiPrefixedUnits:
   (rad, Radian)
   (sr, Steradian)
   (T, Tesla) exclude [f]
+  (Bq, Becquerel)
 
 proc isUnitLess(u: CTCompoundUnit): bool = u.units.len == 0
 

@@ -1,3 +1,5 @@
+* v0.1.7
+- emit SI prefixed versions of Bq
 * v0.1.6
 - add Becquerel as a unit for activity
 * v0.1.5
