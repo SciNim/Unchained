@@ -207,7 +207,7 @@ type
     qkAngle, qkSolidAngle, qkMagneticFieldStrength, qkActivity
 
   ## enum storing all known units (their base form) to allow easier handling of unit conversions
-  ## Enum value is the default name of the unit
+  ## Enum value is the default name of the unit. Note: Order is important! (e.g. for `isCompound`)
   UnitKind* = enum
     ukUnitLess = "UnitLess"
     ukGram = "Gram"
@@ -217,7 +217,7 @@ type
     ukKelvin = "Kelvin"
     ukMol = "Mol"
     ukCandela = "Candela"
-    # derived SI units
+    # derived SI units, all compound
     ukNewton = "Newton"
     ukJoule = "Joule"
     ukVolt = "Volt"
@@ -230,6 +230,7 @@ type
     ukPascal = "Pascal"
     ukBar = "Bar"
     ukRadian = "Radian"
+    ukDegree = "Degree"
     ukSteradian = "Steradian"
     ukTesla = "Tesla"
     ukBecquerel = "Becquerel"
@@ -243,7 +244,6 @@ type
     ukElectronVolt = "ElectronVolt"
     ukLiter = "Liter"
     # additional non compound units
-    ukDegree = "Degree"
     ukMinute = "Minute"
     ukHour = "Hour"
     ukDay = "Day"
