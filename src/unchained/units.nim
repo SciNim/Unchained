@@ -485,7 +485,9 @@ proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool,
   if genLong:
     for (si, prefix) in SiPrefixStringsLong:
       if prefix == siIdentity: continue
-      if si in excludes: continue
+      if si in excludes:
+        result.add ident("_") # if we exclude, add placeholder. Used to mark for cross reference long / short
+        continue
       let typStr = ident($si & typ.strVal)
       if typStr.strVal == "KiloGram": continue # skip generation of `KiloGram`
       let isTyp = nnkDistinctTy.newTree(typ)
@@ -493,7 +495,9 @@ proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool,
   if genShort:
     for (si, prefix) in SiPrefixStringsShort:
       if prefix == siIdentity: continue
-      if si in excludes: continue
+      if si in excludes:
+        result.add ident("_") # if we exclude, add placeholder. Used to mark for cross reference long / short
+        continue
       let typStr = ident($si & typ.strVal)
       if typStr.strVal == "kg": continue # predefined as well to have same number of elements in this seq
       result.add typStr
@@ -527,7 +531,9 @@ macro generateSiPrefixedUnits*(units: untyped): untyped =
     for si in sisLong:
       result.add si
     ## generate cross references from long to short
+    let skipIdent = ident("_") # if a prefix is excluded, added as `_`. Thus skip those cross references
     for (siShort, siLong) in zip(sisShort, sisLong):
+      if eqIdent(siShort, skipIdent) or eqIdent(siLong, skipIdent): continue
       result.add nnkTypeDef.newTree(nnkPostfix.newTree(ident"*", siShort), newEmptyNode(), siLong[0][1])
 
 generateSiPrefixedUnits:
