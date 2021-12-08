@@ -1,3 +1,10 @@
+* v0.1.8
+- fix generation of SI prefixes if =exclude= is used. Previously
+  mapping of short to long prefixes was broken if =exclude= was used.
+- fix math of compound units that involved conversions SI prefixes and
+  conversions to base units (i.e. Tesla to kg•s⁻²•A⁻¹) by adding a
+  global SI prefix factor field to =CTCompoundUnit=
+- reorder =ukDegree= in =UnitKind= enum 
 * v0.1.7
 - emit SI prefixed versions of Bq
 * v0.1.6
