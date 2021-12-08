@@ -999,14 +999,19 @@ proc `==`(a, b: CTCompoundUnit): bool =
   ## Since there are multiple representations of the same unit (e.g. `Newton` as
   ## a single CTUnit or a `CTCompoundUnit` comprising base units up to `Newton`)
   ## we have to flatten each input and then compare for same base units & powers.
-  let aFlat = a.flatten.simplify.units.sorted
-  let bFlat = b.flatten.simplify.units.sorted
+  let aFlat = a.flatten.simplify
+  let bFlat = b.flatten.simplify
+  let aFlatSeq = aFlat.units.sorted
+  let bFlatSeq = bFlat.units.sorted
+
   # to really make sure they are equal have to compare the si prefix of each
-  if aFlat.len != bFlat.len:
+  if aFlatSeq.len != bFlatSeq.len:
     return false
-  for idx in 0 ..< aFlat.len:
-    if aFlat[idx] != bFlat[idx]:
+  for idx in 0 ..< aFlatSeq.len:
+    if aFlatSeq[idx] != bFlatSeq[idx]:
       return false
+  if aFlat.siPrefix != bFlat.siPrefix:
+    return false
   result = true
 
 iterator getPow10Digits(x: int): int =
