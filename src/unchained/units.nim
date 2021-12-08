@@ -110,6 +110,7 @@ type
   # `distinct Angle`.
   Radian* = distinct Meter•Meter⁻¹
   Steradian* = distinct Meter²•Meter⁻²
+  Becquerel* = distinct Second⁻¹
 
   ## other units
   ElectronVolt* = distinct Energy
@@ -172,6 +173,7 @@ type
   yr* = Year
   L* = Liter
   T* = Tesla
+  Bq* = Becquerel
 
   ## imperial shorthand
   inch* = Inch
@@ -202,7 +204,7 @@ type
     # derived quantities
     qkFrequency, qkVelocity, qkAcceleration, qkArea, qkMomentum, qkForce, qkEnergy, qkElectricPotential,
     qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance, qkPressure, qkDensity,
-    qkAngle, qkSolidAngle, qkMagneticFieldStrength
+    qkAngle, qkSolidAngle, qkMagneticFieldStrength, qkActivity
 
   ## enum storing all known units (their base form) to allow easier handling of unit conversions
   ## Enum value is the default name of the unit
@@ -230,6 +232,7 @@ type
     ukRadian = "Radian"
     ukSteradian = "Steradian"
     ukTesla = "Tesla"
+    ukBecquerel = "Becquerel"
     # natural units
     ukNaturalLength = "NaturalLength" # length
     ukNaturalMass = "NaturalMass" # mass
@@ -581,6 +584,7 @@ proc toQuantity(unitKind: UnitKind): QuantityKind =
   of ukRadian: result = qkAngle
   of ukSteradian: result = qkSolidAngle
   of ukTesla: result = qkMagneticFieldStrength
+  of ukBecquerel: result = qkActivity
   # natural units
   of ukNaturalLength: result = qkLength
   of ukNaturalMass: result = qkMass
@@ -718,6 +722,8 @@ proc toCTBaseUnitSeq(unitKind: UnitKind): seq[CTBaseUnit] =
     result.add toCTBaseUnit(ukGram, siPrefix = siKilo)
     result.add toCTBaseUnit(ukAmpere, power = -1)
     result.add toCTBaseUnit(ukSecond, power = -2)
+  of ukBecquerel:
+    result.add toCTBaseUnit(ukSecond, power = -1)
   of ukElectronVolt:
     ## our logic is incomplete, since it's missing proper conversions ouside of SI prefixes!
     result.add toCTBaseUnitSeq(ukJoule)
@@ -1172,6 +1178,7 @@ proc parseUnitKind(s: string): UnitKind =
   of "rad", "Radian": result = ukRadian
   of "sr", "Steradian": result = ukSteradian
   of "T", "Tesla": result = ukTesla
+  of "Bq", "Becquerel": result = ukBecquerel
   # natural units
   of "NaturalLength": result = ukNaturalLength # length:
   of "NaturalMass": result = ukNaturalMass # mass:

@@ -99,6 +99,8 @@ suite "Resolve unit aliases":
     check isAUnit(Pascal)
     check isAUnit(Radian)
     check isAUnit(Steradian)
+    check isAUnit(Tesla)
+    check isAUnit(Becquerel)
 
     ## other units
     check isAUnit(ElectronVolt)
