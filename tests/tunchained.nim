@@ -416,6 +416,16 @@ suite "Unchained - CT errors":
     ## TODO: FIXME comparison fails due to ???. Values are correct though!
     #check b.to(mm⁻²) == 10e-5.MilliMeter⁻²
 
+suite "Unchained - Test of individual units":
+  test "Becquerel":
+    let A = 10.GBq
+    check A.to(Bq) == 10_000_000_000.Bq
+    check typeof(A) is GigaBecquerel
+    proc counts(A: Bq, time: Second): float =
+      # counts in a given time
+      result = A * time
+    check counts(A.to(Bq), 10.s) == 100_000_000_000.0
+
 suite "Unchained - Conversion between units requiring scale (no SI prefix)":
   test "Conversion of eV to Joule":
     let x = 1.eV
