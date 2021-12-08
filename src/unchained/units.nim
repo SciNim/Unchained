@@ -310,6 +310,7 @@ type
   CTCompoundUnit* = object
     #value: Option[float]
     units: seq[CTUnit]
+    siPrefix: float # as a pure float value
 
   ## `CTCompoundQuantity` is a helper that is used to determine if a unit is `equivalent` to one another.
   ## Equivalence of units means that the actual `dimensions` (in terms of real base quantities:
@@ -327,6 +328,7 @@ proc toNimType(u: CTUnit): string
 proc flatten(units: CTCompoundUnit): CTCompoundUnit
 proc simplify(x: CTCompoundUnit): CTCompoundUnit
 proc toBaseType(x: CTCompoundUnit): CTCompoundUnit
+proc toFactor(prefix: SiPrefix): float
 
 proc pretty(x: CTUnit): string = x.toNimType()
 proc pretty(x: CTCompoundUnit): string = x.toNimType().strVal
@@ -883,6 +885,7 @@ proc simplify(x: CTCompoundUnit): CTCompoundUnit =
     let power = x.units.powerOfKindAndPrefix(el.unitKind, el.siPrefix)
     if abs(power) > 0:
       result.add initCTUnit("", el.unitKind, power, el.siPrefix)
+  result.siPrefix = x.siPrefix
 
 proc invert(x: CTCompoundUnit): CTCompoundUnit =
   for u in x.units:
@@ -922,6 +925,7 @@ proc flatten(units: CTCompoundUnit): CTCompoundUnit =
   ## extracts all base units from individual compound CTUnits and
   ## turns it into a single CTCompoundUnit of only base units. Finally
   ## simplifies the result.
+  var prefix = 1.0
   for u in units.units:
     case u.unitType
     of utQuantity: result.add u
@@ -940,12 +944,14 @@ proc flatten(units: CTCompoundUnit): CTCompoundUnit =
          ukFoot, ukYard, ukSlug, ukOunce, ukAcre, ukPoundForce: result.add u
       else:
         let power = u.power
-        let prefix = u.siPrefix
+        prefix *= u.siPrefix.toFactor # note: as we're looking at compounds,
+                                      # no need to worry about `Gram / KiloGram`
         for b in u.bs:
           var mb = b
           mb.power = mb.power * power
           # prefix handle ?
           result.add mb
+  result.siPrefix = prefix # assign the prefix
 
 proc toCTQuantity(a: CTCompoundUnit): CTCompoundQuantity =
   result = initTable[QuantityKind, int]()
@@ -1333,7 +1339,8 @@ proc toBaseTypeScale(u: CTUnit): float =
 proc toBaseTypeScale(x: CTCompoundUnit): float =
   ## returns the scale required to turn `x` to its base type, i.e.
   ## turn all units that are not already to SI form
-  result = 1.0
+  # XXX: ideally we could make sure `siPrefix` is init'd to 1.0
+  result = if x.siPrefix != 0.0: x.siPrefix else: 1.0 # global SI prefix as a factor
   for u in x.units:
     result *= toBaseTypeScale(u)
 
