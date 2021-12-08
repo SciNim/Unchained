@@ -417,6 +417,14 @@ suite "Unchained - CT errors":
     #check b.to(mm⁻²) == 10e-5.MilliMeter⁻²
 
 suite "Unchained - Test of individual units":
+  test "Tesla":
+    let B = 10.GT
+    check typeof(B) is GigaTesla # `exclude` in SI generation was broken
+    check B * 10.s == 100_000_000_000.T•s # math works
+    check B / 10.s == 1_000_000_000.T•s⁻¹
+    check B + 1.T  == 10_000_000_001.T
+    check B - 1.T  ==  9_999_999_999.T
+
   test "Becquerel":
     let A = 10.GBq
     check A.to(Bq) == 10_000_000_000.Bq
@@ -425,6 +433,11 @@ suite "Unchained - Test of individual units":
       # counts in a given time
       result = A * time
     check counts(A.to(Bq), 10.s) == 100_000_000_000.0
+    # auto conversion of Giga works + math works
+    check A * 10.s == 100_000_000_000.0
+    check A / 10.s == 1_000_000_000.s⁻²
+    check A + 1.Bq == 10_000_000_001.Bq
+    check A - 1.Bq ==  9_999_999_999.Bq
 
 suite "Unchained - Conversion between units requiring scale (no SI prefix)":
   test "Conversion of eV to Joule":
