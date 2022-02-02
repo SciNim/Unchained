@@ -1717,3 +1717,22 @@ macro toNaturalUnit*[T: SomeUnit](t: T): untyped =
   result = quote do:
     defUnit(`resType`)
     (`t`.float * `scale`).`resType`
+
+macro sqrt*[T: SomeUnit](t: T): untyped =
+  ## Implements the `sqrt` of a given unitful value.
+  ##
+  ## Fails if the given unit is not a perfect square (i.e. each compound of the full
+  ## unit's power is a multiple of 2).
+  let typ = t.parseCTUnit()
+  var mType = typ
+  for u in mitems(mType.units):
+    if u.power mod 2 == 0: # can be divided
+      u.power = u.power div 2
+    else:
+      error("Cannot take the `sqrt` of input unit " & $T & " as it's not a perfect square!")
+  let resType = mType.toNimType()
+  result = quote do:
+    # defUnit(`resType`) # Should not be needed. The sqrt (if valid) will be a known type
+    (sqrt(`t`.float)).`resType`
+
+proc abs*[T: SomeUnit](t: T): T = (abs(t.float)).T
