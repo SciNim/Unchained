@@ -161,6 +161,142 @@ suite "Resolve user defined units":
     ## NOTE: `A•s` is not created!
     check isAUnit(Ampere•Second)
 
+suite "Valid unit-ful values":
+  test "Valid units from a generic":
+    proc foo[T](arg: T) =
+      check isAUnit(T)
+
+    template wrapFoo(typ: typed): untyped =
+      var tmp: typ
+      foo(tmp)
+
+    wrapFoo(Unit)
+    wrapFoo(Quantity)
+    wrapFoo(CompoundQuantity)
+    wrapFoo(UnitLess)
+
+    ## Base Quantities
+    wrapFoo(Time)
+    wrapFoo(Length)
+    wrapFoo(Mass)
+    wrapFoo(Current)
+    wrapFoo(Temperature)
+    wrapFoo(AmountOfSubstance)
+    wrapFoo(Luminosity)
+
+    ## Derived quantities, TODO: should be `distinct CompoundQuantity`? Not a single dimension!
+    wrapFoo(Velocity)
+    wrapFoo(Acceleration)
+    wrapFoo(Momentum)
+    wrapFoo(Force)
+    wrapFoo(Energy)
+    wrapFoo(Density)
+
+    wrapFoo(ElectricPotential)
+    wrapFoo(Voltage)
+
+    wrapFoo(Frequency)
+
+    wrapFoo(Charge)
+    wrapFoo(Power)
+    wrapFoo(ElectricResistance)
+    wrapFoo(Capacitance)
+    wrapFoo(Inductance)
+    wrapFoo(Pressure)
+
+    #  angles are technically UnitLess.
+    wrapFoo(Angle)
+    wrapFoo(SolidAngle)
+
+    ## Base SI units
+    wrapFoo(Second)
+    wrapFoo(Meter)
+    wrapFoo(Gram)
+    wrapFoo(KiloGram)
+    wrapFoo(Ampere)
+    wrapFoo(Kelvin)
+    wrapFoo(Mol)
+    wrapFoo(Candela)
+
+    ## compound units, i.e. definition of different physical concepts.
+    wrapFoo(KiloGram•Meter•Second⁻¹)
+    wrapFoo(Second²)
+    wrapFoo(Meter•Second⁻¹)
+    wrapFoo(Meter•Second⁻²)
+    wrapFoo(KiloGram•Meter²•Second⁻²)
+    wrapFoo(KiloGram•Meter•Second⁻²)
+    wrapFoo(Second⁻¹)
+    wrapFoo(KiloGram•Meter²•Second⁻³)
+    wrapFoo(Ampere•Second)
+    wrapFoo(KiloGram•Meter²•Second⁻²•Ampere⁻²)
+    wrapFoo(Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹)
+    wrapFoo(KiloGram•Meter²•Ampere⁻¹•Second⁻³)
+    wrapFoo(KiloGram•Meter²•Second⁻³•Ampere⁻²)
+    wrapFoo(KiloGram•Meter⁻¹•Second⁻²)
+    wrapFoo(KiloGram•Meter⁻³)
+    wrapFoo(Meter•Meter⁻¹)
+    wrapFoo(Meter²•Meter⁻²)
+
+    ## derived SI units
+    wrapFoo(Newton)
+    wrapFoo(Joule)
+    wrapFoo(Volt)
+    wrapFoo(Hertz)
+    wrapFoo(Coulomb)
+    wrapFoo(Watt)
+    wrapFoo(Ohm)
+    wrapFoo(Henry)
+    wrapFoo(Farad)
+    wrapFoo(Pascal)
+    wrapFoo(Radian)
+    wrapFoo(Steradian)
+    wrapFoo(Tesla)
+    wrapFoo(Becquerel)
+
+    ## other units
+    wrapFoo(ElectronVolt)
+    wrapFoo(Bar)
+    wrapFoo(Degree)
+    wrapFoo(Minute)
+    wrapFoo(Hour)
+    wrapFoo(Day)
+    wrapFoo(Year)
+
+    wrapFoo(Joule•Coulomb⁻¹)
+    wrapFoo(Ampere•Ohm)
+
+    ## shorthand types
+    wrapFoo(m)
+    wrapFoo(s)
+    wrapFoo(A)
+    wrapFoo(mol)
+    wrapFoo(m•s⁻²)
+    wrapFoo(meterPerSecondSquared)
+    wrapFoo(g)
+    wrapFoo(Kg)
+    wrapFoo(kg)
+    wrapFoo(N)
+    wrapFoo(V)
+    wrapFoo(Hz)
+    wrapFoo(J)
+    wrapFoo(C)
+    wrapFoo(W)
+    wrapFoo(Ω)
+    wrapFoo(H)
+    wrapFoo(F)
+    wrapFoo(eV)
+    wrapFoo(Pa)
+    wrapFoo(bar)
+    wrapFoo(g•cm⁻³)
+    wrapFoo(rad)
+    wrapFoo(sr)
+    wrapFoo(°)
+    wrapFoo(units.min)
+    wrapFoo(h)
+    wrapFoo(day)
+    wrapFoo(yr)
+
+suite "Invalid units":
   test "Invalid units":
     check not isAUnit(float)
     check not isAUnit(int)
@@ -172,3 +308,23 @@ suite "Resolve user defined units":
     check not isAUnit(InvalidAlias)
     check not isAUnit(InvalidDistinct)
     check not isAUnit(InvalidPtr)
+
+  test "Invalid units from a generic":
+
+    proc foo[T](arg: T) =
+      check not isAUnit(T)
+
+    template wrapFoo(typ: typed): untyped =
+      var tmp: typ
+      foo(tmp)
+
+    wrapfoo(float)
+    wrapfoo(int)
+    wrapfoo(string)
+    wrapfoo(seq[string])
+    wrapfoo(seq[float])
+    wrapfoo(InvalidObject)
+    wrapfoo(InvalidRef)
+    wrapfoo(InvalidAlias)
+    wrapfoo(InvalidDistinct)
+    wrapfoo(InvalidPtr)
