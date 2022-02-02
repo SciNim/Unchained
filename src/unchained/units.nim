@@ -1105,6 +1105,7 @@ proc parseSiPrefix(s: var string): SiPrefix =
     if prefix == siYocto and s.startsWith("yd"): return siIdentity
     if prefix == siYotta and s.startsWith("Yard"): return siIdentity
     if prefix == siTera and (s == "T" or s.startsWith("Tesla")): return siIdentity
+    if prefix == siFemto and s == "ft": return siIdentity
     if s.startsWith(el):
       s.removePrefix(el)
       return prefix
