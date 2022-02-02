@@ -811,6 +811,11 @@ converter toFloat*(x: Steradian): float = x.float
 converter toRadian*(x: float): Radian = x.Radian
 converter toSteradian*(x: float): Steradian = x.Steradian
 
+import hashes
+proc hash*[T: SomeUnit](x: T): Hash =
+  result = result !& hash($typeof(T))
+  result = result !& hash(x.float)
+  result = !$result
 
 macro defUnit*(arg: untyped): untyped =
   ## Helper template to define new units (not required to be used manually)
