@@ -802,12 +802,16 @@ proc initCTUnit(name: string, unitKind: UnitKind, power: int, siPrefix: SiPrefix
 
 #proc resolveToBaseType(n: NimNode):
 
+## This is a *forced* conversion of a unit to a float. It simply removes any unit from
+## the type. Currently just `x.float`. Might change in the future.
+proc toFloat*[T: SomeUnit](x: T): float = x.float
+
 ## auto conversion of `UnitLess` to `float` is possible so that e.g. `sin(5.kg / 10.kg)` works as expected!
-converter toFloat*(x: UnitLess): float = x.float
+converter toRawFloat*(x: UnitLess): float = x.float
 converter toUnitLess*(x: SomeNumber): UnitLess = x.UnitLess
 converter toUnitLess*(x: float64): UnitLess = x.UnitLess
-converter toFloat*(x: Radian): float = x.float
-converter toFloat*(x: Steradian): float = x.float
+converter toRawFloat*(x: Radian): float = x.float
+converter toRawFloat*(x: Steradian): float = x.float
 converter toRadian*(x: float): Radian = x.Radian
 converter toSteradian*(x: float): Steradian = x.Steradian
 
