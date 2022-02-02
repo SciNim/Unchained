@@ -1496,6 +1496,20 @@ macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
   else:
     error("Different quantities cannot be subtracted! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
+proc `-`*[T: SomeUnit](x: T): T = (-(x.float)).T
+
+proc `+=`*[T: SomeUnit](x: var T, y: T) =
+  x = x + y
+
+proc `-=`*[T: SomeUnit](x: var T, y: T) =
+  x = x - y
+
+proc `*=`*[T: SomeUnit](x: var T, y: UnitLess) =
+  x = x * y
+
+proc `/=`*[T: SomeUnit](x: var T, y: UnitLess) =
+  x = x / y
+
 proc convertIfMultipleSiPrefixes(x: CTCompoundUnit): CTCompoundUnit =
   ## checks if any CTUnit appears multiple times with a different SI prefixes
   var unitTab = initTable[UnitKind, SiPrefix]()
