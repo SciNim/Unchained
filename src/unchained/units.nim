@@ -1,5 +1,19 @@
 import math, macros, options, sequtils, algorithm, sets, tables, strutils, unicode, typetraits, strformat, parseutils
 
+when false:
+  type
+    UnitObject = object
+      quantity: foo
+      name: foo
+
+#[
+Extend the notion of CTBaseUnit to some general unit object. These unit objects we can
+store in a CT table, mapping their unit names to the objects. That way we
+1. don't have to parse into `CTUnit` every time again
+2. we should be able to more easily work towards ??? lost my train of thought.
+]#
+
+
 type
   Unit* = distinct float
 
@@ -51,40 +65,75 @@ type
 
   SomeQuantity* = BaseQuantity | DerivedQuantity
 
+import macrocache
+
+## Knows about *all* units. Good to check if something (or a part of something) is a unit at all
+const PredefinedUnitImpls = CacheTable"PredefinedUnitImpls" # the implementations
+const PredefinedUnits = CacheTable"PredefinedUnits" # the actual unit symbols
+const GeneratedUnits = CacheTable"GeneratedUnits"
+## Add other CT tables...
+# const
+
+proc contains*(t: CacheTable, key: string): bool =
+  for k, val in pairs(t):
+    if k == key: return true
+
+proc isPredefined(n: NimNode): bool =
+  doAssert n.kind in {nnkSym, nnkIdent}
+  result = n.strVal in PredefinedUnits
+
+proc exportType(n: NimNode): NimNode = nnkPostfix.newTree(ident"*", n)
+
+macro defineUnits(stmts: untyped): untyped =
+  ##
+  result = nnkTypeSection.newTree()
+  for stmt in stmts:
+    case stmt.kind
+    of nnkCommentStmt: result.add stmt
+    of nnkAsgn:
+      let asTyp = stmt[0]
+      let isTyp = stmt[1]
+      PredefinedUnitImpls[asTyp.strVal] = isTyp
+      PredefinedUnits[asTyp.strVal] = asTyp
+      result.add nnkTypeDef.newTree(exportType(asTyp), newEmptyNode(), isTyp)
+    else: error("invalid " & $stmt.kind)
+  #echo result.treerepr
+
+defineUnits:
   #Joule* = distinct Unit
   ## Base SI units
-  Second* = distinct Time
-  Meter* = distinct Length
-  Gram* = distinct Mass
-  KiloGram* = distinct Gram ## KiloGram is special due to being the actual SI unit. Thus defined here
-  Ampere* = distinct Current
-  Kelvin* = distinct Temperature
-  Mol* = distinct AmountOfSubstance
-  Candela* = distinct Luminosity
+  Second = distinct Time
+  Meter = distinct Length
+  Gram = distinct Mass
+  KiloGram = distinct Gram ## KiloGram is special due to being the actual SI unit. Thus defined here
+  Ampere = distinct Current
+  Kelvin = distinct Temperature
+  Mol = distinct AmountOfSubstance
+  Candela = distinct Luminosity
 
-  SiUnit* = Second | Meter | KiloGram | Ampere | Kelvin | Mol | Candela
+  SiUnit = Second | Meter | KiloGram | Ampere | Kelvin | Mol | Candela
 
   ## compound units, i.e. definition of different physical concepts.
-  KiloGram•Meter•Second⁻¹* = distinct Momentum
-  Second²* = distinct Time
-  Meter•Second⁻¹* = distinct Velocity
-  Meter•Second⁻²* = distinct Acceleration
-  KiloGram•Meter²•Second⁻²* = distinct Energy
-  KiloGram•Meter•Second⁻²* = distinct Force
-  Second⁻¹* = distinct Frequency
-  KiloGram•Meter²•Second⁻³* = distinct Power
-  Ampere•Second* = distinct Charge
-  KiloGram•Meter²•Second⁻²•Ampere⁻²* = distinct Inductance
-  Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹* = distinct Capacitance
-  KiloGram•Meter²•Ampere⁻¹•Second⁻³* = distinct ElectricPotential
-  KiloGram•Meter²•Second⁻³•Ampere⁻²* = distinct ElectricResistance
-  KiloGram•Meter⁻¹•Second⁻²* = distinct Pressure
-  KiloGram•Meter⁻³* = distinct Density
-  KiloGram•Ampere⁻¹•Second⁻²* = distinct MagneticFieldStrength
+  KiloGram•Meter•Second⁻¹ = distinct Momentum
+  Second² = distinct Time
+  Meter•Second⁻¹ = distinct Velocity
+  Meter•Second⁻² = distinct Acceleration
+  KiloGram•Meter²•Second⁻² = distinct Energy
+  KiloGram•Meter•Second⁻² = distinct Force
+  Second⁻¹ = distinct Frequency
+  KiloGram•Meter²•Second⁻³ = distinct Power
+  Ampere•Second = distinct Charge
+  KiloGram•Meter²•Second⁻²•Ampere⁻² = distinct Inductance
+  Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹ = distinct Capacitance
+  KiloGram•Meter²•Ampere⁻¹•Second⁻³ = distinct ElectricPotential
+  KiloGram•Meter²•Second⁻³•Ampere⁻² = distinct ElectricResistance
+  KiloGram•Meter⁻¹•Second⁻² = distinct Pressure
+  KiloGram•Meter⁻³ = distinct Density
+  KiloGram•Ampere⁻¹•Second⁻² = distinct MagneticFieldStrength
   # the following two are a bit problematic, as this is not a rea
   # identity. `Meter•Meter⁻¹` can, but does not ``need`` to be an angle.
-  Meter•Meter⁻¹* = distinct Angle
-  Meter²•Meter⁻²* = distinct SolidAngle
+  Meter•Meter⁻¹ = distinct Angle
+  Meter²•Meter⁻² = distinct SolidAngle
 
 
   ## derived SI units
@@ -92,107 +141,108 @@ type
   ## unit base anyway.
   ## Well, but these help if the user computes such combinations manually
   ## and gets those units.
-  Newton* = KiloGram•Meter•Second⁻²
-  Joule* = KiloGram•Meter²•Second⁻²
-  Volt* = KiloGram•Meter²•Ampere⁻¹•Second⁻³
-  Hertz* = Second⁻¹
-  Coulomb* = Ampere•Second
-  Watt* = KiloGram•Meter²•Second⁻³ # Joule•Second⁻¹
-  Ohm* = KiloGram•Meter²•Second⁻³•Ampere⁻²
-  Henry* = KiloGram•Meter²•Second⁻²•Ampere⁻²
-  Farad* = Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹
-  Pascal* = KiloGram•Meter⁻¹•Second⁻²
+  Newton = KiloGram•Meter•Second⁻²
+  Joule = KiloGram•Meter²•Second⁻²
+  Volt = KiloGram•Meter²•Ampere⁻¹•Second⁻³
+  Hertz = Second⁻¹
+  Coulomb = Ampere•Second
+  Watt = KiloGram•Meter²•Second⁻³ # Joule•Second⁻¹
+  Ohm = KiloGram•Meter²•Second⁻³•Ampere⁻²
+  Henry = KiloGram•Meter²•Second⁻²•Ampere⁻²
+  Farad = Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹
+  Pascal = KiloGram•Meter⁻¹•Second⁻²
   ## TODO: distinct quantity of Magnetic
-  Tesla* = KiloGram•Ampere⁻¹•Second⁻²
+  Tesla = KiloGram•Ampere⁻¹•Second⁻²
   # radian and steradian are distinct versions as they should not be converted
   # to that representation. Also Meter•Meter⁻¹ is not necessarily an angle.
   # TODO: think about removing Meter•Meter⁻¹ from here and only writing as
   # `distinct Angle`.
-  Radian* = distinct Meter•Meter⁻¹
-  Steradian* = distinct Meter²•Meter⁻²
-  Becquerel* = distinct Second⁻¹
+  Radian = distinct Meter•Meter⁻¹
+  Steradian = distinct Meter²•Meter⁻²
+  Becquerel = distinct Second⁻¹
 
   ## other units
-  ElectronVolt* = distinct Energy
-  Bar* = distinct Pressure
-  Liter* = distinct Length # TODO make that Volume
-  Degree* = distinct Angle
-  Minute* = distinct Time
-  Hour* = distinct Time
-  Day* = distinct Time
-  Year* = distinct Time
+  ElectronVolt = distinct Energy
+  Bar = distinct Pressure
+  Liter = distinct Length # TODO make that Volume
+  Degree = distinct Angle
+  Minute = distinct Time
+  Hour = distinct Time
+  Day = distinct Time
+  Year = distinct Time
 
   ## Imperial
-  Pound* = distinct Mass
-  Inch* = distinct Length
-  Mile* = distinct Length
-  Foot* = distinct Length
-  Yard* = distinct Length
-  Acre* = distinct Area
-  Ounce* = distinct Mass
-  Slug* = distinct Mass
-  PoundForce* = distinct Force
+  Pound = distinct Mass
+  Inch = distinct Length
+  Mile = distinct Length
+  Foot = distinct Length
+  Yard = distinct Length
+  Acre = distinct Area
+  Ounce = distinct Mass
+  Slug = distinct Mass
+  PoundForce = distinct Force
 
   ## possibly define convenient overloads? Not really required, since we compute that these match after
   ## all, no? E.g. given Joule•Coulomb⁻¹. We would parse each, convert to base SI units and notice that
   ## it's the same as required `Volt` after conversion to base SI units for V. That's how it should work
   ## anyway.
-  Joule•Coulomb⁻¹* = Volt
-  Ampere•Ohm* = Volt
+  Joule•Coulomb⁻¹ = Volt
+  Ampere•Ohm = Volt
 
-  DerivedSiUnits* = Newton | Joule
+  DerivedSiUnits = Newton | Joule
 
   ## shorthand types
-  m* = Meter
-  s* = Second
-  A* = Ampere
-  g* = Gram
-  Kg* = KiloGram
-  kg* = Kg
-  K* = Kelvin
-  mol* = Mol
-  cd* = Candela
-  N* = Newton
-  J* = Joule
-  V* = Volt
-  Hz* = Hertz
-  C* = Coulomb
-  W* = Watt
-  Ω* = Ohm
-  H* = Henry
-  F* = Farad
-  Pa* = Pascal
-  bar* = Bar
-  rad* = Radian
-  sr* = Steradian
-  eV* = ElectronVolt
-  °* = Degree
-  min* = Minute
-  h* = Hour
-  day* = Day
-  yr* = Year
-  L* = Liter
-  T* = Tesla
-  Bq* = Becquerel
+  m = Meter
+  s = Second
+  A = Ampere
+  g = Gram
+  Kg = KiloGram
+  kg = Kg ## XXX: This should go, but it's a good case to think about how to resolve aliases!
+  K = Kelvin
+  mol = Mol
+  cd = Candela
+  N = Newton
+  J = Joule
+  V = Volt
+  Hz = Hertz
+  C = Coulomb
+  W = Watt
+  Ω = Ohm
+  H = Henry
+  F = Farad
+  Pa = Pascal
+  bar = Bar
+  rad = Radian
+  sr = Steradian
+  eV = ElectronVolt
+  ° = Degree
+  min = Minute
+  h = Hour
+  day = Day
+  yr = Year
+  L = Liter
+  T = Tesla
+  Bq = Becquerel
 
   ## imperial shorthand
-  inch* = Inch
-  mi* = Mile
-  lbs* = Pound
-  ft* = Foot
-  yd* = Yard
-  acre* = Acre
-  oz* = Ounce
-  slug* = Slug
-  lbf* = PoundForce
+  inch = Inch
+  mi = Mile
+  lbs = Pound
+  ft = Foot
+  yd = Yard
+  acre = Acre
+  oz = Ounce
+  slug = Slug
+  lbf = PoundForce
 
   # common compound units
-  m•s⁻²* = Meter•Second⁻²
+  m•s⁻² = Meter•Second⁻²
   ## TODO: this should just be the long form, no?
-  g•cm⁻³* = distinct Density
+  g•cm⁻³ = distinct Density
   # english language versios
-  meterPerSecondSquared* = Meter•Second⁻²
+  meterPerSecondSquared = Meter•Second⁻²
 
+type
   SiPrefix* = enum
     siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
     siIdentity,
