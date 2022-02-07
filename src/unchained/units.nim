@@ -1462,6 +1462,25 @@ proc toBaseType(x: CTCompoundUnit): CTCompoundUnit =
   for u in x.units:
     result.add u.toBaseType
 
+proc sanitizeInput(n: NimNode): NimNode =
+  # remove all `nnkConv, nnkHiddenStdConv and nnkStmtListExpr`
+  let tree = n
+  proc sanitize(n: NimNode): NimNode =
+    if n.len == 0:
+      #result = n
+      case n.kind
+      of nnkSym: result = ident(n.strVal)
+      else: result = n
+    else:
+      case n.kind
+      of nnkConv, nnkHiddenStdConv, nnkHiddenCallConv: result = n[1].sanitize
+      of nnkStmtListExpr: result = n[1].sanitize
+      else:
+        result = newTree(n.kind)
+        for ch in n:
+          result.add sanitize(ch)
+  result = tree.sanitize()
+
 ## TODO: we should really combine these macros somewhat?
 macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
   var xCT = parseCTUnit(x)
@@ -1527,12 +1546,14 @@ macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped
 macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseCTUnit(x)
   var yCT = parseCTUnit(y)
+  let xr = x.sanitizeInput()
+  let yr = y.sanitizeInput()
   if xCT == yCT:
     # excactly the same type, just add
     let resType = xCT.toNimType() # same type, just use `xCT`
     result = quote do:
       defUnit(`resType`)
-      (`x`.float + `y`.float).`resType`
+      `resType`(`xr`.float + `yr`.float)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
@@ -1547,19 +1568,22 @@ macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let resType = xCT.toNimType()
     result = quote do:
       defUnit(`resType`)
-      (`x`.float * `xScale` + `y`.float * `yScale`).`resType`
+      `resType`(`xr`.float * `xScale` + `yr`.float * `yScale`)
   else:
     error("Different quantities cannot be added! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
 macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseCTUnit(x)
   var yCT = parseCTUnit(y)
+  let xr = x.sanitizeInput()
+  let yr = y.sanitizeInput()
+
   if xCT == yCT:
     # excactly the same type, just add
     let resType = xCT.toNimType() # same type, just use `xCT`
     result = quote do:
       defUnit(`resType`)
-      (`x`.float - `y`.float).`resType`
+      `resType`(`xr`.float - `yr`.float)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
@@ -1574,7 +1598,7 @@ macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let resType = xCT.toNimType()
     result = quote do:
       defUnit(`resType`)
-      (`x`.float * `xScale` - `y`.float * `yScale`).`resType`
+      `resType`(`xr`.float * `xScale` - `yr`.float * `yScale`)
   else:
     error("Different quantities cannot be subtracted! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
@@ -1630,15 +1654,17 @@ macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
   ## TODO: check if there are multiple SI prefixes of the same units present.
   ## If so, convert to base units, else do not.
   let resType = resTypeCT.simplify().toNimType()
+  let xr = x.sanitizeInput()
+  let yr = y.sanitizeInput()
   if scaleOriginal != scaleConv:
     let scale = scaleOriginal / scaleConv
     result = quote do:
       defUnit(`resType`)
-      (`x`.float * `y`.float * `scale`).`resType`
+      `resType`(`xr`.float * `yr`.float * `scale`)
   else:
     result = quote do:
       defUnit(`resType`)
-      (`x`.float * `y`.float).`resType`
+      `resType`(`xr`.float * `yr`.float)
 
 template `*`*[T: SomeUnit; U: SomeNumber](x: T; y: U{lit}): T = (x.float * y.float).T
 template `*`*[T: SomeUnit; U: SomeNumber](x: U{lit}; y: T): T = (x.float * y.float).T
@@ -1655,15 +1681,17 @@ macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
   ## TODO: check if there are multiple SI prefixes of the same units present.
   ## If so, convert to base units, else do not.
   let resType = resTypeCT.simplify().toNimType()
+  let xr = x.sanitizeInput()
+  let yr = y.sanitizeInput()
   if scaleOriginal != scaleConv:
     let scale = scaleOriginal / scaleConv
     result = quote do:
       defUnit(`resType`)
-      (`x`.float / `y`.float * `scale`).`resType`
+      `resType`(`xr`.float / `yr`.float * `scale`)
   else:
     result = quote do:
       defUnit(`resType`)
-      (`x`.float / `y`.float).`resType`
+      `resType`(`xr`.float / `yr`.float)
 
 proc commonQuantity(x: typedesc, y: typedesc): bool =
   ## checks if x and y are equivalent quantities
@@ -1719,9 +1747,8 @@ macro toImpl(x: typed, to: static CTCompoundUnit): NimNode =
     let scale = xScale / yScale
     let resType = yCT.toNimType()
     result = quote do:
-      when not declared(`resType`):
-        type `resType` = distinct CompoundQuantity
-      (`x`.float * `scale`).`resType`
+      defUnit(`resType`)
+      `resType`(`x`.float * `scale`)
   else:
     error("Cannot convert " & $(xCT.toNimType()) & " to " & $(yCT.toNimType()) & " as they represent different " &
       "quantities!")
@@ -1741,10 +1768,11 @@ macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
     (yCT.units.len > 1 and # > 1 means something like mol•mol⁻¹ can work
      resType.strVal == "UnitLess")
   let rewrite = not isUnitLess and resType.strVal == "UnitLess" # parsing failed
+  let xr = x.sanitizeInput()
   if not rewrite:
     result = quote do:
       defUnit(`resType`)
-      (`x`.float).`resType`
+      `resType`(`xr`.float)
   else:
     # parsing as a unit failed, rewrite to get possible CT error or correct result
     result = quote do:
@@ -1815,7 +1843,7 @@ macro toNaturalUnit*[T: SomeUnit](t: T): untyped =
   let resType = typ.simplify().toNimType()
   result = quote do:
     defUnit(`resType`)
-    (`t`.float * `scale`).`resType`
+    `resType`(`t`.float * `scale`)
 
 macro sqrt*[T: SomeUnit](t: T): untyped =
   ## Implements the `sqrt` of a given unitful value.
@@ -1823,6 +1851,7 @@ macro sqrt*[T: SomeUnit](t: T): untyped =
   ## Fails if the given unit is not a perfect square (i.e. each compound of the full
   ## unit's power is a multiple of 2).
   let typ = t.parseCTUnit()
+
   var mType = typ
   for u in mitems(mType.units):
     if u.power mod 2 == 0: # can be divided
@@ -1830,8 +1859,9 @@ macro sqrt*[T: SomeUnit](t: T): untyped =
     else:
       error("Cannot take the `sqrt` of input unit " & $(typ.toNimType()) & " as it's not a perfect square!")
   let resType = mType.toNimType()
+  let tr = t.sanitizeInput()
   result = quote do:
     # defUnit(`resType`) # Should not be needed. The sqrt (if valid) will be a known type
-    (sqrt(`t`.float)).`resType`
+    `resType`(sqrt(`tr`.float))
 
 proc abs*[T: SomeUnit](t: T): T = (abs(t.float)).T
