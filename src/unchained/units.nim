@@ -410,7 +410,11 @@ proc resolveAlias(n: NimNode): NimNode =
   ## returns the first type that is `distinct` (i.e. convert Newton -> KiloGram•Meter•Second⁻²)
   case n.kind
   of nnkDistinctTy: result = n
-  of nnkBracketExpr: result = (n[1].getImpl).resolveAlias
+  of nnkBracketExpr:
+    if n[1].kind == nnkSym:
+      result = n[1].getImpl.resolveAlias
+    else:
+      result = n[1].resolveAlias
   of nnkSym:
     if n.getTypeInst.kind != nnkSym: result = n.getTypeInst.resolveAlias
     elif n.getTypeImpl.kind != nnkSym: result = n.getTypeImpl.resolveAlias
