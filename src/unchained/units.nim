@@ -431,6 +431,9 @@ proc resolveAlias(n: NimNode): NimNode =
   else: result = newEmptyNode()
 
 macro isAUnit*(x: typed): untyped =
+  ## NOTE: it's really hard to replace this by something cleaner :/
+  ## Ideally this should be replaced by something that uses shared logic with
+  ## `getUnitTypeImpl` & making use of CT tables (possibly of objects?)
   let x = x.resolveAlias()
   case x.kind
   of nnkSym, nnkDistinctTy:
