@@ -1828,7 +1828,7 @@ macro sqrt*[T: SomeUnit](t: T): untyped =
     if u.power mod 2 == 0: # can be divided
       u.power = u.power div 2
     else:
-      error("Cannot take the `sqrt` of input unit " & $T & " as it's not a perfect square!")
+      error("Cannot take the `sqrt` of input unit " & $(typ.toNimType()) & " as it's not a perfect square!")
   let resType = mType.toNimType()
   result = quote do:
     # defUnit(`resType`) # Should not be needed. The sqrt (if valid) will be a known type
