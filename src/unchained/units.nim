@@ -1326,10 +1326,6 @@ proc parseUnitKind(s: string): UnitKind =
 proc getUnitType(n: NimNode): NimNode =
   case n.kind
   of nnkIdent: result = n
-  of nnkSym:
-    if n.isKnownUnit: result = n
-    elif n.typeKind == ntyNone: result = n # is a new unit
-    else: result = n.getTypeInst.getUnitTypeImpl()
   of nnkAccQuoted:
     var s: string
     for el in n:
