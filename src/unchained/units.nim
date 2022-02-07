@@ -455,6 +455,41 @@ type
   SomeUnit* = concept x
     isAUnit(x)
 
+proc resolveTypeFromAlias(n: NimNode): NimNode =
+  case n.kind
+  of nnkSym:
+    let typ = n.getImpl
+    doAssert typ.kind == nnkTypeDef, " no, was " & $typ.treerepr
+    if typ[2].typeKind == ntyAlias:
+      result = typ[2].resolveTypeFromAlias()
+    else:
+      case typ[2].kind
+      of nnkInfix: # this is a type class A = B | C | D, ... return input
+        result = n
+      else:
+        result = typ[2]
+  else:
+    let typ = n.getTypeImpl
+    doAssert typ.kind == nnkDistinctTy, " no, was " & $typ.treerepr
+    result = typ[0]
+
+proc resolveTypeFromDistinct(n: NimNode): NimNode =
+  let typ = n.getImpl
+  doAssert typ.kind == nnkTypeDef
+  result = typ[0]
+
+proc resolveTypeFromTypeDesc(n: NimNode): NimNode =
+  let typ = n.getType
+  doAssert typ.kind == nnkBracketExpr, "no, was " & $typ.treerepr
+  result = typ[1]
+
+proc getUnitTypeImpl(n: NimNode): NimNode =
+  case n.typeKind
+  of ntyAlias: result = n.resolveTypeFromAlias()
+  of ntyDistinct: result = n.resolveTypeFromDistinct()
+  of ntyTypeDesc: result = n.resolveTypeFromTypeDesc()
+  else: error("Unsupported : " & $n.typeKind)
+
 proc pretty*[T: SomeUnit](s: T, precision: int): string =
   result = s.float.formatFloat(precision = precision)
   result.trimZeros()
@@ -1288,33 +1323,13 @@ proc parseUnitKind(s: string): UnitKind =
   of "lbf", "PoundForce", "Pound-force": result = ukPoundForce
   else: result = ukUnitLess
 
-proc getUnitTypeImpl(n: NimNode): NimNode =
-  case n.kind
-  of nnkIdent: result = n
-  of nnkSym:
-    if n.strVal.isBaseUnit: return n
-    if n.strVal == "float": return n
-    let nTyp = n.getImpl
-    result = nTyp.getUnitTypeImpl
-  of nnkBracketExpr:
-    if n[0].strVal.normalize == "distinct":
-      result = n[1]
-    elif n[0].strVal.normalize == "typedesc":
-      result = n[1]
-    else:
-      error("Unexpected node: " & n.treerepr & " in `getUnitType`!")
-  of nnkTypeDef:
-    case n[2].kind
-    of nnkDistinctTy:
-      result = n[0] # in case child is distinct use parent [2][0] #
-    of nnkSym: result = getUnitTypeImpl(n[2])
-    else: error("Unexpected node: " & n.treerepr & " in `getUnitType`!")
-  else:
-    error("Unexpected node: " & n.treerepr & " in `getUnitType`!")
-
 proc getUnitType(n: NimNode): NimNode =
   case n.kind
   of nnkIdent: result = n
+  of nnkSym:
+    if n.isKnownUnit: result = n
+    elif n.typeKind == ntyNone: result = n # is a new unit
+    else: result = n.getTypeInst.getUnitTypeImpl()
   of nnkAccQuoted:
     var s: string
     for el in n:
