@@ -1857,7 +1857,7 @@ macro sqrt*[T: SomeUnit](t: T): untyped =
   let resType = mType.toNimType()
   let tr = t.sanitizeInput()
   result = quote do:
-    # defUnit(`resType`) # Should not be needed. The sqrt (if valid) will be a known type
+    defUnit(`resType`)
     `resType`(sqrt(`tr`.float))
 
 proc abs*[T: SomeUnit](t: T): T = (abs(t.float)).T
