@@ -1,3 +1,14 @@
+* v0.1.9
+- add =sqrt= for units that are a perfect square
+- add =abs= for units  
+- add ~+=~, ~*=~, ... where they make sense (e.g. only same units for
+  ~+=~ and only with scalars for ~*=~
+- add unary =-=
+- add =hash= for units
+- rename =toFloat= converters to a name less likely to conflict with
+  other things (=toRawFloat=)
+- replace basic SI unit generation by a macro call (=defineUnits=)
+- change =getUnitTypeImpl= logic by using =typeKind=
 * v0.1.8
 - fix generation of SI prefixes if =exclude= is used. Previously
   mapping of short to long prefixes was broken if =exclude= was used.
