@@ -1475,7 +1475,12 @@ proc sanitizeInput(n: NimNode): NimNode =
         result = newTree(n.kind)
         for ch in n:
           result.add sanitize(ch)
-  result = tree.sanitize()
+  ## NOTE: sanitation like this is much more problematic than I thought
+  ## We end up with many edge cases, which suddenly either:
+  ## - produce recursive loops
+  ## - cause weird CT errors as we somehow manage to strip too much information
+  ## Disabled for now.
+  result = tree#.sanitize()
 
 ## TODO: we should really combine these macros somewhat?
 macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
