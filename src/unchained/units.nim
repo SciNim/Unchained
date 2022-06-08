@@ -913,10 +913,11 @@ proc hash*[T: SomeUnit](x: T): Hash =
   result = result !& hash(x.float)
   result = !$result
 
-macro defUnit*(arg: untyped): untyped =
+macro defUnit*(arg: untyped, toExport: bool = false): untyped =
   ## Helper template to define new units (not required to be used manually)
   let argCT = parseCTUnit(arg)
   let shortHand = argCT.units.allIt(it.isShortHand)
+  let toExport = toExport.strVal == "true"
 
   ## TODO: instead of just using the long version, what to do for
   ## J•m or something like this? For max compatibility the RHS
@@ -927,20 +928,38 @@ macro defUnit*(arg: untyped): untyped =
     ## and simplifying yields, which is safely equivalent.
     let resType = argCT.flatten.simplify.toNimType()
     if resType.strVal != "UnitLess":
-      result = quote do:
-        when not declared(`resType`):
-          type `resType` = distinct CompoundQuantity
-        when not declared(`arg`):
-          type `arg` = `resType`
+      if not toExport:
+        result = quote do:
+          when not declared(`resType`):
+            type `resType` = distinct CompoundQuantity
+          when not declared(`arg`):
+            type `arg` = `resType`
+      else:
+        result = quote do:
+          when not declared(`resType`):
+            type `resType`* = distinct CompoundQuantity
+          when not declared(`arg`):
+            type `arg`* = `resType`
     else:
-      result = quote do:
-        when not declared(`arg`):
-          type `arg` = `resType`
+      if not toExport:
+        result = quote do:
+          when not declared(`arg`):
+            type `arg` = `resType`
+      else:
+        result = quote do:
+          when not declared(`arg`):
+            type `arg`* = `resType`
   else:
     if arg.strVal != "UnitLess":
-      result = quote do:
-        when not declared(`arg`):
-          type `arg` = distinct CompoundQuantity
+      if not toExport:
+        result = quote do:
+          when not declared(`arg`):
+            type `arg` = distinct CompoundQuantity
+      else:
+        result = quote do:
+          when not declared(`arg`):
+            type `arg`* = distinct CompoundQuantity
+
 
 proc add(comp: var CTCompoundUnit, unit: CTUnit) =
   comp.units.add unit
