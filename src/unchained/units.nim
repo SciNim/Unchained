@@ -1815,7 +1815,8 @@ proc baseUnitToNaturalUnit(b: CTBaseUnit): CTUnit =
     result = initCTUnit("eV⁻¹", ukElectronVolt, power = -1 * b.power, b.siPrefix, factor = some(6.5821220e-16))
   of buAmpere:
     result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, b.siPrefix, factor = some(0.00080381671))
-  of buKelvin: error("Broken")
+  of buKelvin:
+    result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, b.siPrefix, factor = some(11604.518))
   of buMol:
     result = initCTUnit("", ukUnitLess, power = 1 * b.power, b.siPrefix, factor = some(1.0))
   of buCandela: error("Broken")
