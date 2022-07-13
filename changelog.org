@@ -1,3 +1,19 @@
+* v0.1.10
+- add =Gauss= as a unit
+- allow conversion of =Kelvin= to natural units
+- allow units with `·` instead of `•`
+  Note: this is only for units that user *hands and constructs
+  themselves*. Predefined units or those auto generated when by `*` and
+  similar still concat units using `•`. So YMMV and all that, but it
+  opens up the possibility of being more flexible in the future.
+- add constant =m_u=, defined by =M_u / N_A=
+- rename Boltzmann constant from =k= to =k_B=
+- add =pretty= for units that allows a =short= parameter. That way the
+  unit will be string converted to a name with the short unit naming,
+  i.e. m•s⁻¹ instead of Meter•Second⁻¹. For now the default will
+  remain the long version, but that may change in the future.
+  
+        
 * v0.1.9
 - add =sqrt= for units that are a perfect square
 - add =abs= for units  
