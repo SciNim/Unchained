@@ -699,6 +699,9 @@ macro generateSiPrefixedUnits*(units: untyped): untyped =
       if eqIdent(siShort, skipIdent) or eqIdent(siLong, skipIdent): continue
       result.add nnkTypeDef.newTree(nnkPostfix.newTree(ident"*", siShort), newEmptyNode(), siLong[0][1])
 
+## XXX: should this also generate the aliases for the short names?
+## Or make macro more generic with an additional "generate SI" option and by default it simply
+## generates types?
 generateSiPrefixedUnits:
   (m, Meter)
   (s, Second)
