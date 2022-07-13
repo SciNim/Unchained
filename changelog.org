@@ -1,4 +1,6 @@
 * v0.1.10
+- =defUnits= now has an =export= option to define a unit that is
+  exported (therefore this =defUnit= can only be used at top level!)
 - add =Gauss= as a unit
 - allow conversion of =Kelvin= to natural units
 - allow units with `·` instead of `•`
