@@ -376,15 +376,16 @@ type
 
 # parsing CT units is the basis of all functionality almost
 proc parseCTUnit(x: NimNode): CTCompoundUnit
-proc toNimType(x: CTCompoundUnit): NimNode
-proc toNimType(u: CTUnit): string
+proc toNimType(u: CTUnit, short = false): string
+proc toNimTypeStr(x: CTCompoundUnit, short = false): string
+proc toNimType(x: CTCompoundUnit, short = false): NimNode
 proc flatten(units: CTCompoundUnit): CTCompoundUnit
 proc simplify(x: CTCompoundUnit): CTCompoundUnit
 proc toBaseType(x: CTCompoundUnit): CTCompoundUnit
 proc toFactor(prefix: SiPrefix): float
 
-proc pretty(x: CTUnit): string = x.toNimType()
-proc pretty(x: CTCompoundUnit): string = x.toNimType().strVal
+proc pretty(x: CTUnit, short = false): string = x.toNimType(short)
+proc pretty(x: CTCompoundUnit, short = false): string = x.toNimTypeStr(short)
 
 proc enumerateTypesImpl*(t: NimNode): NimNode =
   result = nnkBracket.newTree()
@@ -493,12 +494,71 @@ proc getUnitTypeImpl(n: NimNode): NimNode =
   of ntyTypeDesc: result = n.resolveTypeFromTypeDesc()
   else: error("Unsupported : " & $n.typeKind)
 
-proc pretty*[T: SomeUnit](s: T, precision: int): string =
+proc toShortName(unitKind: UnitKind): string =
+  ## XXX: merge with inverse of parsing by generating this and other from a macro!
+  ## Must only mention these once. Then also generate the short alias types from that.
+  case unitKind
+  of ukGram: result = "g"
+  of ukMeter: result = "m"
+  of ukSecond: result = "s"
+  of ukAmpere: result = "A"
+  of ukKelvin: result = "K"
+  of ukMol: result = "mol"
+  of ukCandela: result = "cd"
+  # derived SI units
+  of ukNewton: result = "N"
+  of ukJoule: result = "J"
+  of ukVolt: result = "V"
+  of ukHertz: result = "Hz"
+  of ukCoulomb: result = "C"
+  of ukWatt: result = "W"
+  of ukOhm: result = "Ω"
+  of ukHenry: result = "H"
+  of ukFarad: result = "F"
+  of ukPascal: result = "Pa"
+  of ukBar: result = "bar"
+  of ukRadian: result = "rad"
+  of ukSteradian: result = "sr"
+  of ukTesla: result = "T"
+  of ukBecquerel: result = "Bq"
+  # natural units
+  of ukNaturalLength: result = "eV⁻¹"
+  of ukNaturalMass: result = "eV"
+  of ukNaturalTime: result = "eV⁻¹"
+  of ukNaturalEnergy: result = "eV"
+  # additional units
+  of ukElectronVolt: result = "eV"
+  of ukDegree: result = "°"
+  of ukMinute: result = "min"
+  of ukHour: result = "h"
+  of ukDay: result = "day"
+  of ukYear: result = "yr"
+  of ukLiter: result = "L"
+  of ukPound: result = "lbs" # lbs (lb singular is too uncommon):: result = "lbs"
+  of ukInch: result = "inch" # in ( or possibly "inch" due to in being keyword):: result = "inch"
+  of ukMile: result = "mi"
+  of ukFoot: result = "ft"
+  of ukYard: result = "yd"
+  of ukOunce: result = "oz"
+  of ukSlug: result = "slug"
+  of ukAcre: result = "acre"
+  of ukPoundForce: result = "lbf"
+  else: doAssert false, "Invalid " & $unitKind
+
+macro shortName(t: typed): untyped =
+  let typ = t.parseCTUnit()
+  result = newLit typ.toNimTypeStr(short = true)
+
+proc pretty*[T: SomeUnit](s: T, precision: int, short: bool): string =
   result = s.float.formatFloat(precision = precision)
   result.trimZeros()
-  result.add &" {$typeof(s)}"
+  if not short:
+    result.add &" {$typeof(s)}"
+  else:
+    let name = shortName(typeof(s))
+    result.add &" {name}"
 
-proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1)
+proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1, short = false)
 
 when false:
   ## declare conversions. Defines mappings from x -> y that we store internally as:
@@ -572,6 +632,12 @@ const SiPrefixStringsShort = {
 const SiPrefixTable = block:
   var tab = initTable[SiPrefix, string]()
   for (key, val) in SiPrefixStringsLong:
+    tab[val] = key
+  tab
+
+const SiShortPrefixTable = block:
+  var tab = initTable[SiPrefix, string]()
+  for (key, val) in SiPrefixStringsShort:
     tab[val] = key
   tab
 
@@ -1151,29 +1217,37 @@ iterator getPow10Digits(x: int): int =
   for el in digits.reversed:
     yield el
 
-proc toNimType(u: CTUnit): string =
+proc toNimType(u: CTUnit, short = false): string =
   if u.unitKind == ukUnitLess: return
-  let siPrefixStr = SiPrefixTable[u.siPrefix]
+  let siPrefixStr = if short: SiShortPrefixTable[u.siPrefix]
+                    else: SiPrefixTable[u.siPrefix]
   result = siPrefixStr
-  result.add $u.unitKind
+  if not short:
+    result.add $u.unitKind
+  else:
+    result.add toShortName(u.unitKind)
   if u.power < 0:
     result.add "⁻"
   if u.power > 1 or u.power < 0:
     for digit in getPow10Digits(u.power):
       result.add digits[digit]
 
-proc toNimType(x: CTCompoundUnit): NimNode =
-  ## converts `x` to the correct
+proc toNimTypeStr(x: CTCompoundUnit, short = false): string =
+  ## converts `x` to the correct string representation
   # return early if no units in x
-  if x.units.len == 0: return ident"UnitLess"
+  if x.units.len == 0: return "UnitLess"
   let xSorted = x.units.sorted
-  var name = ""
   for idx, u in xSorted:
     if u.unitKind == ukUnitLess: continue
-    var str = toNimType(u)
+    var str = toNimType(u, short)
     if idx < xSorted.high:
       str.add "•"
-    name.add str
+    result.add str
+
+proc toNimType(x: CTCompoundUnit, short = false): NimNode =
+  ## converts `x` to the correct
+  # return early if no units in x
+  let name = x.toNimTypeStr(short)
   result = if name.len == 0: ident("UnitLess") else: ident(name)
 
 proc parseUntil(s: string, chars, errorOn: openArray[string]): int =
