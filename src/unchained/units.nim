@@ -153,6 +153,8 @@ defineUnits:
   Pascal = KiloGram•Meter⁻¹•Second⁻²
   ## TODO: distinct quantity of Magnetic
   Tesla = KiloGram•Ampere⁻¹•Second⁻²
+
+  Gauss = distinct MagneticFieldStrength
   # radian and steradian are distinct versions as they should not be converted
   # to that representation. Also Meter•Meter⁻¹ is not necessarily an angle.
   # TODO: think about removing Meter•Meter⁻¹ from here and only writing as
@@ -293,6 +295,7 @@ type
     # additional compound units
     ukElectronVolt = "ElectronVolt"
     ukLiter = "Liter"
+    ukGauss = "Gauss"
     # additional non compound units
     ukMinute = "Minute"
     ukHour = "Hour"
@@ -699,6 +702,7 @@ proc toQuantity(unitKind: UnitKind): QuantityKind =
   of ukDay: result = qkTime
   of ukYear: result = qkTime
   of ukLiter: result = qkLength
+  of ukGauss: result = qkMagneticFieldStrength
   of ukPound: result = qkMass
   of ukInch: result = qkLength
   of ukMile: result = qkLength
@@ -828,6 +832,8 @@ proc toCTBaseUnitSeq(unitKind: UnitKind): seq[CTBaseUnit] =
   of ukElectronVolt:
     ## our logic is incomplete, since it's missing proper conversions ouside of SI prefixes!
     result.add toCTBaseUnitSeq(ukJoule)
+  of ukGauss:
+    result.add toCTBaseUnitSeq(ukTesla)
   of ukLiter:
     result.add toCTBaseUnit(ukMeter, power = 3)
   # natural units
@@ -851,6 +857,7 @@ proc getConversionFactor(unitKind: UnitKind): float =
   of ukHour: result = 3600.0
   of ukDay: result = 86400.0
   of ukYear: result = 365.0 * 86400.0
+  of ukGauss: result = 1e-4 # relative to: Tesla
   of ukLiter: result = 1e-3 # relative to: m³
   of ukFoot: result = 0.3048 # relative to m
   of ukYard: result = 0.9144 # relative to m
@@ -1060,7 +1067,7 @@ proc flatten(units: CTCompoundUnit): CTCompoundUnit =
       case u.unitKind
       # for these units we do `not` want to flatten them!
       # TODO: most of these are not compound though?!
-      of ukElectronVolt, ukPound, ukInch, ukMile, ukBar, ukSteradian, ukRadian, ukLiter,
+      of ukElectronVolt, ukPound, ukInch, ukMile, ukBar, ukSteradian, ukRadian, ukLiter, ukGauss,
          ukFoot, ukYard, ukSlug, ukOunce, ukAcre, ukPoundForce: result.add u
       else:
         let power = u.power
@@ -1215,6 +1222,7 @@ proc parseSiPrefix(s: var string): SiPrefix =
     if prefix == siIdentity: continue
     ## TODO: properly fix this!!
     if prefix == siPeta and (s.startsWith("Pound") or s == "Pa"): return siIdentity
+    if prefix == siGiga and s.startsWith("Gauss"): return siIdentity
     if prefix == siExa and s.startsWith("ElectronVolt"): return siIdentity
     if prefix == siMilli and s.startsWith("mol"): return siIdentity
     if prefix == siMilli and s.startsWith("min"): return siIdentity
@@ -1331,6 +1339,7 @@ proc parseUnitKind(s: string): UnitKind =
   of "day", "Day": result = ukDay
   of "yr", "Year": result = ukYear
   of "L", "Liter": result = ukLiter
+  of "G", "Gauss": result = ukGauss
   of "lbs", "Pound": result = ukPound # lbs (lb singular is too uncommon):
   of "inch", "Inch": result = ukInch # in ( or possibly "inch" due to in being keyword):
   of "mi", "Mile": result = ukMile
