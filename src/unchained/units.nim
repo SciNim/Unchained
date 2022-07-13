@@ -1389,7 +1389,8 @@ proc parseCTUnitUnicode(x: string): CTCompoundUnit =
   ## c) "meter per second squared" -> "meterPerSecondSquared"
   ## a) and b) can be parsed together by both looking for `m` as well as `Meter` in each
   ## element. Verbose always start capital letters, shorthand depending on SI prefix / unit (N, V, A...)
-  let xTStrs = x.split("•")
+  let xTStrs = if "•" in x: x.split("•")
+               else: x.split("·")
   for el in xTStrs:
     var mel = el
     let prefix = mel.parseSiPrefix
