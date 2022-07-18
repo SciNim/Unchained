@@ -27,6 +27,7 @@ declareQuantities:
     Velocity:              [(Length, 1), (Time, -1)]
     Acceleration:          [(Length, 1), (Time, -2)]
     Area:                  [(Length, 2)]
+    Volume:                [(Length, 3)]
     Momentum:              [(Mass, 1), (Length, 1), (Time, -1)]
     Force:                 [(Length, 1), (Mass, 1), (Time, -2)]
     Energy:                [(Mass, 1), (Length, 2), (Time, -2)]
