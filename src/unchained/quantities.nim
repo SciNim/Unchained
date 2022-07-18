@@ -1,4 +1,4 @@
-import std / [macros, sets, sequtils]
+import std / [macros, sets, sequtils, tables]
 
 import utils
 
@@ -38,6 +38,22 @@ proc getName*(q: CTQuantity): string =
   case q.kind
   of qtBase: result = q.b.name
   of qtDerived: result = q.name
+
+proc reduce(s: seq[QuantityPower]): seq[QuantityPower] =
+  ## Reduces possible duplicate units with different powers.
+  var tab = initTable[string, int]()
+  for q in s:
+    let name = q.quant.name
+    if name in tab:
+      tab[name] += q.power
+    else:
+      tab[name] = q.power
+  for k, v in pairs(tab):
+    if v != 0:
+      result.add QuantityPower(
+        quant: CTBaseQuantity(name: k),
+        power: v
+      )
 
 proc parseBaseQuantities*(quants: NimNode): seq[CTQuantity] =
   ## Parses the given quantities
@@ -142,7 +158,11 @@ proc genQuantityTypes*(quants: seq[CTQuantity], qType: QuantityType): NimNode =
     doAssert quant.kind == qType
     let q = case quant.kind
             of qtBase: ident"Quantity"
-            of qtDerived: ident"CompoundQuantity"
+            of qtDerived:
+              if quant.baseSeq.reduce.len > 0:
+                ident"CompoundQuantity"
+              else:
+                ident"UnitLess"
     let qName = quant.getName()
     result.add nnkTypeDef.newTree(
       exportIt(qName),
