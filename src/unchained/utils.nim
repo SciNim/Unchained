@@ -14,3 +14,15 @@ macro `^`*(x: untyped, num: static int): untyped =
       it.add x
 
   result.addInfix(x, num - 2)
+
+proc genTypeClass*(e: var seq[NimNode]): NimNode =
+  ## Helper to generate a "type class" (using `|`) of multiple
+  ## types, because for _reasons_ the Nim AST for that is nested infix
+  ## calls apparently.
+  if e.len == 2:
+    result = nnkInfix.newTree(ident"|", e[0], e[1])
+  else:
+    let el = e.pop
+    result = nnkInfix.newTree(ident"|",
+                              genTypeClass(e),
+                              el)
