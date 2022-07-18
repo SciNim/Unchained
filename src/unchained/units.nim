@@ -1,11 +1,5 @@
 import math, macros, options, sequtils, algorithm, sets, tables, strutils, unicode, typetraits, strformat, parseutils
 
-when false:
-  type
-    UnitObject = object
-      quantity: foo
-      name: foo
-
 #[
 Extend the notion of CTBaseUnit to some general unit object. These unit objects we can
 store in a CT table, mapping their unit names to the objects. That way we
@@ -13,59 +7,46 @@ store in a CT table, mapping their unit names to the objects. That way we
 2. we should be able to more easily work towards ??? lost my train of thought.
 ]#
 
+import core_types, quantities
 
-type
-  Unit* = distinct float
-
-  Quantity* = distinct Unit
-  CompoundQuantity* = distinct Quantity
-
-  UnitLess* = distinct Unit
-
-  ## Base Quantities
-  Time* = distinct Quantity
-  Length* = distinct Quantity
-  Mass* = distinct Quantity
-  Current* = distinct Quantity
-  Temperature* = distinct Quantity
-  AmountOfSubstance* = distinct Quantity
-  Luminosity* = distinct Quantity
-
-  BaseQuantity* = Time | Length | Mass | Current | Temperature | AmountOfSubstance | Luminosity
-
-  ## Derived quantities, TODO: should be `distinct CompoundQuantity`? Not a single dimension!
-  Velocity* = distinct CompoundQuantity
-  Acceleration* = distinct CompoundQuantity
-  Momentum* = distinct CompoundQuantity
-  Force* = distinct CompoundQuantity
-  Energy* = distinct CompoundQuantity
-  Density* = distinct CompoundQuantity
-  Area* = distinct CompoundQuantity
-
-  ElectricPotential* = distinct CompoundQuantity
-  Voltage* = ElectricPotential
-
-  Frequency* = distinct CompoundQuantity
-
-  Charge* = distinct CompoundQuantity
-  Power* = distinct CompoundQuantity
-  ElectricResistance* = distinct CompoundQuantity
-  Capacitance* = distinct CompoundQuantity
-  Inductance* = distinct CompoundQuantity
-  Pressure* = distinct CompoundQuantity
-  MagneticFieldStrength* = distinct CompoundQuantity
-
-  # angles and solid angles are technically UnitLess.
-  Angle* = UnitLess
-  SolidAngle* = UnitLess
-
-  DerivedQuantity* = Velocity | Acceleration | Momentum | Force | Energy | Density | ElectricPotential | Voltage |
-    Frequency | Charge | Power | ElectricResistance | Capacitance | Inductance | Pressure | Angle | SolidAngle |
-    MagneticFieldStrength
-
-  SomeQuantity* = BaseQuantity | DerivedQuantity
+## Generate the types for the base quantities and their derived quantities.
+## Also generates the `QuantityKind` enum, which is simply an enum of all quantities
+## listed here prefixed by `qk` in the order given here. The `qkUnitLess` element
+## is always added automatically.
+declareQuantities:
+  Base:
+    Time
+    Length
+    Mass
+    Current
+    Temperature
+    AmountOfSubstance
+    Luminosity
+  Derived:
+    Frequency:             [(Time, -1)]
+    Velocity:              [(Length, 1), (Time, -1)]
+    Acceleration:          [(Length, 1), (Time, -2)]
+    Area:                  [(Length, 2)]
+    Momentum:              [(Mass, 1), (Length, 1), (Time, -1)]
+    Force:                 [(Length, 1), (Mass, 1), (Time, -2)]
+    Energy:                [(Mass, 1), (Length, 2), (Time, -2)]
+    ElectricPotential:     [(Mass, 1), (Length, 2), (Time, -3), (Current, -1)]
+    Charge:                [(Time, 1), (Current, 1)]
+    Power:                 [(Length, 2), (Mass, 1), (Time, -3)]
+    ElectricResistance:    [(Mass, 1), (Length, 2), (Time, -3), (Current, -2)]
+    Inductance:            [(Mass, 1), (Length, 2), (Time, -2), (Current, -2)]
+    Capacitance:           [(Mass, -1), (Length, -2), (Time, 4), (Current, 2)]
+    Pressure:              [(Mass, 1), (Length, -1), (Time, -2)]
+    Density:               [(Mass, 1), (Length, -3)]
+    Angle:                 [(Length, 1), (Length, -1)]
+    SolidAngle:            [(Length, 2), (Length, -2)]
+    MagneticFieldStrength: [(Mass, 1), (Time, -2), (Current, -1)]
+    Activity:              [(Time, -1)]
 
 import macrocache
+
+## XXX: Now that we have the quantities declared in a macro, we still need to
+## add them to a macro cache table / regular CT Table to keep the information around
 
 ## Knows about *all* units. Good to check if something (or a part of something) is a unit at all
 const PredefinedUnitImpls = CacheTable"PredefinedUnitImpls" # the implementations
@@ -249,14 +230,6 @@ type
     siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
     siIdentity,
     siDeca, siHecto, siKilo, siMega, siGiga, siTera, siPeta, siExa, siZetta, siYotta
-
-  QuantityKind* = enum
-    # base quantities
-    qkUnitLess, qkMass, qkLength, qkTime, qkCurrent, qkTemperature, qkAmountOfSubstance, qkLuminosity,
-    # derived quantities
-    qkFrequency, qkVelocity, qkAcceleration, qkArea, qkMomentum, qkForce, qkEnergy, qkElectricPotential,
-    qkCharge, qkPower, qkElectricResistance, qkInductance, qkCapacitance, qkPressure, qkDensity,
-    qkAngle, qkSolidAngle, qkMagneticFieldStrength, qkActivity
 
   ## enum storing all known units (their base form) to allow easier handling of unit conversions
   ## Enum value is the default name of the unit. Note: Order is important! (e.g. for `isCompound`)
