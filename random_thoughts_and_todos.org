@@ -163,3 +163,269 @@ Maybe we can combine =CTUnit= and =CTCompoundUnit= into one variant object.
 
 Sounds like a lot...
 
+
+** Defining units and types more generally
+
+#+begin_src nim :tangle /tmp/quantities_macros.nim
+import std / [macros, sets, sequtils]
+
+proc genTypeClass*(e: var seq[NimNode]): NimNode =
+  ## Helper to generate a "type class" (using `|`) of multiple
+  ## types, because for _reasons_ the Nim AST for that is nested infix
+  ## calls apparently.
+  if e.len == 2:
+    result = nnkInfix.newTree(ident"|", e[0], e[1])
+  else:
+    let el = e.pop
+    result = nnkInfix.newTree(ident"|",
+                              genTypeClass(e),
+                              el)
+type
+  QuantityType = enum
+    qtBase, qtDerived
+
+  CTBaseQuantity = object
+    name: string
+
+  QuantityPower = object
+    quant: CTBaseQuantity
+    power: int
+    
+  ## A quantity can either be a base quantity or a compound consisting of multiple
+  ## CTBaseQuantities of different powers.
+  CTQuantity = object
+    case kind: QuantityType
+    of qtBase: b: CTBaseQuantity
+    of qtDerived:
+      name: string # name of the derived quantity (e.g. Force)
+      baseSeq: seq[QuantityPower]
+
+proc `==`(q1, q2: CTQuantity): bool =
+  if q1.kind == q2.kind:
+    case q1.kind
+    of qtBase: result = q1.b == q2.b
+    of qtDerived: result = q1.name == q2.name and
+      q1.baseSeq == q2.baseSeq
+  else:
+    result = false
+
+proc contains(s: HashSet[CTBaseQuantity], key: string): bool =
+  result = CTBaseQuantity(name: key) in s
+
+proc getName(q: CTQuantity): string =
+  case q.kind
+  of qtBase: result = q.b.name
+  of qtDerived: result = q.name
+
+proc parseBaseQuantities(quants: NimNode): seq[CTQuantity] =
+  ## Parses the given quantities
+  ##
+  ## Given:
+  ##  
+  ##  Base:
+  ##    Time
+  ##    Length
+  ##    ...
+  ##
+  ## As Nim AST:
+  ##    Call
+  ##    Ident "Base"
+  ##    StmtList
+  ##      Ident "Time"
+  ##      Ident "Length"
+  ##    ...
+  ##
+  ## into corresponding `CTQuantity` objects.
+  doAssert quants.len == 2
+  doAssert quants[0].kind == nnkIdent and quants[0].strVal == "Base"
+  doAssert quants[1].kind == nnkStmtList
+  for quant in quants[1]:
+    case quant.kind
+    of nnkIdent:
+      # simple base quantity
+      result.add CTQuantity(kind: qtBase, b: CTBaseQuantity(name: quant.strVal))
+    else:
+      error("Invalid node kind " & $quant.kind & " in `Base:` for description of base quantities.")
+
+proc parseDerivedQuantities(quants: NimNode, baseQuantities: HashSet[CTBaseQuantity]): seq[CTQuantity] =
+  ## Parses the given derived quantities
+  ##
+  ## Given:
+  ##  
+  ##  Derived:
+  ##    Frequency = (Time, -1)
+  ##    ...
+  ##
+  ## As Nim AST:
+  ##    Call
+  ##    Ident "Derived"
+  ##    StmtList
+  ##      Call
+  ##        Ident "Acceleration"
+  ##        StmtList
+  ##          Bracket
+  ##            TupleConstr
+  ##              Ident "Mass"
+  ##              IntLit 1
+  ##            TupleConstr
+  ##              Ident "Speed"
+  ##              IntLit -2
+  ##     ...
+  ##
+  ##
+  ## into corresponding `CTQuantity` objects.
+  doAssert quants.len == 2
+  doAssert quants[0].kind == nnkIdent and quants[0].strVal == "Derived"
+  doAssert quants[1].kind == nnkStmtList
+  for quant in quants[1]:
+    case quant.kind
+    of nnkCall:
+      doAssert quant.len == 2
+      doAssert quant[0].kind == nnkIdent
+      doAssert quant[1].kind == nnkStmtList
+      doAssert quant[1][0].kind == nnkBracket
+      var qt = CTQuantity(kind: qtDerived, name: quant[0].strVal)
+      for tup in quant[1][0]:
+        case tup.kind
+        of nnkTupleConstr:
+          doAssert tup[0].kind == nnkIdent and tup[1].kind == nnkIntLit
+          let base = tup[0].strVal
+          let power = tup[1].intVal.int
+          if base notin baseQuantities:
+            error("Given base quantitiy `" & $base & "` is unknown! Make sure to define " &
+              "it in the `Base:` block.")
+          qt.baseSeq.add QuantityPower(quant: CTBaseQuantity(name: base), power: power)
+          result.add qt
+        else:
+          error("Invalid node kind " & $tup.kind & " in dimensional argument to derived quantity " &
+            $quant.repr & ".")
+    else:
+      error("Invalid node kind " & $quant.kind & " in `Derived:` for description of derived quantities.")
+
+proc genQuantityTypes(quants: seq[CTQuantity]): NimNode =
+  ## Generates the base quantities based on the given list of quantities
+  ##
+  ##  type
+  ##    Time* = distinct Quantity
+  ##    Length* = distinct Quantity
+  ##    ...
+  ##    
+  ##    BaseQuantity* = Time | Length | ...
+  var quantList = newSeq[NimNode]()
+  for quant in quants:
+    let q = case quant.kind
+            of qtBase: ident"Quantity"
+            of qtDerived: ident"CompoundQuantity"
+    let qName = ident(quant.getName())
+    result.add nnkTypeDef.newTree(
+      qName,
+      newEmptyNode(),
+      nnkDistinctTy.newTree(q)
+    )
+    quantList.add qName
+  #let qtc = case quant.kind
+  #          of qtBase: ident"BaseQuantity"
+  #          of qtDerived: ident"DerivedQuantity"
+  #result.add nnkTypeDef.newTree(qtc, newEmptyNode(), genTypeClass(quantList))
+
+macro declareQuantities(typs: untyped): untyped =
+  var baseQuant = nnkTypeDef.newTree(ident"BaseQuantity")
+  result = nnkTypeSection.newTree()
+  var baseQuantities: seq[CTQuantity]
+  var derivedQuants: seq[CTQuantity]
+  for typ in typs:
+    if typ.kind != nnkCall:
+      error("Invalid node kind " & $typ.kind & " in declaration of quantities.")
+    if typ[0].strVal == "Base":
+      # defines the base quantities
+      baseQuantities = parseBaseQuantities(typ)
+    elif typ[0].strVal == "Derived":
+      # defines derived quantities
+      if baseQuantities.len == 0:
+        error("`Base:` block to define base quantities must come before `Derived:` block.")
+      derivedQuants = parseDerivedQuantities(typ, baseQuantities.mapIt(it.b).toHashSet())
+    else:
+      error("Invalid type of quantities: " & $typ.repr)
+  echo baseQuantities
+  echo derivedQuants
+    
+declareQuantities:
+  Base:
+    Time
+    Length
+    Mass
+    Current
+    Temperature
+    AmountOfSubstance
+    Luminosity
+  Derived:
+    Frequency:             [(Time, -1)]
+    Velocity:              [(Length, 1), (Time, -1)]
+    Acceleration:          [(Length, 1), (Time, -2)]
+    Area:                  [(Length, 2)]
+    Momentum:              [(Mass, 1), (Length, 1), (Time, -1)]
+    Force:                 [(Length, 1), (Mass, 1), (Time, -2)]
+    Energy:                [(Mass, 1), (Length, 2), (Time, -2)]
+    ElectricPotential:     [(Mass, 1), (Length, 2), (Time, -3), (Current, -1)]
+    Charge:                [(Time, 1), (Current, 1)]
+    Power:                 [(Length, 2), (Mass, 1), (Time, -3)]
+    ElectricResistance:    [(Mass, 1), (Length, 2), (Time, -3), (Current, -2)]
+    Inductance:            [(Mass, 1), (Length, 2), (Time, -2), (Current, -2)]
+    Capacitance:           [(Mass, -1), (Length, -2), (Time, 4), (Current, 2)]
+    Pressure:              [(Mass, 1), (Length, -1), (Time, -2)]
+    Density:               [(Mass, 1), (Length, -3)]
+    Angle:                 [(Length, 1), (Length, -1)]
+    SolidAngle:            [(Length, 2), (Length, -2)]
+    MagneticFieldStrength: [(Mass, 1), (Time, -2), (Current, -1)]
+    Activity:              [(Time, -1)]
+
+# generates
+# type  
+#   Time* = distinct Quantity
+#   Length* = distinct Quantity
+#   Mass* = distinct Quantity
+#   Current* = distinct Quantity
+#   Temperature* = distinct Quantity
+#   AmountOfSubstance* = distinct Quantity
+#   Luminosity* = distinct Quantity
+#   
+#   BaseQuantity* = Time | Length | Mass | Current | Temperature | AmountOfSubstance | Luminosity
+
+# possibly a `declareCompoundQuantity`?  
+
+#declareUnits:
+#  # SI
+#  Meter:
+#    short: m
+#    quantity: Length
+#    isBaseUnit: true
+#    isCompound: false # (unnecessary as `isBaseUnit` is `true`)
+#  # other non compound units
+#  Pound:
+#    short: lbs
+#    quantity: Mass                      
+#    isBaseUnit: false
+#    toBaseUnit: 0.45359237.kg
+#    isCompound: false
+#  # compound SI
+#  Newton:
+#    short: N
+#    quantity: Force
+#    isBaseUnit: false
+#    isCompound: true
+#    toBaseUnit: 1.kg•m•s⁻²
+
+# generates the following things:
+# - enum UnitKind
+# - proc isBaseUnit 
+# - proc parseUnitKind
+# - proc getConversionFactor
+# - proc toCTBaseUnitSeq    
+# - proc toBaseUnit
+# - proc toQuantity
+# - proc isCompound
+# - proc toShortName    
+#+end_src
+
+How then do we get to different unit systems? By defining different
+things as base units and defining different conversions for each unit.
