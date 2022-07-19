@@ -39,7 +39,8 @@ suite "Resolve valid units":
   checkUnit(Density)
 
   checkUnit(ElectricPotential)
-  checkUnit(Voltage)
+  # Since declarative quantity def currently not defined
+  # checkUnit(Voltage)
 
   checkUnit(Frequency)
 
@@ -68,10 +69,13 @@ suite "Resolve valid units":
   checkUnit(Mol)
   checkUnit(Candela)
 
-  checkUnit(SiUnit)
+  # Currently not defined
+  # checkUnit(SiUnit)
 
   ## compound units, i.e. definition of different physical concepts.
   checkUnit(KiloGram•Meter•Second⁻¹)
+  # does not exist anymore predefined
+  defUnit(Second²)
   checkUnit(Second²)
   checkUnit(Meter•Second⁻¹)
   checkUnit(Meter•Second⁻²)
@@ -80,10 +84,11 @@ suite "Resolve valid units":
   checkUnit(Second⁻¹)
   checkUnit(KiloGram•Meter²•Second⁻³)
   checkUnit(Ampere•Second)
-  checkUnit(KiloGram•Meter²•Second⁻²•Ampere⁻²)
+  checkUnit(KiloGram•Meter²•Ampere⁻²•Second⁻²)
+  defUnit(Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹)
   checkUnit(Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹)
   checkUnit(KiloGram•Meter²•Ampere⁻¹•Second⁻³)
-  checkUnit(KiloGram•Meter²•Second⁻³•Ampere⁻²)
+  checkUnit(KiloGram•Meter²•Ampere⁻²•Second⁻³)
   checkUnit(KiloGram•Meter⁻¹•Second⁻²)
   checkUnit(KiloGram•Meter⁻³)
   checkUnit(Meter•Meter⁻¹)
@@ -114,10 +119,12 @@ suite "Resolve valid units":
   checkUnit(Day)
   checkUnit(Year)
 
+  defUnit(Joule•Coulomb⁻¹)
   checkUnit(Joule•Coulomb⁻¹)
+  defUnit(Ampere•Ohm)
   checkUnit(Ampere•Ohm)
 
-  checkUnit(DerivedSiUnits)
+  #checkUnit(DerivedSiUnits)
 
   ## shorthand types
   checkUnit(m)
@@ -125,9 +132,9 @@ suite "Resolve valid units":
   checkUnit(A)
   checkUnit(mol)
   checkUnit(m•s⁻²)
-  checkUnit(meterPerSecondSquared)
+  #checkUnit(meterPerSecondSquared)
   checkUnit(g)
-  checkUnit(Kg)
+  #checkUnit(Kg)
   checkUnit(kg)
   checkUnit(N)
   checkUnit(V)
@@ -141,7 +148,8 @@ suite "Resolve valid units":
   checkUnit(eV)
   checkUnit(Pa)
   checkUnit(bar)
-  checkUnit(g•cm⁻³)
+  ## XXX: allow definiton of common types?
+  #checkUnit(g•cm⁻³)
   checkUnit(rad)
   checkUnit(sr)
   checkUnit(°)
@@ -193,7 +201,7 @@ suite "Valid unit-ful values":
     wrapFoo(Density)
 
     wrapFoo(ElectricPotential)
-    wrapFoo(Voltage)
+    #wrapFoo(Voltage)
 
     wrapFoo(Frequency)
 
@@ -220,7 +228,7 @@ suite "Valid unit-ful values":
 
     ## compound units, i.e. definition of different physical concepts.
     wrapFoo(KiloGram•Meter•Second⁻¹)
-    wrapFoo(Second²)
+    #wrapFoo(Second²)
     wrapFoo(Meter•Second⁻¹)
     wrapFoo(Meter•Second⁻²)
     wrapFoo(KiloGram•Meter²•Second⁻²)
@@ -228,10 +236,11 @@ suite "Valid unit-ful values":
     wrapFoo(Second⁻¹)
     wrapFoo(KiloGram•Meter²•Second⁻³)
     wrapFoo(Ampere•Second)
-    wrapFoo(KiloGram•Meter²•Second⁻²•Ampere⁻²)
+    wrapFoo(KiloGram•Meter²•Ampere⁻²•Second⁻²)
+    defUnit(Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹)
     wrapFoo(Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹)
     wrapFoo(KiloGram•Meter²•Ampere⁻¹•Second⁻³)
-    wrapFoo(KiloGram•Meter²•Second⁻³•Ampere⁻²)
+    wrapFoo(KiloGram•Meter²•Ampere⁻²•Second⁻³)
     wrapFoo(KiloGram•Meter⁻¹•Second⁻²)
     wrapFoo(KiloGram•Meter⁻³)
     wrapFoo(Meter•Meter⁻¹)
@@ -262,7 +271,9 @@ suite "Valid unit-ful values":
     wrapFoo(Day)
     wrapFoo(Year)
 
+    defUnit(Joule•Coulomb⁻¹)
     wrapFoo(Joule•Coulomb⁻¹)
+    defUnit(Ampere•Ohm)
     wrapFoo(Ampere•Ohm)
 
     ## shorthand types
@@ -271,9 +282,9 @@ suite "Valid unit-ful values":
     wrapFoo(A)
     wrapFoo(mol)
     wrapFoo(m•s⁻²)
-    wrapFoo(meterPerSecondSquared)
+    #wrapFoo(meterPerSecondSquared)
     wrapFoo(g)
-    wrapFoo(Kg)
+    #wrapFoo(Kg)
     wrapFoo(kg)
     wrapFoo(N)
     wrapFoo(V)
@@ -287,7 +298,7 @@ suite "Valid unit-ful values":
     wrapFoo(eV)
     wrapFoo(Pa)
     wrapFoo(bar)
-    wrapFoo(g•cm⁻³)
+    #wrapFoo(g•cm⁻³)
     wrapFoo(rad)
     wrapFoo(sr)
     wrapFoo(°)
