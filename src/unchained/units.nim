@@ -414,40 +414,6 @@ type
   SomeUnit* = concept x
     isAUnit(x)
 
-proc resolveTypeFromAlias(n: NimNode): NimNode =
-  case n.kind
-  of nnkSym:
-    let typ = n.getImpl
-    doAssert typ.kind == nnkTypeDef, " no, was " & $typ.treerepr
-    if typ[2].typeKind == ntyAlias:
-      result = typ[2].resolveTypeFromAlias()
-    else:
-      case typ[2].kind
-      of nnkInfix: # this is a type class A = B | C | D, ... return input
-        result = n
-      else:
-        result = typ[2]
-  else:
-    let typ = n.getTypeImpl
-    doAssert typ.kind == nnkDistinctTy, " no, was " & $typ.treerepr
-    result = typ[0]
-
-proc resolveTypeFromDistinct(n: NimNode): NimNode =
-  let typ = n.getImpl
-  doAssert typ.kind == nnkTypeDef
-  result = typ[0]
-
-proc resolveTypeFromTypeDesc(n: NimNode): NimNode =
-  let typ = n.getType
-  doAssert typ.kind == nnkBracketExpr, "no, was " & $typ.treerepr
-  result = typ[1]
-
-proc getUnitTypeImpl(n: NimNode): NimNode =
-  case n.typeKind
-  of ntyAlias: result = n.resolveTypeFromAlias()
-  of ntyDistinct: result = n.resolveTypeFromDistinct()
-  of ntyTypeDesc: result = n.resolveTypeFromTypeDesc()
-  else: error("Unsupported : " & $n.typeKind)
 
 proc toShortName(unitKind: UnitKind): string =
   ## XXX: merge with inverse of parsing by generating this and other from a macro!
@@ -1290,20 +1256,6 @@ proc getUnitType(n: NimNode): NimNode =
       s.add el.strVal
     result = ident(s)
   else: result = n.getTypeInst.getUnitTypeImpl()
-
-proc isUnitLessNumber(n: NimNode): bool =
-  case n.kind
-  of nnkIntLit .. nnkFloatLit: result = true
-  of nnkIdent: result = false # most likely direct unit
-  of nnkAccQuoted:
-    ## TODO: disallow things that are not a number?
-    result = false
-  else:
-    let nTyp = n.getTypeInst
-    if nTyp.kind == nnkSym:
-      ## TODO: improve this check / include other numeric types
-      if nTyp.strVal in ["float", "float64", "int", "int64"]:
-        result = true
 
 proc parseCTUnitUnicode(x: string): CTCompoundUnit =
   ## 1. split by `•`

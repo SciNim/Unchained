@@ -212,20 +212,6 @@ proc parseExponent(s: var string, negative: bool): int =
 #    result = ident(s)
 #  else: result = n.getTypeInst.getUnitTypeImpl()
 
-proc isUnitLessNumber(n: NimNode): bool =
-  case n.kind
-  of nnkIntLit .. nnkFloatLit: result = true
-  of nnkIdent: result = false # most likely direct unit
-  of nnkAccQuoted:
-    ## TODO: disallow things that are not a number?
-    result = false
-  else:
-    let nTyp = n.getTypeInst
-    if nTyp.kind == nnkSym:
-      ## TODO: improve this check / include other numeric types
-      if nTyp.strVal in ["float", "float64", "int", "int64"]:
-        result = true
-
 proc lookupUnit(s: string): DefinedUnit =
   ## looks up the given predefined unit in our CT tables of known units
   result = UnitTab[s]
