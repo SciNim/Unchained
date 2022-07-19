@@ -1,10 +1,10 @@
-import std / [macros, sets, sequtils, tables]
+import std / [macros, sets, sequtils, tables, tables]
 
 import utils
 
 type
   QuantityType* = enum
-    qtBase, qtDerived
+    qtFundamental, qtCompound
 
   CTBaseQuantity* = object
     name*: string
@@ -17,16 +17,26 @@ type
   ## CTBaseQuantities of different powers.
   CTQuantity* = object
     case kind*: QuantityType
-    of qtBase: b*: CTBaseQuantity
-    of qtDerived:
+    of qtFundamental: b*: CTBaseQuantity
+    of qtCompound:
       name*: string # name of the derived quantity (e.g. Force)
       baseSeq*: seq[QuantityPower]
+
+#const QuantityTab = CacheTable"QuantityTab"
+var QuantityTab* {.compiletime.} = initTable[string, CTQuantity]()
+
+iterator compoundQuantities*(qt: Table[string, CTQuantity]): CTQuantity =
+  ## Yields all units that corresond to pure compound quantities (i.e. those
+  ## that have no `conversion` attached).
+  for name, quant in pairs(qt):
+    if quant.kind == qtCompound:
+      yield quant
 
 proc `==`*(q1, q2: CTQuantity): bool =
   if q1.kind == q2.kind:
     case q1.kind
-    of qtBase: result = q1.b == q2.b
-    of qtDerived: result = q1.name == q2.name and
+    of qtFundamental: result = q1.b == q2.b
+    of qtCompound: result = q1.name == q2.name and
       q1.baseSeq == q2.baseSeq
   else:
     result = false
@@ -36,8 +46,8 @@ proc contains*(s: HashSet[CTBaseQuantity], key: string): bool =
 
 proc getName*(q: CTQuantity): string =
   case q.kind
-  of qtBase: result = q.b.name
-  of qtDerived: result = q.name
+  of qtFundamental: result = q.b.name
+  of qtCompound: result = q.name
 
 proc reduce(s: seq[QuantityPower]): seq[QuantityPower] =
   ## Reduces possible duplicate units with different powers.
@@ -81,7 +91,9 @@ proc parseBaseQuantities*(quants: NimNode): seq[CTQuantity] =
     case quant.kind
     of nnkIdent:
       # simple base quantity
-      result.add CTQuantity(kind: qtBase, b: CTBaseQuantity(name: quant.strVal))
+      let qt = CTQuantity(kind: qtFundamental, b: CTBaseQuantity(name: quant.strVal))
+      result.add qt
+      QuantityTab[qt.b.name] = qt
     else:
       error("Invalid node kind " & $quant.kind & " in `Base:` for description of base quantities.")
 
@@ -122,7 +134,7 @@ proc parseDerivedQuantities*(quants: NimNode, baseQuantities: HashSet[CTBaseQuan
       doAssert quant[0].kind == nnkIdent
       doAssert quant[1].kind == nnkStmtList
       doAssert quant[1][0].kind == nnkBracket
-      var qt = CTQuantity(kind: qtDerived, name: quant[0].strVal)
+      var qt = CTQuantity(kind: qtCompound, name: quant[0].strVal)
       for tup in quant[1][0]:
         case tup.kind
         of nnkTupleConstr:
@@ -137,6 +149,7 @@ proc parseDerivedQuantities*(quants: NimNode, baseQuantities: HashSet[CTBaseQuan
           error("Invalid node kind " & $tup.kind & " in dimensional argument to derived quantity " &
             $quant.repr & ".")
       result.add qt
+      QuantityTab[qt.name] = qt
     else:
       error("Invalid node kind " & $quant.kind & " in `Derived:` for description of derived quantities.")
 
@@ -157,22 +170,18 @@ proc genQuantityTypes*(quants: seq[CTQuantity], qType: QuantityType): NimNode =
   for quant in quants:
     doAssert quant.kind == qType
     let q = case quant.kind
-            of qtBase: ident"Quantity"
-            of qtDerived:
+            of qtFundamental: "Quantity"
+            of qtCompound:
               if quant.baseSeq.reduce.len > 0:
-                ident"CompoundQuantity"
+                "CompoundQuantity"
               else:
-                ident"UnitLess"
+                "UnitLess"
     let qName = quant.getName()
-    result.add nnkTypeDef.newTree(
-      exportIt(qName),
-      newEmptyNode(),
-      nnkDistinctTy.newTree(q)
-    )
+    result.add defineDistinctType(qName, q)
     quantList.add ident(qName)
   let qtc = case qType
-            of qtBase: exportIt("BaseQuantity")
-            of qtDerived: exportIt("DerivedQuantity")
+            of qtFundamental: exportIt("BaseQuantity")
+            of qtCompound: exportIt("DerivedQuantity")
   result.add nnkTypeDef.newTree(qtc, newEmptyNode(), genTypeClass(quantList))
 
 proc genQuantityKindEnum*(base, derived: seq[CTQuantity]): NimNode =
@@ -206,8 +215,8 @@ macro declareQuantities*(typs: untyped): untyped =
       derivedQuants = parseDerivedQuantities(typ, baseQuantities.mapIt(it.b).toHashSet())
     else:
       error("Invalid type of quantities: " & $typ.repr)
-  result.add genQuantityTypes(baseQuantities, qtBase)
-  result.add genQuantityTypes(derivedQuants, qtDerived)
+  result.add genQuantityTypes(baseQuantities, qtFundamental)
+  result.add genQuantityTypes(derivedQuants, qtCompound)
   result.add genQuantityKindEnum(baseQuantities, derivedQuants)
   result.add nnkTypeSection.newTree(
     nnkTypeDef.newTree(
