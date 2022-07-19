@@ -7,7 +7,8 @@ store in a CT table, mapping their unit names to the objects. That way we
 2. we should be able to more easily work towards ??? lost my train of thought.
 ]#
 
-import core_types, quantities
+import core_types, quantities, utils, define_units
+export core_types
 
 ## Generate the types for the base quantities and their derived quantities.
 ## Also generates the `QuantityKind` enum, which is simply an enum of all quantities
@@ -32,6 +33,7 @@ declareQuantities:
     Force:                 [(Length, 1), (Mass, 1), (Time, -2)]
     Energy:                [(Mass, 1), (Length, 2), (Time, -2)]
     ElectricPotential:     [(Mass, 1), (Length, 2), (Time, -3), (Current, -1)]
+    # XXX: allow to define aliases here? Voltage: ElectricPotential ?
     Charge:                [(Time, 1), (Current, 1)]
     Power:                 [(Length, 2), (Mass, 1), (Time, -3)]
     ElectricResistance:    [(Mass, 1), (Length, 2), (Time, -3), (Current, -2)]
@@ -44,187 +46,172 @@ declareQuantities:
     MagneticFieldStrength: [(Mass, 1), (Time, -2), (Current, -1)]
     Activity:              [(Time, -1)]
 
-import macrocache
-
 ## XXX: Now that we have the quantities declared in a macro, we still need to
 ## add them to a macro cache table / regular CT Table to keep the information around
 
-## Knows about *all* units. Good to check if something (or a part of something) is a unit at all
-const PredefinedUnitImpls = CacheTable"PredefinedUnitImpls" # the implementations
-const PredefinedUnits = CacheTable"PredefinedUnits" # the actual unit symbols
-const GeneratedUnits = CacheTable"GeneratedUnits"
-## Add other CT tables...
-# const
+declareUnits:
+  BaseUnits: # SI base units
+    Gram:
+      short: g
+      prefix: siKilo # the actual SI unit is `kg` instead of `g`.
+      quantity: Mass
+    Meter:
+      short: m
+      quantity: Length
+    Ampere:
+      short: A
+      quantity: Current
+    Second:
+      short: s
+      quantity: Time
+    Kelvin:
+      short: K
+      quantity: Temperature
+    Mol:
+      short: mol
+      quantity: AmountOfSubstance
+    Candela:
+      short: cd
+      quantity: Luminosity
+  # generate
+  # SiUnit = Second | Meter | KiloGram | Ampere | Kelvin | Mol | Candela
 
-proc contains*(t: CacheTable, key: string): bool =
-  for k, val in pairs(t):
-    if k == key: return true
+  # generate
+  # KiloGram•Meter•Second⁻¹ = distinct Momentum
+  # Second² = distinct Time
+  # Meter•Second⁻¹ = distinct Velocity
+  # Meter•Second⁻² = distinct Acceleration
+  # KiloGram•Meter²•Second⁻² = distinct Energy
+  # ...
+  Derived:
+    Newton:
+      short: N
+      quantity: Force # generate SI based derivative based on Quantity & quantity dimensionality
+    Joule:
+      short: J
+      quantity: Energy
+    Volt:
+      short: V
+      quantity: ElectricPotential
+    Hertz:
+      short: Hz
+      quantity: Frequency
+    Coulomb:
+      short: C
+      quantity: Charge
+    Watt:
+      short: W
+      quantity: Power
+    Ohm:
+      short: Ω
+      quantity: ElectricResistance
+    Henry:
+      short: H
+      quantity: Inductance
+    Farad:
+      short: F
+      quantity: Capacitance
+    Pascal:
+      short: Pa
+      quantity: Pressure
+    Tesla:
+      short: T
+      quantity: MagneticFieldStrength
 
-proc isPredefined(n: NimNode): bool =
-  doAssert n.kind in {nnkSym, nnkIdent}
-  result = n.strVal in PredefinedUnits
+    # radian and steradian are distinct versions as they should not be converted
+    # to that representation. Also Meter•Meter⁻¹ is not necessarily an angle.
+    # TODO: think about removing Meter•Meter⁻¹ from here and only writing as
+    # `distinct Angle`.
+    Radian:
+      short: rad
+      quantity: Angle
+    Steradian:
+      short: sr
+      quantity: SolidAngle
+    Becquerel:
+      short: Bq
+      quantity: Activity
 
-proc exportType(n: NimNode): NimNode = nnkPostfix.newTree(ident"*", n)
+    # Non SI units
+    Gauss:
+      short: G
+      quantity: MagneticFieldStrength
+      conversion: 1e-4.T # non SI defined by having a conversion
 
-macro defineUnits(stmts: untyped): untyped =
-  ##
-  result = nnkTypeSection.newTree()
-  for stmt in stmts:
-    case stmt.kind
-    of nnkCommentStmt: result.add stmt
-    of nnkAsgn:
-      let asTyp = stmt[0]
-      let isTyp = stmt[1]
-      PredefinedUnitImpls[asTyp.strVal] = isTyp
-      PredefinedUnits[asTyp.strVal] = asTyp
-      result.add nnkTypeDef.newTree(exportType(asTyp), newEmptyNode(), isTyp)
-    else: error("invalid " & $stmt.kind)
-  #echo result.treerepr
+    # given that we have base units & derived base units defined, we can now just
+    # dump everything together. Everything that is referenced before, can now be
+    # used to define new units.
+    # other units
+    ElectronVolt:
+      short: eV
+      quantity: Energy
+      conversion: 1.602176634e-19.J
+    Bar:
+      short: bar
+      quantity: Pressure
+      conversion: 100_000.Pa
+    Liter:
+      short: L
+      quantity: Volume
+      conversion: 1e-3.m³
+    Degree:
+      short: °
+      quantity: Angle
+      conversion: 0.0174532925199.rad # PI / 180.0
+    Minute:
+      short: min
+      quantity: Time
+      conversion: 60.0.s
+    Hour:
+      short: h
+      quantity: Time
+      conversion: 3600.0.s
+    Day:
+      short: day
+      quantity: Time
+      conversion: 86400.0.s
+    Year:
+      short: yr
+      quantity: Time
+      conversion: 31536000.s # 365.0 * 86400.0, could also use ~365.25...
 
-defineUnits:
-  #Joule* = distinct Unit
-  ## Base SI units
-  Second = distinct Time
-  Meter = distinct Length
-  Gram = distinct Mass
-  KiloGram = distinct Gram ## KiloGram is special due to being the actual SI unit. Thus defined here
-  Ampere = distinct Current
-  Kelvin = distinct Temperature
-  Mol = distinct AmountOfSubstance
-  Candela = distinct Luminosity
-
-  SiUnit = Second | Meter | KiloGram | Ampere | Kelvin | Mol | Candela
-
-  ## compound units, i.e. definition of different physical concepts.
-  KiloGram•Meter•Second⁻¹ = distinct Momentum
-  Second² = distinct Time
-  Meter•Second⁻¹ = distinct Velocity
-  Meter•Second⁻² = distinct Acceleration
-  KiloGram•Meter²•Second⁻² = distinct Energy
-  KiloGram•Meter•Second⁻² = distinct Force
-  Second⁻¹ = distinct Frequency
-  KiloGram•Meter²•Second⁻³ = distinct Power
-  Ampere•Second = distinct Charge
-  KiloGram•Meter²•Second⁻²•Ampere⁻² = distinct Inductance
-  Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹ = distinct Capacitance
-  KiloGram•Meter²•Ampere⁻¹•Second⁻³ = distinct ElectricPotential
-  KiloGram•Meter²•Second⁻³•Ampere⁻² = distinct ElectricResistance
-  KiloGram•Meter⁻¹•Second⁻² = distinct Pressure
-  KiloGram•Meter⁻³ = distinct Density
-  KiloGram•Ampere⁻¹•Second⁻² = distinct MagneticFieldStrength
-  # the following two are a bit problematic, as this is not a rea
-  # identity. `Meter•Meter⁻¹` can, but does not ``need`` to be an angle.
-  Meter•Meter⁻¹ = distinct Angle
-  Meter²•Meter⁻² = distinct SolidAngle
-
-
-  ## derived SI units
-  ## TODO: are these actually needed? We do all work in the internal CT
-  ## unit base anyway.
-  ## Well, but these help if the user computes such combinations manually
-  ## and gets those units.
-  Newton = KiloGram•Meter•Second⁻²
-  Joule = KiloGram•Meter²•Second⁻²
-  Volt = KiloGram•Meter²•Ampere⁻¹•Second⁻³
-  Hertz = Second⁻¹
-  Coulomb = Ampere•Second
-  Watt = KiloGram•Meter²•Second⁻³ # Joule•Second⁻¹
-  Ohm = KiloGram•Meter²•Second⁻³•Ampere⁻²
-  Henry = KiloGram•Meter²•Second⁻²•Ampere⁻²
-  Farad = Second⁴•Ampere²•Meter⁻²•KiloGram⁻¹
-  Pascal = KiloGram•Meter⁻¹•Second⁻²
-  ## TODO: distinct quantity of Magnetic
-  Tesla = KiloGram•Ampere⁻¹•Second⁻²
-
-  Gauss = distinct MagneticFieldStrength
-  # radian and steradian are distinct versions as they should not be converted
-  # to that representation. Also Meter•Meter⁻¹ is not necessarily an angle.
-  # TODO: think about removing Meter•Meter⁻¹ from here and only writing as
-  # `distinct Angle`.
-  Radian = distinct Meter•Meter⁻¹
-  Steradian = distinct Meter²•Meter⁻²
-  Becquerel = distinct Second⁻¹
-
-  ## other units
-  ElectronVolt = distinct Energy
-  Bar = distinct Pressure
-  Liter = distinct Length # TODO make that Volume
-  Degree = distinct Angle
-  Minute = distinct Time
-  Hour = distinct Time
-  Day = distinct Time
-  Year = distinct Time
-
-  ## Imperial
-  Pound = distinct Mass
-  Inch = distinct Length
-  Mile = distinct Length
-  Foot = distinct Length
-  Yard = distinct Length
-  Acre = distinct Area
-  Ounce = distinct Mass
-  Slug = distinct Mass
-  PoundForce = distinct Force
-
-  ## possibly define convenient overloads? Not really required, since we compute that these match after
-  ## all, no? E.g. given Joule•Coulomb⁻¹. We would parse each, convert to base SI units and notice that
-  ## it's the same as required `Volt` after conversion to base SI units for V. That's how it should work
-  ## anyway.
-  Joule•Coulomb⁻¹ = Volt
-  Ampere•Ohm = Volt
-
-  DerivedSiUnits = Newton | Joule
-
-  ## shorthand types
-  m = Meter
-  s = Second
-  A = Ampere
-  g = Gram
-  Kg = KiloGram
-  kg = Kg ## XXX: This should go, but it's a good case to think about how to resolve aliases!
-  K = Kelvin
-  mol = Mol
-  cd = Candela
-  N = Newton
-  J = Joule
-  V = Volt
-  Hz = Hertz
-  C = Coulomb
-  W = Watt
-  Ω = Ohm
-  H = Henry
-  F = Farad
-  Pa = Pascal
-  bar = Bar
-  rad = Radian
-  sr = Steradian
-  eV = ElectronVolt
-  ° = Degree
-  min = Minute
-  h = Hour
-  day = Day
-  yr = Year
-  L = Liter
-  T = Tesla
-  Bq = Becquerel
-
-  ## imperial shorthand
-  inch = Inch
-  mi = Mile
-  lbs = Pound
-  ft = Foot
-  yd = Yard
-  acre = Acre
-  oz = Ounce
-  slug = Slug
-  lbf = PoundForce
-
-  # common compound units
-  m•s⁻² = Meter•Second⁻²
-  ## TODO: this should just be the long form, no?
-  g•cm⁻³ = distinct Density
-  # english language versios
-  meterPerSecondSquared = Meter•Second⁻²
+    # Imperial
+    Pound:
+      short: lbs
+      quantity: Mass
+      conversion: 0.45359237.kg
+    Mile:
+      short: mi
+      quantity: Length
+      conversion: 1609.344.m
+    Inch:
+      short: inch
+      quantity: Length
+      conversion: 0.0254.m
+    Foot:
+      short: ft
+      quantity: Length
+      conversion: 0.3048.m
+    Yard:
+      short: yd
+      quantity: Length
+      conversion: 0.9144.m
+    Ounce:
+      short: oz
+      quantity: Mass
+      conversion: 28.349523125e-3.kg
+    Slug:
+      short: slug
+      quantity: Mass
+      conversion: 14.59390294.kg
+    Acre:
+      short: acre
+      quantity: Area
+      conversion: 4046.8564224.m²
+    PoundForce:
+      short: lbf
+      quantity: Force
+      conversion: 4.44822162.N # relative to N
 
 type
   ## enum storing all known units (their base form) to allow easier handling of unit conversions
@@ -555,7 +542,6 @@ proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool,
         result.add ident("_") # if we exclude, add placeholder. Used to mark for cross reference long / short
         continue
       let typStr = ident($si & typ.strVal)
-      if typStr.strVal == "KiloGram": continue # skip generation of `KiloGram`
       let isTyp = nnkDistinctTy.newTree(typ)
       result.add nnkTypeDef.newTree(nnkPostfix.newTree(ident"*", typStr), newEmptyNode(), isTyp)
   if genShort:
@@ -565,7 +551,6 @@ proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool,
         result.add ident("_") # if we exclude, add placeholder. Used to mark for cross reference long / short
         continue
       let typStr = ident($si & typ.strVal)
-      if typStr.strVal == "kg": continue # predefined as well to have same number of elements in this seq
       result.add typStr
 
 macro generateSiPrefixedUnits*(units: untyped): untyped =
