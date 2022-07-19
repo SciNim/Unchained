@@ -1113,16 +1113,6 @@ proc `==`(a, b: CTCompoundUnit): bool =
     return false
   result = true
 
-iterator getPow10Digits(x: int): int =
-  ## yields all digits in given integer
-  var digits: seq[int]
-  var val = abs(x)
-  while val > 0:
-    digits.add val mod 10
-    val = val div 10
-  for el in digits.reversed:
-    yield el
-
 proc toNimType(u: CTUnit, short = false): string =
   if u.unitKind == ukUnitLess: return
   let siPrefixStr = if short: SiShortPrefixTable[u.siPrefix]

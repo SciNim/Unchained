@@ -153,9 +153,6 @@ proc parseDerivedQuantities*(quants: NimNode, baseQuantities: HashSet[CTBaseQuan
     else:
       error("Invalid node kind " & $quant.kind & " in `Derived:` for description of derived quantities.")
 
-proc exportIt(n: string): NimNode =
-  result = nnkPostfix.newTree(ident"*", ident(n))
-
 proc genQuantityTypes*(quants: seq[CTQuantity], qType: QuantityType): NimNode =
   ## Generates the base quantities based on the given list of quantities
   ##
