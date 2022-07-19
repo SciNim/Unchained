@@ -227,11 +227,6 @@ defineUnits:
   meterPerSecondSquared = Meter•Second⁻²
 
 type
-  SiPrefix* = enum
-    siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
-    siIdentity,
-    siDeca, siHecto, siKilo, siMega, siGiga, siTera, siPeta, siExa, siZetta, siYotta
-
   ## enum storing all known units (their base form) to allow easier handling of unit conversions
   ## Enum value is the default name of the unit. Note: Order is important! (e.g. for `isCompound`)
   UnitKind* = enum
@@ -356,7 +351,6 @@ proc toNimType(x: CTCompoundUnit, short = false): NimNode
 proc flatten(units: CTCompoundUnit): CTCompoundUnit
 proc simplify(x: CTCompoundUnit): CTCompoundUnit
 proc toBaseType(x: CTCompoundUnit): CTCompoundUnit
-proc toFactor(prefix: SiPrefix): float
 
 proc pretty(x: CTUnit, short = false): string = x.toNimType(short)
 proc pretty(x: CTCompoundUnit, short = false): string = x.toNimTypeStr(short)
@@ -549,71 +543,6 @@ when false:
     inch -> cm: 2.54
     mile -> km: 1.6
     Fahrenheit <-> Celsius: (5.0/9.0 * (x - 32), 9.0/5.0 * x + 32.0)
-
-const digits = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
-const digitsAndMinus = ["⁻","⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
-const DigitsAscii = ["0","1","2","3","4","5","6","7","8","9"]
-const AsciiChars = {'*', '^', '-', '0' .. '9'}
-
-const SiPrefixStringsLong = {
-  "Yocto" :    siYocto,
-  "Zepto" :    siZepto,
-  "Atto" :     siAtto,
-  "Femto" :    siFemto,
-  "Pico"  :    siPico,
-  "Nano" :     siNano,
-  "Micro" :    siMicro,
-  "Milli" :    siMilli,
-  "Centi" :    siCenti,
-  "Deci" :     siDeci,
-  "" : siIdentity,
-  "Deca" :     siDeca,
-  "Hecto" :    siHecto,
-  "Kilo" :     siKilo,
-  "Mega" :     siMega,
-  "Giga" :     siGiga,
-  "Tera" :     siTera,
-  "Peta" :     siPeta,
-  "Exa" :      siExa,
-  "Zetta" :    siZetta,
-  "Yotta" :    siYotta
-}
-
-const SiPrefixStringsShort = {
-  "y"  :    siYocto,
-  "z"  :    siZepto,
-  "a"  :     siAtto,
-  "f"  :    siFemto,
-  "p"  :    siPico,
-  "n"  :     siNano,
-  "μ"  :    siMicro,
-  "m"  :    siMilli,
-  "c"  :    siCenti,
-  "d"  :     siDeci,
-  ""   : siIdentity,
-  "da" :     siDeca,
-  "h"  :    siHecto,
-  "k"  :     siKilo,
-  "M"  :     siMega,
-  "G"  :     siGiga,
-  "T"  :     siTera,
-  "P"  :     siPeta,
-  "E"  :      siExa,
-  "Z"  :    siZetta,
-  "Y"  :    siYotta
-}
-
-const SiPrefixTable = block:
-  var tab = initTable[SiPrefix, string]()
-  for (key, val) in SiPrefixStringsLong:
-    tab[val] = key
-  tab
-
-const SiShortPrefixTable = block:
-  var tab = initTable[SiPrefix, string]()
-  for (key, val) in SiPrefixStringsShort:
-    tab[val] = key
-  tab
 
 proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool,
                    excludes: seq[string] = @[]): seq[NimNode] =
@@ -1288,31 +1217,6 @@ proc parseSiPrefix(s: var string): SiPrefix =
     if s.startsWith(el):
       s.removePrefix(el)
       return prefix
-
-proc toFactor(prefix: SiPrefix): float =
-  ## note: can't compute value reasonably, due to hecto, centi, deci and deca
-  case prefix
-  of siYocto: result = 1e-24
-  of siZepto: result = 1e-21
-  of siAtto: result = 1e-18
-  of siFemto: result = 1e-15
-  of siPico: result = 1e-12
-  of siNano: result = 1e-9
-  of siMicro: result = 1e-6
-  of siMilli: result = 1e-3
-  of siCenti: result = 1e-2
-  of siDeci: result = 1e-1
-  of siIdentity: result = 1.0
-  of siDeca: result = 1e1
-  of siHecto: result = 1e2
-  of siKilo: result = 1e3
-  of siMega: result = 1e6
-  of siGiga: result = 1e9
-  of siTera: result = 1e12
-  of siPeta: result = 1e15
-  of siExa: result = 1e18
-  of siZetta: result = 1e21
-  of siYotta: result = 1e24
 
 proc hasNegativeExp(s: var string): bool =
   var rune: Rune
