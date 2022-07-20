@@ -1,13 +1,6 @@
 import math, macros, options, sequtils, algorithm, sets, tables, strutils, unicode, typetraits, strformat, parseutils
 
-#[
-Extend the notion of CTBaseUnit to some general unit object. These unit objects we can
-store in a CT table, mapping their unit names to the objects. That way we
-1. don't have to parse into `CTUnit` every time again
-2. we should be able to more easily work towards ??? lost my train of thought.
-]#
-
-import core_types, quantities, utils, define_units
+import core_types, quantities, utils, macro_utils, ct_unit_types, parse_units
 export core_types
 
 ## Generate the types for the base quantities and their derived quantities.
@@ -46,8 +39,14 @@ declareQuantities:
     MagneticFieldStrength: [(Mass, 1), (Time, -2), (Current, -1)]
     Activity:              [(Time, -1)]
 
-## XXX: Now that we have the quantities declared in a macro, we still need to
-## add them to a macro cache table / regular CT Table to keep the information around
+## Define units is imported only *after* the quantities are declared!
+import define_units
+export define_units.commonQuantity
+
+
+## Generate all base types (base units representing the defined quantities) and
+## possible other (compound) types that are defined via a conversion to an existing
+## base type.
 
 declareUnits:
   BaseUnits: # SI base units
@@ -73,16 +72,7 @@ declareUnits:
     Candela:
       short: cd
       quantity: Luminosity
-  # generate
-  # SiUnit = Second | Meter | KiloGram | Ampere | Kelvin | Mol | Candela
 
-  # generate
-  # KiloGram•Meter•Second⁻¹ = distinct Momentum
-  # Second² = distinct Time
-  # Meter•Second⁻¹ = distinct Velocity
-  # Meter•Second⁻² = distinct Acceleration
-  # KiloGram•Meter²•Second⁻² = distinct Energy
-  # ...
   Derived:
     Newton:
       short: N
@@ -117,20 +107,19 @@ declareUnits:
     Tesla:
       short: T
       quantity: MagneticFieldStrength
-
-    # radian and steradian are distinct versions as they should not be converted
-    # to that representation. Also Meter•Meter⁻¹ is not necessarily an angle.
-    # TODO: think about removing Meter•Meter⁻¹ from here and only writing as
-    # `distinct Angle`.
-    Radian:
-      short: rad
-      quantity: Angle
-    Steradian:
-      short: sr
-      quantity: SolidAngle
     Becquerel:
       short: Bq
       quantity: Activity
+
+    # angle based units. These are technically UnitLess, hence we forbid auto conversion
+    Radian:
+      short: rad
+      quantity: Angle
+      autoConvert: false # do not auto convert radian (would drop information) in `flatten` calls
+    Steradian:
+      short: sr
+      quantity: SolidAngle
+      autoConvert: false # do not auto convert steradian (would drop information)
 
     # Non SI units
     Gauss:
@@ -146,6 +135,7 @@ declareUnits:
       short: eV
       quantity: Energy
       conversion: 1.602176634e-19.J
+      # autoConvert: false # use auto convert?
     Bar:
       short: bar
       quantity: Pressure
@@ -211,148 +201,46 @@ declareUnits:
     PoundForce:
       short: lbf
       quantity: Force
-      conversion: 4.44822162.N # relative to N
+      conversion: 4.44822162.N
 
-type
-  ## enum storing all known units (their base form) to allow easier handling of unit conversions
-  ## Enum value is the default name of the unit. Note: Order is important! (e.g. for `isCompound`)
-  UnitKind* = enum
-    ukUnitLess = "UnitLess"
-    ukGram = "Gram"
-    ukMeter = "Meter"
-    ukSecond = "Second"
-    ukAmpere = "Ampere"
-    ukKelvin = "Kelvin"
-    ukMol = "Mol"
-    ukCandela = "Candela"
-    # derived SI units, all compound
-    ukNewton = "Newton"
-    ukJoule = "Joule"
-    ukVolt = "Volt"
-    ukHertz = "Hertz"
-    ukCoulomb = "Coulomb"
-    ukWatt = "Watt"
-    ukOhm = "Ohm"
-    ukHenry = "Henry"
-    ukFarad = "Farad"
-    ukPascal = "Pascal"
-    ukBar = "Bar"
-    ukRadian = "Radian"
-    ukDegree = "Degree"
-    ukSteradian = "Steradian"
-    ukTesla = "Tesla"
-    ukBecquerel = "Becquerel"
-    # natural units
-    ukNaturalLength = "NaturalLength" # length
-    ukNaturalMass = "NaturalMass" # mass
-    ukNaturalTime = "NaturalTime" # time
-    ukNaturalEnergy = "NaturalEnergy" # energy
-    # ...
-    # additional compound units
-    ukElectronVolt = "ElectronVolt"
-    ukLiter = "Liter"
-    ukGauss = "Gauss"
-    # additional non compound units
-    ukMinute = "Minute"
-    ukHour = "Hour"
-    ukDay = "Day"
-    ukYear = "Year"
-    # imperial units
-    ukPound = "Pound" # lbs (lb singular is too uncommon)
-    ukInch = "Inch" # in ( or possibly "inch" due to in being keyword)
-    ukMile = "Mile"
-    ukFoot = "Foot"
-    ukYard = "Yard"
-    ukOunce = "Ounce"
-    ukSlug = "Slug"
-    ukAcre = "Acre"
-    ukPoundForce = "Pound-force"
-    # ...
+  # definition of the conversions to natural units for all base units
+  # takes place here, because at definition of the base units the `eV` unit
+  # is not defined yet.
+  NaturalUnits:
+    Gram: 1.7826627e-33.eV # relative to g and not kg!
+    Meter: 1.9732705e-7.eV⁻¹
+    Ampere: 0.00080381671.eV
+    Second: 6.5821220e-16.eV⁻¹
+    Kelvin: 11604.518.eV
+    Mol: 1.0
+    Candela: 1.0
 
-  ## Base unit kind stores the fundamental units, which represent the SI units (except for Gram in place of kg)
-  ## that each represent one of the fundamental quantities (the "base quantities" in `QuantityKind`).
-  ## NOTE: The order of `BaseUnitKind`, `UnitKind` and `QuantityKind` is important, both for sorting
-  ## units as well as to allow conversion between the base units / quantities using `ord`.
-  BaseUnitKind* = enum
-    buUnitLess = "UnitLess"
-    buGram = "Gram"
-    buMeter = "Meter"
-    buSecond = "Second"
-    buAmpere = "Ampere"
-    buKelvin = "Kelvin"
-    buMol = "Mol"
-    buCandela = "Candela"
+generateSiPrefixedUnits:
+  (m, Meter)
+  (s, Second)
+  (g, Gram)
+  (N, Newton)
+  (V, Volt)
+  (Hz, Hertz)
+  (J, Joule)
+  (C, Coulomb)
+  (W, Watt)
+  (Ω, Ohm)
+  (H, Henry)
+  (F, Farad)
+  (eV, ElectronVolt)
+  (Pa, Pascal)
+  (bar, Bar)
+  (rad, Radian)
+  (sr, Steradian)
+  (T, Tesla) exclude [f] # fT would be ambiguous with `ft` (foot)
+  (Bq, Becquerel)
 
-  UnitType* = enum
-    utQuantity, utCompoundQuantity
-
-  CTBaseUnit* = object
-    baseUnit: BaseUnitKind # what is the base unit of that quantity?
-    power: int
-    siPrefix: SiPrefix
-
-  ## M
-  CTUnit* = object # compile time object that stores a unit
-    name: string
-    isShortHand: bool ## stores if the given unit used shorthand `m` or verbose `Meter`
-    ## TODO: can factor be a procedure? Then when generating code, we simply use `getAst` to
-    ## get the body of the conversion and replace `x -> body(x)` inline?
-    factor: float # stores possible conversion factors from converting to this unit
-    unitKind: UnitKind # what unit is it?
-    quantity: QuantityKind # what quantity does this unit refer to?
-    power: int ## each unit needs a power
-    siPrefix: SiPrefix ## and si prefix already! `km²` etc
-    case unitType: UnitType
-    of utQuantity:
-      ## TODO: base unit can be takes from a mapping of `UnitKind -> BaseUnitKind`!
-      b: CTBaseUnit
-    of utCompoundQuantity: # in case `quantity` refers to a compound quantity, e.g. Newton
-      ## one compound quantity is made up of multiple base units.
-      bs: seq[CTBaseUnit]
-
-  ## unit conversion can be done by walking over all units, checking for a
-  ## unit containing BaseUnit, and converting using SiPrefix (use enum with values for SiPrefix?)
-  ## and power of the unit
-  ## In a way it might still make sense to keep CTCompoundUnit around. That way we can easier store
-  ## things like `lbs * mile`, `N * m` etc without having to convert everything to its base units
-  ## always?
-  CTCompoundUnit* = object
-    #value: Option[float]
-    units: seq[CTUnit]
-    siPrefix: float # as a pure float value
-
-  ## `CTCompoundQuantity` is a helper that is used to determine if a unit is `equivalent` to one another.
-  ## Equivalence of units means that the actual `dimensions` (in terms of real base quantities:
-  ## time, length, mass, current, temperature, amount of substance, luminosity) are the same.
-  ## For this it does not matter if we compare `lbs` and `kg` or `eV` and `J`. Only the final
-  ## powers of the base quantities matters. The base quantities can be interpreted as a system of
-  ## basis vectors and equivalence implies two vectors are the same up to some scaling, i.e. they
-  ## are linearly dependent.
-  CTCompoundQuantity = Table[QuantityKind, int]
-
-# parsing CT units is the basis of all functionality almost
-proc parseCTUnit(x: NimNode): CTCompoundUnit
-proc toNimType(u: CTUnit, short = false): string
-proc toNimTypeStr(x: CTCompoundUnit, short = false): string
-proc toNimType(x: CTCompoundUnit, short = false): NimNode
-proc flatten(units: CTCompoundUnit): CTCompoundUnit
-proc simplify(x: CTCompoundUnit): CTCompoundUnit
-proc toBaseType(x: CTCompoundUnit): CTCompoundUnit
-
-proc pretty(x: CTUnit, short = false): string = x.toNimType(short)
-proc pretty(x: CTCompoundUnit, short = false): string = x.toNimTypeStr(short)
-
-proc enumerateTypesImpl*(t: NimNode): NimNode =
-  result = nnkBracket.newTree()
-  for ch in t.getTypeImpl[1].getType:
-    if ch.strVal == "or": continue
-    result.add newLit(ch.strVal)
-
-macro enumerateTypes(t: typed): untyped =
-  result = enumerateTypesImpl(t)
+proc pretty(x: UnitInstance, short = false): string = x.toNimType(short)
+proc pretty(x: UnitProduct, short = false): string = x.toNimTypeStr(short)
 
 macro quantityList*(): untyped =
-  result = enumerateTypesImpl(bindSym("SomeQuantity"))
+  result = enumerateTypes(bindSym("SomeQuantity"))
   result.add newLit"Quantity"
   result.add newLit"CompoundQuantity"
   result.add newLit"Unit"
@@ -364,30 +252,6 @@ macro quantityList*(): untyped =
   result.add newLit"BaseQuantity"
 
 const qTypes* = quantityList()
-
-proc resolveAlias(n: NimNode): NimNode =
-  ## returns the first type that is `distinct` (i.e. convert Newton -> KiloGram•Meter•Second⁻²)
-  case n.kind
-  of nnkDistinctTy: result = n
-  of nnkBracketExpr:
-    if n[1].kind == nnkSym:
-      result = n[1].getImpl.resolveAlias
-    else:
-      result = n[1].resolveAlias
-  of nnkSym:
-    if n.getTypeInst.kind != nnkSym: result = n.getTypeInst.resolveAlias
-    elif n.getTypeImpl.kind != nnkSym: result = n.getTypeImpl.resolveAlias
-    elif n.getImpl.kind != nnkSym: result = n.getImpl.resolveAlias
-    else: result = n
-  of nnkTypeDef:
-    case n[2].kind
-    of nnkDistinctTy: result = n[0]
-    of nnkInfix: result = n[0]
-    of nnkObjectTy: result = newEmptyNode()
-    of nnkRefTy: result = newEmptyNode()
-    of nnkPtrTy: result = newEmptyNode()
-    else: result = n[2].getImpl.resolveAlias
-  else: result = newEmptyNode()
 
 macro isAUnit*(x: typed): untyped =
   ## NOTE: it's really hard to replace this by something cleaner :/
@@ -410,419 +274,38 @@ macro isAUnit*(x: typed): untyped =
   ## in this case investigation is true
   result = newLit true
 
+## The main concept used for type matching of units
 type
   SomeUnit* = concept x
     isAUnit(x)
 
+## CTCompoundUnit logic
 
-proc toShortName(unitKind: UnitKind): string =
-  ## XXX: merge with inverse of parsing by generating this and other from a macro!
-  ## Must only mention these once. Then also generate the short alias types from that.
-  case unitKind
-  of ukGram: result = "g"
-  of ukMeter: result = "m"
-  of ukSecond: result = "s"
-  of ukAmpere: result = "A"
-  of ukKelvin: result = "K"
-  of ukMol: result = "mol"
-  of ukCandela: result = "cd"
-  # derived SI units
-  of ukNewton: result = "N"
-  of ukJoule: result = "J"
-  of ukVolt: result = "V"
-  of ukHertz: result = "Hz"
-  of ukCoulomb: result = "C"
-  of ukWatt: result = "W"
-  of ukOhm: result = "Ω"
-  of ukHenry: result = "H"
-  of ukFarad: result = "F"
-  of ukPascal: result = "Pa"
-  of ukBar: result = "bar"
-  of ukRadian: result = "rad"
-  of ukSteradian: result = "sr"
-  of ukTesla: result = "T"
-  of ukBecquerel: result = "Bq"
-  # natural units
-  of ukNaturalLength: result = "eV⁻¹"
-  of ukNaturalMass: result = "eV"
-  of ukNaturalTime: result = "eV⁻¹"
-  of ukNaturalEnergy: result = "eV"
-  # additional units
-  of ukElectronVolt: result = "eV"
-  of ukDegree: result = "°"
-  of ukMinute: result = "min"
-  of ukHour: result = "h"
-  of ukDay: result = "day"
-  of ukYear: result = "yr"
-  of ukLiter: result = "L"
-  of ukPound: result = "lbs" # lbs (lb singular is too uncommon):: result = "lbs"
-  of ukInch: result = "inch" # in ( or possibly "inch" due to in being keyword):: result = "inch"
-  of ukMile: result = "mi"
-  of ukFoot: result = "ft"
-  of ukYard: result = "yd"
-  of ukOunce: result = "oz"
-  of ukSlug: result = "slug"
-  of ukAcre: result = "acre"
-  of ukPoundForce: result = "lbf"
-  else: doAssert false, "Invalid " & $unitKind
-
-macro shortName(t: typed): untyped =
-  let typ = t.parseCTUnit()
-  result = newLit typ.toNimTypeStr(short = true)
-
-proc pretty*[T: SomeUnit](s: T, precision: int, short: bool): string =
-  result = s.float.formatFloat(precision = precision)
-  result.trimZeros()
-  if not short:
-    result.add &" {$typeof(s)}"
-  else:
-    let name = shortName(typeof(s))
-    result.add &" {name}"
-
-proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1, short = false)
-
-when false:
-  ## declare conversions. Defines mappings from x -> y that we store internally as:
-  ## `Table[CTUnit, CTUnit]` where the input CTUnit is constructed with `toCTUnit`, i.e.
-  ## has factor, power = 1, prefix siIdentity.
-  ## If the conversion is both ways using `<->` ⇔ a tuple is required, which describes
-  ## the conversions in both directions.
-  ## Left: conversion from left -> right, Right: conversion from right -> left.
-  ## If only a single conversion is given using `->` the inverse is assumed to be
-  ## just the inverse of the given factor (i.e. has to be a float literal).
-  ## Conversions listed here are required for all units that describe the same quantity!
-  declareConversions:
-    lbs -> kg: 0.45359237
-    inch -> cm: 2.54
-    mile -> km: 1.6
-    Fahrenheit <-> Celsius: (5.0/9.0 * (x - 32), 9.0/5.0 * x + 32.0)
-
-proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool,
-                   excludes: seq[string] = @[]): seq[NimNode] =
-  ## get the type of the unit so that we know what to base these units on
-  let typ = n
-  if genLong:
-    for (si, prefix) in SiPrefixStringsLong:
-      if prefix == siIdentity: continue
-      if si in excludes:
-        result.add ident("_") # if we exclude, add placeholder. Used to mark for cross reference long / short
-        continue
-      let typStr = ident($si & typ.strVal)
-      let isTyp = nnkDistinctTy.newTree(typ)
-      result.add nnkTypeDef.newTree(nnkPostfix.newTree(ident"*", typStr), newEmptyNode(), isTyp)
-  if genShort:
-    for (si, prefix) in SiPrefixStringsShort:
-      if prefix == siIdentity: continue
-      if si in excludes:
-        result.add ident("_") # if we exclude, add placeholder. Used to mark for cross reference long / short
-        continue
-      let typStr = ident($si & typ.strVal)
-      result.add typStr
-
-macro generateSiPrefixedUnits*(units: untyped): untyped =
-  ## generates all SI prefixed units for all units given. That just means
-  ## appending each SI prefix to these units, both in long and short form.
-  ## NOTE: This should only be used on ``raw`` units and not explicit compound
-  ## units!
-  expectKind(units, nnkStmtList)
-  result = nnkTypeSection.newTree()
-  for unit in units:
-    doAssert unit.kind in {nnkTupleConstr, nnkPar, nnkCommand}
-    var sisShort: seq[NimNode]
-    var sisLong: seq[NimNode]
-    if unit.kind == nnkCommand:
-      var excludes: seq[string]
-      doAssert unit[0].kind in {nnkTupleConstr, nnkPar}
-      doAssert unit[1].kind == nnkCommand
-      let excls = unit[1]
-      doAssert excls[0].kind == nnkIdent and excls[0].strVal == "exclude"
-      doAssert excls[1].kind == nnkBracket
-      for br in excls[1]:
-        doAssert br.kind == nnkIdent
-        excludes.add br.strVal
-      sisShort = genSiPrefixes(unit[0][0], true, false, excludes = excludes)
-      sisLong = genSiPrefixes(unit[0][1], false, true, excludes = excludes)
+proc sanitizeInput(n: NimNode): NimNode =
+  # remove all `nnkConv, nnkHiddenStdConv and nnkStmtListExpr`
+  let tree = n
+  proc sanitize(n: NimNode): NimNode =
+    if n.len == 0:
+      #result = n
+      case n.kind
+      of nnkSym: result = ident(n.strVal)
+      else: result = n
     else:
-      sisShort = genSiPrefixes(unit[0], true, false)
-      sisLong = genSiPrefixes(unit[1], false, true)
-    for si in sisLong:
-      result.add si
-    ## generate cross references from long to short
-    let skipIdent = ident("_") # if a prefix is excluded, added as `_`. Thus skip those cross references
-    for (siShort, siLong) in zip(sisShort, sisLong):
-      if eqIdent(siShort, skipIdent) or eqIdent(siLong, skipIdent): continue
-      result.add nnkTypeDef.newTree(nnkPostfix.newTree(ident"*", siShort), newEmptyNode(), siLong[0][1])
+      case n.kind
+      of nnkConv, nnkHiddenStdConv, nnkHiddenCallConv: result = n[1].sanitize
+      of nnkStmtListExpr: result = n[1].sanitize
+      else:
+        result = newTree(n.kind)
+        for ch in n:
+          result.add sanitize(ch)
+  ## NOTE: sanitation like this is much more problematic than I thought
+  ## We end up with many edge cases, which suddenly either:
+  ## - produce recursive loops
+  ## - cause weird CT errors as we somehow manage to strip too much information
+  ## Disabled for now.
+  result = tree#.sanitize()
 
-## XXX: should this also generate the aliases for the short names?
-## Or make macro more generic with an additional "generate SI" option and by default it simply
-## generates types?
-generateSiPrefixedUnits:
-  (m, Meter)
-  (s, Second)
-  (g, Gram)
-  (N, Newton)
-  (V, Volt)
-  (Hz, Hertz)
-  (J, Joule)
-  (C, Coulomb)
-  (W, Watt)
-  (Ω, Ohm)
-  (H, Henry)
-  (F, Farad)
-  (eV, ElectronVolt)
-  (Pa, Pascal)
-  (bar, Bar)
-  (rad, Radian)
-  (sr, Steradian)
-  (T, Tesla) exclude [f]
-  (Bq, Becquerel)
-
-proc isUnitLess(u: CTCompoundUnit): bool = u.units.len == 0
-
-proc isCompound(unitKind: UnitKind): bool =
-  result = unitKind notin {ukUnitLess .. ukCandela,
-                           ukNaturalLength .. ukNaturalTime,
-                           ukMinute .. ukSlug}
-
-proc toQuantity(unitKind: UnitKind): QuantityKind =
-  ## SI units
-  case unitKind
-  of ukUnitLess: result = qkUnitLess
-  of ukSecond: result = qkTime
-  of ukMeter: result = qkLength
-  of ukGram: result = qkMass
-  #of ukKiloGram: result = qkMass
-  of ukAmpere: result = qkCurrent
-  of ukKelvin: result = qkTemperature
-  of ukMol: result = qkAmountOfSubstance
-  of ukCandela: result = qkLuminosity
-  # derived SI units
-  of ukNewton: result = qkForce
-  of ukJoule: result = qkEnergy
-  of ukVolt: result = qkElectricPotential
-  of ukHertz: result = qkFrequency
-  of ukCoulomb: result = qkCurrent
-  of ukWatt: result = qkPower
-  of ukOhm: result = qkElectricResistance
-  of ukHenry: result = qkInductance
-  of ukFarad: result = qkCapacitance
-  of ukPascal: result = qkPressure
-  of ukBar: result = qkPressure
-  of ukRadian: result = qkAngle
-  of ukSteradian: result = qkSolidAngle
-  of ukTesla: result = qkMagneticFieldStrength
-  of ukBecquerel: result = qkActivity
-  # natural units
-  of ukNaturalLength: result = qkLength
-  of ukNaturalMass: result = qkMass
-  of ukNaturalTime: result = qkTime
-  of ukNaturalEnergy: result = qkEnergy
-  # other units
-  of ukElectronVolt: result = qkEnergy
-  of ukDegree: result = qkAngle
-  of ukMinute: result = qkTime
-  of ukHour: result = qkTime
-  of ukDay: result = qkTime
-  of ukYear: result = qkTime
-  of ukLiter: result = qkLength
-  of ukGauss: result = qkMagneticFieldStrength
-  of ukPound: result = qkMass
-  of ukInch: result = qkLength
-  of ukMile: result = qkLength
-  of ukFoot: result = qkLength
-  of ukYard: result = qkLength
-  of ukOunce: result = qkMass
-  of ukSlug: result = qkMass
-  of ukAcre: result = qkArea
-  of ukPoundForce: result = qkForce
-
-proc toBaseUnit(unitKind: UnitKind): BaseUnitKind =
-  ## SI units
-  case unitKind
-  of ukUnitLess: result = buUnitLess
-  of ukSecond: result = buSecond
-  of ukMeter: result = buMeter
-  of ukGram: result = buGram
-  #of ukKiloGram: result = buGram
-  of ukAmpere: result = buAmpere
-  of ukKelvin: result = buKelvin
-  of ukMol: result = buMol
-  of ukCandela: result = buCandela
-  # natural units
-  of ukNaturalLength: result = buMeter
-  of ukNaturalMass: result = buGram
-  of ukNaturalTime: result = buSecond
-  # other units
-  of ukMinute: result = buSecond
-  of ukHour: result = buSecond
-  of ukDay: result = buSecond
-  of ukYear: result = buSecond
-  of ukPound: result = buGram
-  of ukInch: result = buMeter
-  of ukMile: result = buMeter
-  of ukFoot: result = buMeter
-  of ukYard: result = buMeter
-  of ukOunce: result = buGram
-  of ukSlug: result = buGram
-  else: error("Conversion to base unit not possible for compound units: " & $unitKind & "!")
-
-  when false:
-    # derived SI units
-    case unitKind
-    of ukNewton: result = ukForce
-    of ukJoule: result = ukEnergy
-    of ukVolt: result = ukElectricPotential
-    of ukHertz: result = ukFrequency
-    of ukCoulomb: result = ukCurrent
-    of ukWatt: result = ukPower
-    of ukOhm: result = ukElectricResistance
-    of ukHenry: result = ukInductance
-    of ukFarad: result = ukCapacitance
-    # natural units
-    of ukNaturalEnergy: result = ukEnergy
-
-proc toQuantity(baseUnit: BaseUnitKind): QuantityKind =
-  ## Convert a given base unit to its quantity
-  ## BaseUnitKind and QuantityKind `have` to have the same order!
-  result = QuantityKind(ord(baseUnit))
-
-proc toCTBaseUnit(unitKind: UnitKind, power = 1, siPrefix = siIdentity): CTBaseUnit =
-  doAssert not unitKind.isCompound, "Invalid call to `toBaseUnit` for compound unit `" & $unitKind & "`!"
-  result = CTBaseUnit(baseUnit: unitKind.toBaseUnit(),
-                      power: power,
-                      siPrefix: siPrefix) #if unitKind == ukKiloGram: siKilo else: siIdentity)
-
-proc toCTBaseUnitSeq(unitKind: UnitKind): seq[CTBaseUnit] =
-  doAssert unitKind.isCompound, "Invalid call to `toBaseUnitSeq` for non compound unit `" & $unitKind & "`!"
-  ## derived SI units
-  case unitKind
-  of ukNewton:
-    result.add toCTBaseUnit(ukGram, siPrefix = siKilo)
-    result.add toCTBaseUnit(ukMeter)
-    result.add toCTBaseUnit(ukSecond, power = -2)
-  of ukJoule:
-    result.add toCTBaseUnit(ukGram, siPrefix = siKilo)
-    result.add toCTBaseUnit(ukMeter, power = 2)
-    result.add toCTBaseUnit(ukSecond, power = -2)
-  of ukVolt:
-    result.add toCTBaseUnit(ukGram, siPrefix = siKilo)
-    result.add toCTBaseUnit(ukMeter, power = 2)
-    result.add toCTBaseUnit(ukAmpere, power = -1)
-    result.add toCTBaseUnit(ukSecond, power = -3)
-  of ukHertz:
-    result.add toCTBaseUnit(ukSecond, power = -1)
-  of ukCoulomb:
-    result.add toCTBaseUnit(ukAmpere)
-    result.add toCTBaseUnit(ukSecond)
-  of ukWatt:
-    result = toCTBaseUnitSeq(ukJoule)
-    result.add toCTBaseUnit(ukSecond, power = -1)
-  of ukHenry:
-    result.add toCTBaseUnit(ukGram, siPrefix = siKilo)
-    result.add toCTBaseUnit(ukMeter, power = 2)
-    result.add toCTBaseUnit(ukAmpere, power = -2)
-    result.add toCTBaseUnit(ukSecond, power = -2)
-  of ukOhm:
-    result.add toCTBaseUnit(ukGram, siPrefix = siKilo)
-    result.add toCTBaseUnit(ukMeter, power = 2)
-    result.add toCTBaseUnit(ukAmpere, power = -2)
-    result.add toCTBaseUnit(ukSecond, power = -3)
-  of ukFarad:
-    result.add toCTBaseUnit(ukSecond, power = 4)
-    result.add toCTBaseUnit(ukAmpere, power = 2)
-    result.add toCTBaseUnit(ukMeter, power = -2)
-    result.add toCTBaseUnit(ukGram, siPrefix = siKilo, power = -1)
-  of ukPascal:
-    result.add toCTBaseUnit(ukGram, siPrefix = siKilo)
-    result.add toCTBaseUnit(ukMeter, power = -1)
-    result.add toCTBaseUnit(ukSecond, power = -2)
-  of ukBar:
-    result.add toCTBaseUnitSeq(ukPascal)
-  of ukRadian:
-    result.add toCTBaseUnit(ukMeter, power = 1)
-    result.add toCTBaseUnit(ukMeter, power = -1)
-  of ukDegree:
-    result.add toCTBaseUnitSeq(ukRadian)
-  of ukSteradian:
-    result.add toCTBaseUnit(ukMeter, power = 2)
-    result.add toCTBaseUnit(ukMeter, power = -2)
-  of ukTesla:
-    result.add toCTBaseUnit(ukGram, siPrefix = siKilo)
-    result.add toCTBaseUnit(ukAmpere, power = -1)
-    result.add toCTBaseUnit(ukSecond, power = -2)
-  of ukBecquerel:
-    result.add toCTBaseUnit(ukSecond, power = -1)
-  of ukElectronVolt:
-    ## our logic is incomplete, since it's missing proper conversions ouside of SI prefixes!
-    result.add toCTBaseUnitSeq(ukJoule)
-  of ukGauss:
-    result.add toCTBaseUnitSeq(ukTesla)
-  of ukLiter:
-    result.add toCTBaseUnit(ukMeter, power = 3)
-  # natural units
-  of ukNaturalEnergy:
-    result.add toCTBaseUnitSeq(ukJoule)
-  of ukAcre:
-    result.add toCtBaseUnit(ukMeter, power = 2)
-  of ukPoundForce:
-    result.add toCtBaseUnitSeq(ukNewton)
-  else: error("Non compound unit `" & $unitKind & "` cannot be converted to sequence of CTBaseUnit!")
-
-proc getConversionFactor(unitKind: UnitKind): float =
-  case unitKind
-  of ukElectronVolt: result = 1.602176634e-19 # relative to: Joule
-  of ukPound: result = 0.45359237 # relative to: kg
-  of ukMile: result = 1600 # relative to: m
-  of ukInch: result = 0.0254 # relative to: cm
-  of ukBar: result = 100_000 # relative to Pa
-  of ukDegree: result = PI / 180.0 # relative to Radian
-  of ukMinute: result = 60.0
-  of ukHour: result = 3600.0
-  of ukDay: result = 86400.0
-  of ukYear: result = 365.0 * 86400.0
-  of ukGauss: result = 1e-4 # relative to: Tesla
-  of ukLiter: result = 1e-3 # relative to: m³
-  of ukFoot: result = 0.3048 # relative to m
-  of ukYard: result = 0.9144 # relative to m
-  of ukOunce: result = 28.349523125 * 1e-3 # relative to kg
-  of ukSlug: result = 14.59390294 # relative to kg
-  of ukAcre: result = 4046.8564224 # relative to m²
-  of ukPoundForce: result = 4.44822162 # relative to N
-  else: result = 1.0
-
-proc toCTUnit(unitKind: UnitKind): CTUnit {.compileTime.} =
-  if not unitKind.isCompound:
-    var baseUnit: CTBaseUnit
-    if unitKind == ukGram:
-      baseUnit = unitKind.toCTBaseUnit(siPrefix = siKilo)
-    else:
-      baseUnit = unitKind.toCTBaseUnit()
-    result = CTUnit(name: $unitKind, factor: getConversionFactor(unitKind),
-                    power: 1, siPrefix: siIdentity,
-                    unitKind: unitKind,
-                    quantity: unitKind.toQuantity(),
-                    unitType: utQuantity,
-                    b: baseUnit)
-  else:
-    ## convert to base units
-    result = CTUnit(name: $unitKind, factor: getConversionFactor(unitKind),
-                    unitKind: unitKind,
-                    power: 1, siPrefix: siIdentity,
-                    quantity: unitKind.toQuantity(),
-                    unitType: utCompoundQuantity,
-                    bs: toCTBaseUnitSeq(unitKind))
-
-proc initCTUnit(name: string, unitKind: UnitKind, power: int, siPrefix: SiPrefix,
-                isShortHand = false, factor = none(float)): CTUnit =
-  result = unitKind.toCTUnit()
-  result.name = name
-  if factor.isSome:
-    result.factor = factor.get
-  result.power = power
-  result.siPrefix = siPrefix #if siPrefix == siIdentity and unitKind == ukGram: siKilo else: siPrefix
-  result.isShortHand = isShortHand
-
-#proc resolveToBaseType(n: NimNode):
+## General user facing API
 
 ## This is a *forced* conversion of a unit to a float. It simply removes any unit from
 ## the type. Currently just `x.float`. Might change in the future.
@@ -843,20 +326,39 @@ proc hash*[T: SomeUnit](x: T): Hash =
   result = result !& hash(x.float)
   result = !$result
 
+## Pretty printing of units
+
+macro shortName(t: typed): untyped =
+  let typ = t.parseDefinedUnit()
+  result = newLit typ.pretty(short = true)
+
+macro unitName(t: typed): untyped =
+  let typ = t.parseDefinedUnit()
+  result = newLit typ.pretty(short = false)
+
+proc pretty*[T: SomeUnit](s: T, precision: int, short: bool): string =
+  result = s.float.formatFloat(precision = precision)
+  result.trimZeros()
+  if not short:
+    let typStr = unitName(T)
+    result.add &" {typStr}"
+  else:
+    let typStr = shortName(T)
+    result.add &" {typStr}"
+
+proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1, short = false)
+
 macro defUnit*(arg: untyped, toExport: bool = false): untyped =
   ## Helper template to define new units (not required to be used manually)
-  let argCT = parseCTUnit(arg)
-  let shortHand = argCT.units.allIt(it.isShortHand)
-  let toExport = toExport.strVal == "true"
 
+  ## TODO: emit both short and long hand version of the given unit
+  let argCT = parseDefinedUnit(arg)
+  let toExport = toExport.strVal == "true"
   ## TODO: instead of just using the long version, what to do for
   ## J•m or something like this? For max compatibility the RHS
   ## should actually be the base unit stuff.
-  if shortHand:
-    ## note: flattening the given unit does *not* flatten units that have a conversion
-    ## factor relative to the SI base unit, e.g. eV -> J, lbs -> kg etc. Thus flattening
-    ## and simplifying yields, which is safely equivalent.
-    let resType = argCT.flatten.simplify.toNimType()
+  if true: # when would we want the other branch now?
+    let resType = argCT.simplify(mergePrefixes = true).toNimType()
     if resType.strVal != "UnitLess":
       if not toExport:
         result = quote do:
@@ -890,513 +392,10 @@ macro defUnit*(arg: untyped, toExport: bool = false): untyped =
           when not declared(`arg`):
             type `arg`* = distinct CompoundQuantity
 
-
-proc add(comp: var CTCompoundUnit, unit: CTUnit) =
-  comp.units.add unit
-
-proc add(comp: var CTCompoundUnit, unit: CTBaseUnit) =
-  comp.units.add initCTUnit("", UnitKind(ord(unit.baseUnit)), unit.power, unit.siPrefix)
-
-proc add(comp: var CTCompoundUnit, toAdd: CTCompoundUnit) =
-  ## adding a sequence of compound units equates to multiplying units
-  for u in toAdd.units:
-    comp.add u
-
-proc toSet(s: seq[CTUnit]): set[UnitKind] =
-  for x in s:
-    result.incl x.unitKind
-    when false:
-      case x.unitType
-      of utQuantity: result.incl x.b.baseUnit
-      of utCompoundQuantity:
-        for xb in x.bs:
-          result.incl xb.baseUnit
-
-proc toHashSet(s: CTCompoundUnit): HashSet[tuple[unitKind: UnitKind, siPrefix: SiPrefix]] =
-  result = initHashSet[tuple[unitKind: UnitKind, siPrefix: SiPrefix]]()
-  for x in s.units:
-    result.incl (unitKind: x.unitKind, siPrefix: x.siPrefix)
-
-proc powerOfKind(s: seq[CTUnit], ukKind: UnitKind): int =
-  for x in s:
-    if x.unitKind == ukKind:
-      result += x.power
-
-proc powerOfKindAndPrefix(s: seq[CTUnit], ukKind: UnitKind, siPrefix: SiPrefix): int =
-  for x in s:
-    if x.unitKind == ukKind and x.siPrefix == siPrefix:
-      result += x.power
-
-proc simplify(x: CTCompoundUnit): CTCompoundUnit =
-  ## simplifies the given unit `x`. E.g. turns `kg•kg` into `kg²`
-  ## TODO: Add option to also simplify between different SI prefixes
-  let xSet = x.toHashSet
-  for el in xSet:
-    let power = x.units.powerOfKindAndPrefix(el.unitKind, el.siPrefix)
-    if abs(power) > 0:
-      result.add initCTUnit("", el.unitKind, power, el.siPrefix)
-  result.siPrefix = x.siPrefix
-
-proc invert(x: CTCompoundUnit): CTCompoundUnit =
-  for u in x.units:
-    var unit = u
-    case u.unitType
-    of utQuantity:
-      unit.power = -unit.power
-      # base units' powers ``not`` inverted!
-      result.add unit
-    of utCompoundQuantity:
-      unit.power = -unit.power
-      # base units' powers ``not`` inverted!
-      result.add unit
-
-proc `==`(a, b: CTUnit): bool =
-  result = (a.unitKind == b.unitKind and a.power == b.power and a.siPrefix == b.siPrefix)
-
-proc `<`(a, b: CTUnit): bool =
-  if a.unitKind < b.unitKind:
-    result = true
-  elif a.unitKind > b.unitKind:
-    result = false
-  else:
-    ## NOTE: the power seem "inverted". This is because we wish to have units with
-    ## larger powers ``in front`` of units with smaller powers. E.g.
-    ## `Meter•Meter⁻¹` instead of `Meter⁻¹•Meter`
-    ## We cannot sort in descending order, because the actual units in the `UnitKind`
-    ## enum needs to be respected.
-    if a.power > b.power:
-      result = true
-    elif a.power < b.power:
-      result = false
-    else:
-      result = a.siPrefix < b.siPrefix
-
-proc flatten(units: CTCompoundUnit): CTCompoundUnit =
-  ## extracts all base units from individual compound CTUnits and
-  ## turns it into a single CTCompoundUnit of only base units. Finally
-  ## simplifies the result.
-  var prefix = 1.0
-  for u in units.units:
-    case u.unitType
-    of utQuantity: result.add u
-    of utCompoundQuantity:
-      ## TODO: how to handle global SI prefix in a compound CTUnit? Absorb
-      ## into a `factor` on ``one`` of the new CTUnits to be added?
-      ## For the purpose of `flatten` this does not play a role, because
-      ## units of different SI prefixes are still equal? Well, but they aren't
-      ## really. Can we do maths with them? Sure. Should they match in the
-      ## concept `SomeUnit`? No! If `Meter•Second⁻¹` is demanded we need that and
-      ## not allow `CentiMeter•Second⁻¹`?
-      case u.unitKind
-      # for these units we do `not` want to flatten them!
-      # TODO: most of these are not compound though?!
-      of ukElectronVolt, ukPound, ukInch, ukMile, ukBar, ukSteradian, ukRadian, ukLiter, ukGauss,
-         ukFoot, ukYard, ukSlug, ukOunce, ukAcre, ukPoundForce: result.add u
-      else:
-        let power = u.power
-        prefix *= u.siPrefix.toFactor # note: as we're looking at compounds,
-                                      # no need to worry about `Gram / KiloGram`
-        for b in u.bs:
-          var mb = b
-          mb.power = mb.power * power
-          # prefix handle ?
-          result.add mb
-  result.siPrefix = prefix # assign the prefix
-
-proc toCTQuantity(a: CTCompoundUnit): CTCompoundQuantity =
-  result = initTable[QuantityKind, int]()
-  proc addQuant(res: var Table[QuantityKind, int], bu: BaseUnitKind, power: int) =
-    let quantity = bu.toQuantity
-    if quantity in res:
-      res[quantity] += power
-    else:
-      res[quantity] = power
-    if res[quantity] == 0:
-      res.del(quantity)
-  ## A comment, because at first glance this might seem confusing.
-  ##
-  ## We walk over the CTCompoundUnit and for every unit:
-  ## - if a unit is not a compound unit (is a base unit) we simply add its quantity with the
-  ##   power of the given unit to the table.
-  ## - for compound units we have to be more careful: take the power of the unit (e.g. N² -> power 2)
-  ##   and multiply with power of base units (e.g. Newton -> (kg•m•s⁻²)²). That's why we cannot just use
-  ##   `only` the base units power or `only` the units power.
-  for u in a.units:
-    if not u.unitKind.isCompound:
-      doAssert u.b.power == 1
-      result.addQuant(u.b.baseUnit, u.power)
-    else:
-      for bu in u.bs:
-        result.addQuant(bu.baseUnit, (u.power * bu.power))
-  if result.len == 0:
-    result[qkUnitLess] = 1
-
-proc commonQuantity(a, b: CTCompoundUnit): bool =
-  ## Comparison is done by checking for the same base units and powers using
-  ## `CTCompoundQuantity`.
-  let aQuant = a.toCTQuantity()
-  let bQuant = b.toCTQuantity()
-  result = aQuant == bQuant
-
-proc `==`(a, b: CTCompoundUnit): bool =
-  ## comparison done by:
-  ## - only equal if set of `unitKind` is same
-  ## - only equal if for each element of `unitKind` set the `power` is the same
-  ## - only equal if for each element the SiPrefix is the same
-  ##
-  ## Units are equal iff:
-  ## - the product of all *base units* (including their power) is the same
-  ## Since there are multiple representations of the same unit (e.g. `Newton` as
-  ## a single CTUnit or a `CTCompoundUnit` comprising base units up to `Newton`)
-  ## we have to flatten each input and then compare for same base units & powers.
-  let aFlat = a.flatten.simplify
-  let bFlat = b.flatten.simplify
-  let aFlatSeq = aFlat.units.sorted
-  let bFlatSeq = bFlat.units.sorted
-
-  # to really make sure they are equal have to compare the si prefix of each
-  if aFlatSeq.len != bFlatSeq.len:
-    return false
-  for idx in 0 ..< aFlatSeq.len:
-    if aFlatSeq[idx] != bFlatSeq[idx]:
-      return false
-  if aFlat.siPrefix != bFlat.siPrefix:
-    return false
-  result = true
-
-proc toNimType(u: CTUnit, short = false): string =
-  if u.unitKind == ukUnitLess: return
-  let siPrefixStr = if short: SiShortPrefixTable[u.siPrefix]
-                    else: SiPrefixTable[u.siPrefix]
-  result = siPrefixStr
-  if not short:
-    result.add $u.unitKind
-  else:
-    result.add toShortName(u.unitKind)
-  if u.power < 0:
-    result.add "⁻"
-  if u.power > 1 or u.power < 0:
-    for digit in getPow10Digits(u.power):
-      result.add digits[digit]
-
-proc toNimTypeStr(x: CTCompoundUnit, short = false): string =
-  ## converts `x` to the correct string representation
-  # return early if no units in x
-  if x.units.len == 0: return "UnitLess"
-  let xSorted = x.units.sorted
-  for idx, u in xSorted:
-    if u.unitKind == ukUnitLess: continue
-    var str = toNimType(u, short)
-    if idx < xSorted.high:
-      str.add "•"
-    result.add str
-
-proc toNimType(x: CTCompoundUnit, short = false): NimNode =
-  ## converts `x` to the correct
-  # return early if no units in x
-  let name = x.toNimTypeStr(short)
-  result = if name.len == 0: ident("UnitLess") else: ident(name)
-
-proc parseUntil(s: string, chars, errorOn: openArray[string]): int =
-  ## parses until one of the runes in `chars` is found
-  var idx = 0
-  var rune: Rune
-  var oldIdx = idx
-  while idx < s.len:
-    oldIdx = idx
-    fastRuneAt(s, idx, rune)
-    if rune.toUtf8 in chars:
-      return oldIdx
-    elif rune.toUtf8 in errorOn:
-      error("Invalid rune in input string: " & $(rune.toUtf8()) & ". Did you type " &
-        "a non superscript power by accident?")
-  when false:
-    for rune in utf8(s):
-      if rune in chars:
-        return idx
-      inc idx
-  # didn't find it
-  result = -1
-
-proc isLongBaseUnit(s: string): bool =
-  for b in BaseUnitKind:
-    if s.startsWith($b): return true
-
-proc parseSiPrefix(s: var string): SiPrefix =
-  ## Return early if we only have on rune in total or until we reach
-  ## a `⁻` or any of the superscript numbers. Important for things like
-  ## `m`. Only a prefix if there's more than one rune.
-  if s.runeLen == 1 or s.runeAt(1).toUtf8() in digitsAndMinus: return siIdentity
-  result = siIdentity
-  if s.runeAt(0).isUpper:
-    if s.isLongBaseUnit: return siIdentity # if it's Meter, Gram etc.
-    ## try to find Long Si prefix
-    for (el, prefix) in SiPrefixStringsLong:
-      if prefix == siIdentity: continue
-      if s.startsWith(el):
-        s.removePrefix(el)
-        return prefix
-  ## no is upper does not mean it might not short, since some are upper
-  ## else check for short prefix.
-  for (el, prefix) in SiPrefixStringsShort:
-    ## NOTE: we store kg internally using g even though it's not the SI unit!
-    if prefix == siIdentity: continue
-    ## TODO: properly fix this!!
-    if prefix == siPeta and (s.startsWith("Pound") or s == "Pa"): return siIdentity
-    if prefix == siGiga and s.startsWith("Gauss"): return siIdentity
-    if prefix == siExa and s.startsWith("ElectronVolt"): return siIdentity
-    if prefix == siMilli and s.startsWith("mol"): return siIdentity
-    if prefix == siMilli and s.startsWith("min"): return siIdentity
-    if prefix == siMega and s.startsWith("Minute"): return siIdentity
-    if prefix == siMega and s.startsWith("Mol"): return siIdentity
-    if prefix == siYocto and s.startsWith("yr"): return siIdentity
-    if prefix == siYotta and s.startsWith("Year"): return siIdentity
-    if prefix == siYocto and s.startsWith("yd"): return siIdentity
-    if prefix == siYotta and s.startsWith("Yard"): return siIdentity
-    if prefix == siTera and (s == "T" or s.startsWith("Tesla")): return siIdentity
-    if prefix == siFemto and s == "ft": return siIdentity
-    if s.startsWith(el):
-      s.removePrefix(el)
-      return prefix
-
-proc hasNegativeExp(s: var string): bool =
-  var rune: Rune
-  var idx = 0
-  var oldIdx = idx
-  while idx < s.len:
-    oldIdx = idx
-    fastRuneAt(s, idx, rune)
-    if rune.toUtf8() == "⁻":
-      s.delete(oldIdx, idx - 1)
-      return true
-
-proc parseExponent(s: var string, negative: bool): int =
-  var buf: string
-  let idxStart = s.parseUntil(digits, errorOn = DigitsAscii)
-  var idx = idxStart
-  if idx > 0:
-    let numDigits = s[idx .. ^1].runeLen
-    var seen = 0
-    while idx < s.len:
-      var buf: Rune
-      fastRuneAt(s, idx, buf)
-      inc seen
-      let val = digits.find(buf.toUtf8()) * 10^(numDigits - seen)
-      result += val
-    result = if negative: -result else: result
-    # remove `idx` onwards from s
-    s.delete(idxStart, s.len)
-  else:
-    # no exponent means `1`
-    result = 1
-
-proc isBaseUnit(s: string): bool =
-  result = s in ["g", "Gram", "m", "Meter", "s", "Second",
-                 "A", "Ampere", "K", "Kelvin", "mol", "Mol",
-                 "cd", "Candela"]
-proc parseUnitKind(s: string): UnitKind =
-  ## `s` must not contain anything aside from a CT unit!
-  ## NOTE: we do not use `parseEnum` due to the shorthand notations for units
-  case s
-  of "g", "Gram": result = ukGram
-  #of "kg": result = ukKiloGram
-  of "m", "Meter": result = ukMeter
-  of "s", "Second": result = ukSecond
-  of "A", "Ampere": result = ukAmpere
-  of "K", "Kelvin": result = ukKelvin
-  of "mol", "Mol": result = ukMol
-  of "cd", "Candela": result = ukCandela
-  # derived SI units
-  of "N", "Newton": result = ukNewton
-  of "J", "Joule": result = ukJoule
-  of "V", "Volt": result = ukVolt
-  of "Hz", "Hertz": result = ukHertz
-  of "C", "Coulomb": result = ukCoulomb
-  of "W", "Watt": result = ukWatt
-  of "Ω", "Ohm": result = ukOhm
-  of "H", "Henry": result = ukHenry
-  of "F", "Farad": result = ukFarad
-  of "Pa", "Pascal": result = ukPascal
-  of "bar", "Bar": result = ukBar
-  of "rad", "Radian": result = ukRadian
-  of "sr", "Steradian": result = ukSteradian
-  of "T", "Tesla": result = ukTesla
-  of "Bq", "Becquerel": result = ukBecquerel
-  # natural units
-  of "NaturalLength": result = ukNaturalLength # length:
-  of "NaturalMass": result = ukNaturalMass # mass:
-  of "NaturalTime": result = ukNaturalTime# time:
-  of "NaturalEnergy": result = ukNaturalEnergy# energy:
-  # additional units
-  of "eV", "ElectronVolt": result = ukElectronVolt
-  of "°", "Degree": result = ukDegree
-  of "min", "Minute": result = ukMinute
-  of "h", "Hour": result = ukHour
-  of "day", "Day": result = ukDay
-  of "yr", "Year": result = ukYear
-  of "L", "Liter": result = ukLiter
-  of "G", "Gauss": result = ukGauss
-  of "lbs", "Pound": result = ukPound # lbs (lb singular is too uncommon):
-  of "inch", "Inch": result = ukInch # in ( or possibly "inch" due to in being keyword):
-  of "mi", "Mile": result = ukMile
-  of "ft", "Foot": result = ukFoot
-  of "yd", "Yard": result = ukYard
-  of "oz", "Ounce": result = ukOunce
-  of "slug", "Slug": result = ukSlug
-  of "acre", "Acre": result = ukAcre
-  of "lbf", "PoundForce", "Pound-force": result = ukPoundForce
-  else: result = ukUnitLess
-
-proc getUnitType(n: NimNode): NimNode =
-  case n.kind
-  of nnkIdent: result = n
-  of nnkAccQuoted:
-    var s: string
-    for el in n:
-      s.add el.strVal
-    result = ident(s)
-  else: result = n.getTypeInst.getUnitTypeImpl()
-
-proc parseCTUnitUnicode(x: string): CTCompoundUnit =
-  ## 1. split by `•`
-  ## for el in splits
-  ##   2. parse possible si prefix
-  ##   2a. remove prefix from string
-  ##   3. parse possible negative unicode char
-  ##   3a. parse possible exponent
-  ##   4. parse name of unit
-  ## Complication: We have 3 different notations for units
-  ## a) m, kg, m•s⁻², ...
-  ## b) Meter, Kg, Meter•Second⁻², ...
-  ## c) "meter per second squared" -> "meterPerSecondSquared"
-  ## a) and b) can be parsed together by both looking for `m` as well as `Meter` in each
-  ## element. Verbose always start capital letters, shorthand depending on SI prefix / unit (N, V, A...)
-  let xTStrs = if "•" in x: x.split("•")
-               else: x.split("·")
-  for el in xTStrs:
-    var mel = el
-    let prefix = mel.parseSiPrefix
-    let negative = hasNegativeExp(mel)
-    let exp = parseExponent(mel, negative)
-    let unitKind = parseUnitKind(mel)
-    ## hacky way to detect if this unit is written in short hand `m` vs. verbose `Meter`
-    let isShortHand = if parseEnum[UnitKind](mel, ukUnitLess) == ukUnitLess and mel != "UnitLess": true else: false
-    let ctUnit = initCTUnit(el, unitKind, exp, prefix,
-                            isShortHand = isShortHand)
-    result.add ctUnit
-
-proc parseCTUnitAscii(x: string): CTCompoundUnit =
-  var idx = 0
-  var buf: string
-  while idx < x.len:
-    idx += x.parseUntil(buf, until = '*', start = idx)
-    let powIdx = buf.find("^")
-    doAssert powIdx < buf.high, "Invalid unit, ends with `^`: " & $buf
-    let exp = if powIdx > 0: parseInt(buf[powIdx + 1 .. buf.high])
-              else: 1
-    var mel = if powIdx > 0: buf[0 ..< powIdx]
-              else: buf
-    let prefix = mel.parseSiPrefix
-    let unitKind = parseUnitKind(mel)
-    let isShortHand = if parseEnum[UnitKind](mel, ukUnitLess) == ukUnitLess and mel != "UnitLess": true else: false
-    let ctUnit = initCTUnit(buf, unitKind, exp, prefix,
-                            isShortHand = isShortHand)
-    result.add ctUnit
-    inc idx
-
-proc parseCTUnit(x: NimNode): CTCompoundUnit =
-  if x.isUnitLessNumber:
-    let ctUnit = initCTUnit(x.getTypeImpl.repr, ukUnitLess, 1, siIdentity)
-    result.add ctUnit
-    return result
-  let xTyp = x.getUnitType
-  var xT = xTyp.strVal
-  ## TODO: avoid walking over `xT` so many times!
-  if "•" in xT or digitsAndMinus.anyIt(it in xT):
-    result = parseCTUnitUnicode(xT)
-  elif "*" in xT or xT.anyIt(it in AsciiChars):
-    result = parseCTUnitAscii(xT)
-  # TODO: add verbose mode
-  #elif "Per" in xT:
-  #  result = parseCTUnitVerbose(x)
-  else:
-    # else does not matter which proc, because it should be a single unit, e.g. `KiloGram`
-    result = parseCTUnitUnicode(xT)
-
-proc toBaseTypeScale(u: CTUnit): float =
-  result = u.siPrefix.toFactor()
-  result *= u.factor
-  if u.unitKind == ukGram:
-    result /= 1e3 # base unit is `kg`!
-  result = pow(result, u.power.float)
-
-proc toBaseTypeScale(x: CTCompoundUnit): float =
-  ## returns the scale required to turn `x` to its base type, i.e.
-  ## turn all units that are not already to SI form
-  # XXX: ideally we could make sure `siPrefix` is init'd to 1.0
-  result = if x.siPrefix != 0.0: x.siPrefix else: 1.0 # global SI prefix as a factor
-  for u in x.units:
-    result *= toBaseTypeScale(u)
-
-proc toBaseType(u: CTUnit): CTUnit =
-  result = u
-  case u.unitKind
-  of ukGram, ukPound, ukOunce, ukSlug:
-    ## SI unit base of Gram is KiloGram
-    result.unitKind = ukGram # for non ukGram
-    result.siPrefix = siKilo
-    result.b.baseUnit = buGram
-    result.b.siPrefix = siKilo
-  of ukMile, ukInch, ukYard, ukFoot:
-    result.siPrefix = siIdentity
-    result.unitKind = ukMeter
-  of ukDegree:
-    result.siPrefix = siIdentity
-    result.unitKind = ukSteradian
-  of ukMinute, ukHour, ukDay, ukYear:
-    result.siPrefix = siIdentity
-    result.unitKind = ukSecond
-  of ukPoundForce:
-    result.siPrefix = siIdentity
-    result.unitKind = ukNewton
-  else: result.siPrefix = siIdentity
-
-proc toBaseType(x: CTCompoundUnit): CTCompoundUnit =
-  ## converts `x` to a unit representing the base type.
-  ## WARNING: this is a lossy conversion, so make sure to extract the
-  ## conversion scales using `toBaseTypeScale` before doing this!
-  ## TODO: can we add to `CTUnit` a scale?
-  for u in x.units:
-    result.add u.toBaseType
-
-proc sanitizeInput(n: NimNode): NimNode =
-  # remove all `nnkConv, nnkHiddenStdConv and nnkStmtListExpr`
-  let tree = n
-  proc sanitize(n: NimNode): NimNode =
-    if n.len == 0:
-      #result = n
-      case n.kind
-      of nnkSym: result = ident(n.strVal)
-      else: result = n
-    else:
-      case n.kind
-      of nnkConv, nnkHiddenStdConv, nnkHiddenCallConv: result = n[1].sanitize
-      of nnkStmtListExpr: result = n[1].sanitize
-      else:
-        result = newTree(n.kind)
-        for ch in n:
-          result.add sanitize(ch)
-  ## NOTE: sanitation like this is much more problematic than I thought
-  ## We end up with many edge cases, which suddenly either:
-  ## - produce recursive loops
-  ## - cause weird CT errors as we somehow manage to strip too much information
-  ## Disabled for now.
-  result = tree#.sanitize()
-
 ## TODO: we should really combine these macros somewhat?
 macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
-  var xCT = parseCTUnit(x)
-  var yCT = parseCTUnit(y)
+  var xCT = parseDefinedUnit(x)
+  var yCT = parseDefinedUnit(y)
   if xCT == yCT:
     result = quote do:
       (`x`.float == `y`.float)
@@ -1405,8 +404,9 @@ macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
     # now convert x, y to base types
-    xCT = xCT.toBaseType().simplify()
-    yCT = yCT.toBaseType().simplify()
+    let needConversion = needConversionToBase(xCT, yCT)
+    xCT = xCT.toBaseType(needConversion).simplify()
+    yCT = yCT.toBaseType(needConversion).simplify()
     let resType = xCT.toNimType()
     # compare scaled to base type units
     ## TODO: use almostEqual?
@@ -1416,8 +416,8 @@ macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
     error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
 macro `<`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
-  var xCT = parseCTUnit(x)
-  var yCT = parseCTUnit(y)
+  var xCT = parseDefinedUnit(x)
+  var yCT = parseDefinedUnit(y)
   if xCT == yCT:
     result = quote do:
       (`x`.float < `y`.float)
@@ -1426,8 +426,9 @@ macro `<`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
     # now convert x, y to base types
-    xCT = xCT.toBaseType().simplify()
-    yCT = yCT.toBaseType().simplify()
+    let needConversion = needConversionToBase(xCT, yCT)
+    xCT = xCT.toBaseType(needConversion).simplify()
+    yCT = yCT.toBaseType(needConversion).simplify()
     let resType = xCT.toNimType()
     # compare scaled to base type units
     result = quote do:
@@ -1436,8 +437,8 @@ macro `<`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
 macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
-  var xCT = parseCTUnit(x)
-  var yCT = parseCTUnit(y)
+  var xCT = parseDefinedUnit(x)
+  var yCT = parseDefinedUnit(y)
   if xCT == yCT:
     result = quote do:
       (`x`.float <= `y`.float)
@@ -1446,8 +447,9 @@ macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
     # now convert x, y to base types
-    xCT = xCT.toBaseType().simplify()
-    yCT = yCT.toBaseType().simplify()
+    let needConversion = needConversionToBase(xCT, yCT)
+    xCT = xCT.toBaseType(needConversion).simplify()
+    yCT = yCT.toBaseType(needConversion).simplify()
     let resType = xCT.toNimType()
     # compare scaled to base type units
     result = quote do:
@@ -1456,8 +458,8 @@ macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped
     error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
 macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
-  var xCT = parseCTUnit(x)
-  var yCT = parseCTUnit(y)
+  var xCT = parseDefinedUnit(x)
+  var yCT = parseDefinedUnit(y)
   let xr = x.sanitizeInput()
   let yr = y.sanitizeInput()
   if xCT == yCT:
@@ -1468,15 +470,15 @@ macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       `resType`(`xr`.float + `yr`.float)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
-    let xScale = xCT.toBaseTypeScale()
-    let yScale = yCT.toBaseTypeScale()
-    # now convert x, y to base types
-    xCT = xCT.toBaseType().simplify()
-    yCT = yCT.toBaseType().simplify()
-    ## TODO: add an `equivalent` procedure maybe? Currently due to Compound and seq of
-    ## non compound units we may not end up at the same exact type here!
-    ## now xCT and yCT have to be the same
-    # doAssert xCT == yCT, "Conversion to base types failed!"
+    var xScale = xCT.toBaseTypeScale()
+    var yScale = yCT.toBaseTypeScale()
+    # check if conversion (flattening) of a unit is needed
+    let needConversion = needConversionToBase(xCT, yCT)
+    xCT = xCT.toBaseType(needConversion).simplify()
+    yCT = yCT.toBaseType(needConversion).simplify()
+    xScale /= xCT.toBaseTypeScale()
+    yScale /= yCT.toBaseTypeScale()
+    doAssert xCT == yCT, "Conversion to base types failed!"
     let resType = xCT.toNimType()
     result = quote do:
       defUnit(`resType`)
@@ -1485,8 +487,8 @@ macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     error("Different quantities cannot be added! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
 macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
-  var xCT = parseCTUnit(x)
-  var yCT = parseCTUnit(y)
+  var xCT = parseDefinedUnit(x)
+  var yCT = parseDefinedUnit(y)
   let xr = x.sanitizeInput()
   let yr = y.sanitizeInput()
 
@@ -1498,15 +500,16 @@ macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       `resType`(`xr`.float - `yr`.float)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
-    let xScale = xCT.toBaseTypeScale()
-    let yScale = yCT.toBaseTypeScale()
+    var xScale = xCT.toBaseTypeScale()
+    var yScale = yCT.toBaseTypeScale()
     # now convert x, y to base types
-    xCT = xCT.toBaseType().simplify()
-    yCT = yCT.toBaseType().simplify()
-    ## TODO: add an `equivalent` procedure maybe? Currently due to Compound and seq of
-    ## non compound units we may not end up at the same exact type here!
-    ## now xCT and yCT have to be the same
-    # doAssert xCT == yCT, "Conversion to base types failed!"
+    let needConversion = needConversionToBase(xCT, yCT)
+    xCT = xCT.toBaseType(needConversion).simplify()
+    yCT = yCT.toBaseType(needConversion).simplify()
+    xScale /= xCT.toBaseTypeScale()
+    yScale /= yCT.toBaseTypeScale()
+
+    doAssert xCT == yCT, "Conversion to base types failed!"
     let resType = xCT.toNimType()
     result = quote do:
       defUnit(`resType`)
@@ -1528,88 +531,99 @@ proc `*=`*[T: SomeUnit](x: var T, y: UnitLess) =
 proc `/=`*[T: SomeUnit](x: var T, y: UnitLess) =
   x = x / y
 
-proc convertIfMultipleSiPrefixes(x: CTCompoundUnit): CTCompoundUnit =
-  ## checks if any CTUnit appears multiple times with a different SI prefixes
-  var unitTab = initTable[UnitKind, SiPrefix]()
-  var convertSet: set[UnitKind]
-  for u in x.units:
-    if u.unitKind in unitTab and unitTab[u.unitKind] != u.siPrefix:
-      convertSet.incl u.unitKind
-    else:
-      unitTab[u.unitKind] = u.siPrefix
-
-  for u in x.units:
-    if u.unitKind in convertSet:
-      echo "INFO: Auto converting units of ", $u, " to base unit to simplify"
-      let scale = u.toBaseTypeScale()
-      var uBase = u.toBaseType()
-      ## TODO: idea here was to accomodate auto conversion eV -> Joule I think?!
-      ## Think about if we broke something outside of unit tests! Maybe implicit math with different units?
-      ## Or not a problem anymore, since eV -> Joule isn't done while flattened anymore?
-      # uBase.factor *= scale
-      result.add uBase
-    else:
-      result.add u
-
 macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   ## TODO: can we extract the actual mathy part from x, y instead of using the
   ## whole expression? And then reinsert that after our change
-  var xCT = parseCTUnit(x)
-  let yCT = parseCTUnit(y)
-  # add `yCT` to xCT. Equates a product after simplification
-  xCT.add yCT
-  # TODO: automatically perform scaling to SI units?
-  xCT = xCT.flatten()
-  var resTypeCT = xCT.convertIfMultipleSiPrefixes()
-  let scaleOriginal = xCT.toBaseTypeScale()
-  let scaleConv = resTypeCT.toBaseTypeScale() ## WRONG: must not *always* call conversion
-  ## TODO: check if there are multiple SI prefixes of the same units present.
-  ## If so, convert to base units, else do not.
-  let resType = resTypeCT.simplify().toNimType()
+  var xCT = parseDefinedUnit(x)
+  let yCT = parseDefinedUnit(y)
   let xr = x.sanitizeInput()
   let yr = y.sanitizeInput()
-  if scaleOriginal != scaleConv:
-    let scale = scaleOriginal / scaleConv
-    result = quote do:
-      defUnit(`resType`)
-      `resType`(`xr`.float * `yr`.float * `scale`)
-  else:
+
+  # add `yCT` to xCT. Equates a product after simplification
+  if xCT == yCT:
+    # excactly the same type, just multiply numbers and square unit
+    xCT.add yCT
+    let resType = xCT.simplify(mergePrefixes = true).toNimType()
     result = quote do:
       defUnit(`resType`)
       `resType`(`xr`.float * `yr`.float)
+  else:
+    # check if these units need a conversion
+    let needConversion = needConversionToBase(xCT, yCT)
+    xCT.add yCT
+    # define scale before modifying units
+    let scaleOriginal = xCT.toBaseTypeScale()
+    # and flatten if needed
+    xCT = xCT.flatten(needConversion)
+    var resTypeCT = xCT.simplify(mergePrefixes = true)
+    # determine scale of resulting units
+    let scaleConv = resTypeCT.toBaseTypeScale() ## WRONG: must not *always* call conversion
+    let resType = resTypeCT.simplify().toNimType()
+    if scaleOriginal != scaleConv:
+      let scale = scaleOriginal / scaleConv
+      result = quote do:
+        defUnit(`resType`)
+        `resType`(`xr`.float * `yr`.float * `scale`)
+    else:
+      result = quote do:
+        defUnit(`resType`)
+        `resType`(`xr`.float * `yr`.float)
 
 #template `*`*[T: SomeUnit; U: SomeNumber](x: T; y: U{lit}): T = (x.float * y.float).T
 #template `*`*[T: SomeUnit; U: SomeNumber](x: U{lit}; y: T): T = (x.float * y.float).T
 
 macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
-  var xCT = parseCTUnit(x)
-  let yCT = parseCTUnit(y)
-  # add inverted `yCT` (power -> -power) to xCT. Equates a division after simplification
-  xCT.add yCT.invert()
-  xCT = xCT.flatten()
-  var resTypeCT = xCT.convertIfMultipleSiPrefixes()
-  let scaleOriginal = xCT.toBaseTypeScale()
-  let scaleConv = resTypeCT.toBaseTypeScale() ## WRONG: must not *always* call conversion
-  ## TODO: check if there are multiple SI prefixes of the same units present.
-  ## If so, convert to base units, else do not.
-  let resType = resTypeCT.simplify().toNimType()
+  var xCT = parseDefinedUnit(x)
+  let yCT = parseDefinedUnit(y)
   let xr = x.sanitizeInput()
   let yr = y.sanitizeInput()
-  if scaleOriginal != scaleConv:
-    let scale = scaleOriginal / scaleConv
+  if xCT == yCT:
+    # excactly the same type, result is simply unitless
     result = quote do:
-      defUnit(`resType`)
-      `resType`(`xr`.float / `yr`.float * `scale`)
+      UnitLess(`xr`.float / `yr`.float)
   else:
-    result = quote do:
-      defUnit(`resType`)
-      `resType`(`xr`.float / `yr`.float)
+    # add inverted `yCT` (power -> -power) to xCT. Equates a division after simplification
+    # determine if conversion needed
+    let needConversion = needConversionToBase(xCT, yCT)
+    # perform the "division"
+    xCT.add yCT.invert()
+    # and determine scale of resulting unit, before flattening / simplification
+    let scaleOriginal = xCT.toBaseTypeScale()
 
-proc commonQuantity(x: typedesc, y: typedesc): bool =
-  ## checks if x and y are equivalent quantities
-  let xCT = x.getTypeInst.parseCTUnit()
-  let yCT = y.getTypeInst.parseCTUnit()
-  result = xCT.commonQuantity(yCT)
+    xCT = xCT.flatten(needConversion)
+    var resTypeCT = xCT.simplify(mergePrefixes = true)
+    let scaleConv = resTypeCT.toBaseTypeScale()
+    let resType = resTypeCT.simplify().toNimType()
+    if scaleOriginal != scaleConv:
+      let scale = scaleOriginal / scaleConv
+      result = quote do:
+        defUnit(`resType`)
+        `resType`(`xr`.float / `yr`.float * `scale`)
+    else:
+      result = quote do:
+        defUnit(`resType`)
+        `resType`(`xr`.float / `yr`.float)
+
+macro sqrt*[T: SomeUnit](t: T): untyped =
+  ## Implements the `sqrt` of a given unitful value.
+  ##
+  ## Fails if the given unit is not a perfect square (i.e. each compound of the full
+  ## unit's power is a multiple of 2).
+  let typ = t.parseDefinedUnit()
+
+  var mType = typ
+  for u in mitems(mType.units):
+    if u.power mod 2 == 0: # can be divided
+      u.power = u.power div 2
+    else:
+      error("Cannot take the `sqrt` of input unit " & $(typ.toNimType()) & " as it's not a perfect square!")
+  let resType = mType.toNimType()
+  let tr = t.sanitizeInput()
+  result = quote do:
+    defUnit(`resType`)
+    `resType`(sqrt(`tr`.float))
+
+proc abs*[T: SomeUnit](t: T): T = (abs(t.float)).T
 
 macro determineScale(x: typedesc, y: typedesc): float =
   ## x and y `have` to be of the same quantity
@@ -1621,8 +635,10 @@ macro determineScale(x: typedesc, y: typedesc): float =
   # - if prefix found, set `factor`
   # - if exponent found `⁻` take `factor=factor^power`
   # - multiply `scale` by `factor`
-  let xScale = x.parseCTUnit().toBaseTypeScale()
-  let yScale = y.parseCTUnit().toBaseTypeScale()
+  let xCT = x.parseDefinedUnit()
+  let yCT = y.parseDefinedUnit()
+  let xScale = xCT.toBaseTypeScale()
+  let yScale = yCT.toBaseTypeScale()
   result = newLit(xScale / yScale)
 
 proc to*[T; U](x: T, to: typedesc[U]): U =
@@ -1643,27 +659,28 @@ proc to*[T; U](x: T, to: typedesc[U]): U =
     {.error: "Cannot convert " & $T & " to " & $U & " as they represent different " &
       "quantities!".}
 
-macro toImpl(x: typed, to: static CTCompoundUnit): NimNode =
-  ## TODO: replace by macro as well so that we can deal with arbitrary types
-  ##
-  ## check if conversion possible
-  let xCT = parseCTUnit(x)
-  let yCT = to
-  if xCT == yCT:
-    result = x
-  elif xCT.commonQuantity(yCT):
-    # perform conversion
-    ## thus determine scaling factor due to different SI prefixes
-    let xScale = xCT.toBaseTypeScale()
-    let yScale = yCT.toBaseTypeScale()
-    let scale = xScale / yScale
-    let resType = yCT.toNimType()
-    result = quote do:
-      defUnit(`resType`)
-      `resType`(`x`.float * `scale`)
-  else:
-    error("Cannot convert " & $(xCT.toNimType()) & " to " & $(yCT.toNimType()) & " as they represent different " &
-      "quantities!")
+when false:
+  macro toImpl(x: typed, to: static CTCompoundUnit): NimNode =
+    ## TODO: replace by macro as well so that we can deal with arbitrary types
+    ##
+    ## check if conversion possible
+    let xCT = parseDefinedUnit(x)
+    let yCT = to
+    if xCT == yCT:
+      result = x
+    elif xCT.commonQuantity(yCT):
+      # perform conversion
+      ## thus determine scaling factor due to different SI prefixes
+      let xScale = xCT.toBaseTypeScale()
+      let yScale = yCT.toBaseTypeScale()
+      let scale = xScale / yScale
+      let resType = yCT.toNimType()
+      result = quote do:
+        defUnit(`resType`)
+        `resType`(`x`.float * `scale`)
+    else:
+      error("Cannot convert " & $(xCT.toNimType()) & " to " & $(yCT.toNimType()) & " as they represent different " &
+        "quantities!")
 
 {.experimental: "dotOperators".}
 macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
@@ -1671,8 +688,9 @@ macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
   ## TODO: maybe have an explicit distinction between already defined types
   ## and not defined types? Use `.!` or something like this instead?
   let typX = x.getTypeInst()
-  let yCT = y.parseCTUnit()
-  let resType = yCT.simplify().toNimType()
+  let yCT = y.parseDefinedUnit()
+
+  let resType = yCT.simplify(mergePrefixes = true).toNimType()
   # check whether argument is actually `UnitLess` and not something that fails
   # parsing as a unit. TODO: improve unit parsing to handle this? Need a failed
   # parsing state != UnitLess
@@ -1690,91 +708,62 @@ macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
     result = quote do:
       `y` `x`
 
-proc baseUnitToNaturalUnit(b: CTBaseUnit): CTUnit =
-  ## Converts the given base unit to a natural unit, i.e. `eV` of the corresponding
-  ## power (according to the quantity).
-  case b.baseUnit
-  of buUnitLess:
-    result = initCTUnit("", ukUnitLess, power = 1 * b.power, b.siPrefix, factor = some(1.0))
-  of buGram:
-    if b.siPrefix == siKilo:
-      result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, siIdentity, factor = some(1.7826627e-36))
-    else:
-      result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, b.siPrefix, factor = some(1.7826627e-36))
-  of buMeter:
-    result = initCTUnit("eV⁻¹", ukElectronVolt, power = -1 * b.power, b.siPrefix, factor = some(1.9732705e-7))
-  of buSecond:
-    result = initCTUnit("eV⁻¹", ukElectronVolt, power = -1 * b.power, b.siPrefix, factor = some(6.5821220e-16))
-  of buAmpere:
-    result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, b.siPrefix, factor = some(0.00080381671))
-  of buKelvin:
-    result = initCTUnit("eV", ukElectronVolt, power = 1 * b.power, b.siPrefix, factor = some(11604.518))
-  of buMol:
-    result = initCTUnit("", ukUnitLess, power = 1 * b.power, b.siPrefix, factor = some(1.0))
-  of buCandela: error("Broken")
-  result.factor = pow(result.factor, b.power.float)
-  result.factor = 1.0 / result.factor
-
-proc toNaturalUnitImpl(t: CTUnit): CTUnit =
+## Natural unit stuff
+proc toNaturalUnitImpl(t: UnitProduct): UnitProduct
+proc toNaturalUnitImpl(t: UnitInstance): UnitProduct =
   ## TODO: problem is T is converted into flattened type and mT is kept as milli tesla!!!
   ## TODO2: is this still a problem?
-  case t.unitType
-  of utQuantity:
-    var unit = baseUnitToNaturalUnit(t.b)
-    let prefixFactor = if t.unitKind == ukGram: t.siPrefix.toFactor() / 1000.0
-                       else: t.siPrefix.toFactor()
-    unit.factor = pow(unit.factor * prefixFactor, t.power.float)
-    unit.power *= t.power
-    result = unit
-  of utCompoundQuantity:
-    ## NOTE: this should be a single eV CT unit. Need to merge factors
-    result = initCTUnit("eV", ukElectronVolt, power = 0, siPrefix = siIdentity)
-    for b in t.bs:
-      var unit = baseUnitToNaturalUnit(b)
-      result.factor *= unit.factor
-      result.power += unit.power
-    result.factor = pow(result.factor * t.siPrefix.toFactor(), t.power.float)
+  case t.unit.quantityKind
+  of qtFundamental:
+    # convert fundamental unit to natural. Note: may still need to be converted to base unit!
+    case t.unit.kind
+    of utBase:
+      # is a base unit, must have `toNaturalUnit`
+      doAssert t.unit.quantityKind == qtFundamental
+      result = t.unit.toNaturalUnit.clone()
+      doAssert result.units.len == 1
+      # first modify `value` based on power and prefix of natural unit conversion,
+      # i.e. apply the right dimension
+      var factor = 1.0
+      var uPower = 1
+      for u in mitems(result.units):
+        doAssert u.prefix == siIdentity
+        # adjust power of natural units based on input unit
+        factor *= result.value
+        #result.value = pow(result.value * u.prefix.toFactor(), u.power.float)
+        uPower = u.power
+        u.power *= t.power
+      # Note: we do *not* multiply in the power of the natural unit, as this is
+      # only related to the dimension of the resulting unit, but our conversions are
+      # for the correct dimension already
+      result.value = pow(factor / t.prefix.toFactor(), t.power.float)
+      # now invert the value, as we want it as multiplicative scaling and our conversion
+      # factors are given for division
+      result.value = 1.0 / result.value
+    of utDerived:
+      # convert to base & then get conversion
+      let scale = t.toBaseTypeScale()
+      result = t.toUnitProduct.flatten(needConversion = true).toNaturalUnitImpl()
+      result.value *= scale
+  of qtCompound:
+    # convert to base units and then compute natural unit conversions
+    let scale = t.toBaseTypeScale()
+    result = t.toUnitProduct.flatten(needConversion = true).toNaturalUnitImpl()
+    result.value *= scale
 
-proc toNaturalUnitImpl(t: CTCompoundUnit): CTCompoundUnit =
+proc toNaturalUnitImpl(t: UnitProduct): UnitProduct =
   ## Converts a compound unit to natural units
-  for unit in t.units:
+  result = newUnitProduct()
+  for unit in t.units: # note: adding units takes care of accumulating `value`
     result.add toNaturalUnitImpl(unit)
-
-proc toNaturalScale(t: CTCompoundUnit): float =
-  ## Returns the scaling factor associated with a unit converted
-  ## to natural units
-  result = 1.0
-  for unit in t.units:
-    result *= unit.factor
 
 macro toNaturalUnit*[T: SomeUnit](t: T): untyped =
   ## parses the unit and converts it to natural units (`eV`) according to
   ## the contained
-  var typ = t.parseCTUnit()
+  var typ = t.parseDefinedUnit()
     .toNaturalUnitImpl()
-  let scale = typ.toNaturalScale()
+  let scale = typ.value
   let resType = typ.simplify().toNimType()
   result = quote do:
     defUnit(`resType`)
     `resType`(`t`.float * `scale`)
-
-macro sqrt*[T: SomeUnit](t: T): untyped =
-  ## Implements the `sqrt` of a given unitful value.
-  ##
-  ## Fails if the given unit is not a perfect square (i.e. each compound of the full
-  ## unit's power is a multiple of 2).
-  let typ = t.parseCTUnit()
-
-  var mType = typ
-  for u in mitems(mType.units):
-    if u.power mod 2 == 0: # can be divided
-      u.power = u.power div 2
-    else:
-      error("Cannot take the `sqrt` of input unit " & $(typ.toNimType()) & " as it's not a perfect square!")
-  let resType = mType.toNimType()
-  let tr = t.sanitizeInput()
-  result = quote do:
-    defUnit(`resType`)
-    `resType`(sqrt(`tr`.float))
-
-proc abs*[T: SomeUnit](t: T): T = (abs(t.float)).T
