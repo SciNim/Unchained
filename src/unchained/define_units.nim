@@ -1,80 +1,26 @@
-import std / [macros, tables, strutils, math, sequtils, sets, algorithm]
-
-import core_types, quantities, ct_unit_types, utils
+# stdlib
+import std / [macros, tables, strutils, sets, algorithm, math, sequtils]
+# local files
+import core_types, quantities, ct_unit_types, parse_units, macro_utils
 
 type
-  DefinedUnits* = seq[DefinedUnit] #object
+  DefinedUnits* = seq[DefinedUnit]
 
   ## XXX: Ideally we would replace the QuantityTab Table by a CacheTable. But then we need to
   ## use `newLit` to store a `CTQuantity` in it, which means on the "other side" (i.e. here)
   ## we need to again parse the AST into an object?
-  #const QuantityTab = CacheTable"QuantityTab"
 
-  UnitTable = object
-    # quantity stores the *base unit* referring to a quantity (the key)
-    quantity: Table[string, int]
-    # long and short store indices to the `seq` `units`
-    long: Table[string, int]
-    short: Table[string, int]
-    units: seq[DefinedUnit]
+## The `UnitTab` is one of the fundamenal pieces of the macro logic. It stores all units
+## defined in the `declareUnit` call and is later used to access type information.
+var UnitTab {.compileTime.} = newUnitTable()
 
-proc initUnitTable(): UnitTable =
-  result = UnitTable(quantity: initTable[string, int](),
-                     long: initTable[string, int](),
-                     short: initTable[string, int](),
-                     units: newSeq[DefinedUnit]())
+proc parseDefinedUnit*(x: string): UnitProduct =
+  ## Overload that wraps the local `UnitTab` and hands it for parsing
+  result = UnitTab.parseDefinedUnit(x)
 
-proc len(tab: UnitTable): int = tab.units.len
-
-proc contains(tab: UnitTable, u: string): bool =
-  ## Checks if the given `u` is in the `UnitTable`
-  result = u in tab.short or u in tab.long
-
-proc insert(tab: var UnitTable, u: DefinedUnit) =
-  ## Inserts the given `u` into the `UnitTable`. The correct sub field will be filled
-  ## based on `isLong`
-  let idx = tab.len # get index as the current length
-  if u.kind == utBase:
-    let qName = u.quantity.getName()
-    if qName in tab.quantity:
-      error("The unit " & $u.name & " defines a quantity " & $qName & " that was already " &
-        "defined by another unit: " & $tab.units[tab.quantity[qName]].repr & ". If this is not a " &
-        "base unit, make sure to define a `conversion` to the base unit of the same quantity.")
-    tab.quantity[qName] = idx
-
-  tab.long[u.name] = idx
-  tab.short[u.short] = idx
-  tab.units.add u
-
-proc `[]`(tab: UnitTable, s: string): DefinedUnit =
-  if s in tab.long:
-    result = tab.units[tab.long[s]]
-  elif s in tab.short:
-    result = tab.units[tab.short[s]]
-  else:
-    raise newException(KeyError, "Given unit " & $s & " not known in `UnitTable`.")
-
-proc `[]`(tab: UnitTable, q: CTQuantity): DefinedUnit =
-  let idx = tab.quantity[q.getName()]
-  result = tab.units[idx]
-
-proc `[]`(tab: UnitTable, q: CTBaseQuantity): DefinedUnit =
-  let idx = tab.quantity[q.name]
-  result = tab.units[idx]
-
-proc getIdx(tab: UnitTable, u: UnitInstance): int =
-  ## Returns the index (i.e. priority) of the given unit instance
-  let s = u.unit.name
-  result = tab.long[s]
-
-var ShortUnits {.compileTime.} = newSeq[string]()
-var LongUnits {.compileTime.} = newSeq[string]()
-var LongBaseUnits {.compileTime.} = newSeq[string]()
-var UnitTab {.compileTime.} = initUnitTable()
-
-proc isLongBaseUnit(s: string): bool =
-  for b in LongBaseUnits:
-    if s.startsWith($b): return true
+proc parseDefinedUnit*(x: NimNode): UnitProduct =
+  ## Overload that wraps the local `UnitTab` and hands it for parsing
+  result = UnitTab.parseDefinedUnit(x)
 
 proc `<`*(a, b: UnitInstance): bool =
   ## Comparison based on the order in `UnitTab`.
@@ -97,207 +43,356 @@ proc `<`*(a, b: UnitInstance): bool =
     else:
       result = a.prefix < b.prefix
 
+proc sorted*(u: UnitProduct): UnitProduct =
+  ## Returns a unit sorted version of `u`
+  result = newUnitProduct(u.value)
+  result.units.sort()
 
+proc toQuantityPower(units: UnitProduct): seq[QuantityPower] =
+  ## Convert the given product of units to a `seq[QuantityPower]` such that
+  ## that it encodes precisely the dimensionality of the unit.
+  ##
+  ## Note: if we had a strictly defined number of dimensions, we could in principle
+  ## allocate a fixed size array where each index corresponds to a specific dimension.
+  ## However, given that we are trying to be flexible in the definition of quantities
+  ## even, this is not really feasible at the moment.
+  ## TODO: It is worth a try though to see if we can refactor this further to have
+  ## the `declareQuantities` macro generate such a thing for us, possibly by generating
+  ## a `BaseQuantityKind` enum, which would allow us to write `array[BaseQuantityKind, int]`?
+  ##
+  ## This
+  ##   var ar: array[QuantityKind, int]
+  ##   for u in unit.units:
+  ##     ar[u.toQuantityKind] = 2
+  ## cannot work in the code here, as the `QuantityKind` enum isn't defined at CT of this
+  ## procedure yet. The declaration would have to happen in a module that is imported
+  ## by this one (i.e. inside `quantities`). But that is very problematic as then the quantities
+  ## are "hard coded".
+  ## Instead at least we could add an `id` to each `CTBaseQuantity` (and `CTQuantity`) such
+  ## that we have an easier time to add / compare etc. quantities.
 
-## XXX: clean up this mess. Parsing shouldn't be duplicated here and in main file etc
+  # 1. compute the combined QuantityPowers of all units in the product
+  var rawPowers = newSeq[QuantityPower]()
+  for u in units.units:
+    rawPowers.add u.toQuantityPower()
+  # 2. simplify them by reducing same dimensions, add them to a CountTable
+  #    with power as table argument
+  var cTab = initCountTable[CTBaseQuantity]()
+  for qp in rawPowers:
+    inc(cTab, qp.quant, qp.power)
+  # 3. compute result by placing back in a seq
+  for (q, p) in pairs(cTab):
+    result.add QuantityPower(quant: q, power: p)
+  result.sort() # sort to make sure we get the same order
 
-
-
-
-
-
-
-
-
-import std / [macros, strutils, unicode, typetraits, strformat, parseutils]
-
-proc parseUntil(s: string, chars, errorOn: openArray[string]): int =
-  ## parses until one of the runes in `chars` is found
-  var idx = 0
-  var rune: Rune
-  var oldIdx = idx
-  while idx < s.len:
-    oldIdx = idx
-    fastRuneAt(s, idx, rune)
-    if rune.toUtf8 in chars:
-      return oldIdx
-    elif rune.toUtf8 in errorOn:
-      error("Invalid rune in input string: " & $(rune.toUtf8()) & ". Did you type " &
-        "a non superscript power by accident?")
   when false:
-    for rune in utf8(s):
-      if rune in chars:
-        return idx
-      inc idx
-  # didn't find it
-  result = -1
+    result = initTable[QuantityKind, int]()
+    proc addQuant(res: var Table[QuantityKind, int], bu: BaseUnitKind, power: int) =
+      let quantity = bu.toQuantity
+      if quantity in res:
+        res[quantity] += power
+      else:
+        res[quantity] = power
+      if res[quantity] == 0:
+        res.del(quantity)
+    ## A comment, because at first glance this might seem confusing.
+    ##
+    ## We walk over the CTCompoundUnit and for every unit:
+    ## - if a unit is not a compound unit (is a base unit) we simply add its quantity with the
+    ##   power of the given unit to the table.
+    ## - for compound units we have to be more careful: take the power of the unit (e.g. N² -> power 2)
+    ##   and multiply with power of base units (e.g. Newton -> (kg•m•s⁻²)²). That's why we cannot just use
+    ##   `only` the base units power or `only` the units power.
+    for u in a.units:
+      if not u.unitKind.isCompound:
+        doAssert u.b.power == 1
+        result.addQuant(u.b.baseUnit, u.power)
+      else:
+        for bu in u.bs:
+          result.addQuant(bu.baseUnit, (u.power * bu.power))
+    if result.len == 0:
+      result[qkUnitLess] = 1
 
-proc parseSiPrefixShort(c: char): SiPrefix =
-  ## For the case of short SI prefixes (i.e. single character) return it
-  for (el, prefix) in SiPrefixStringsShort:
-    if $c == el: return prefix
+proc commonQuantity*(a, b: UnitProduct): bool =
+  ## Comparison is done by checking for the same base units and powers using
+  ## `UnitProduct`.
+  let aQuant = a.toQuantityPower()
+  let bQuant = b.toQuantityPower()
+  result = aQuant == bQuant
 
-proc startsAsKnownUnit(s: string): bool =
-  ## Checks if the given string stars like a known unit (short or long version)
-  for short in ShortUnits:
-    if s.startsWith(short): return true
-  for long in LongUnits:
-    if s.startsWith(long): return true
+proc commonQuantity*(x: typedesc, y: typedesc): bool =
+  ## checks if x and y are equivalent quantities
+  let xCT = x.getTypeInst.parseDefinedUnit()
+  let yCT = y.getTypeInst.parseDefinedUnit()
+  result = xCT.commonQuantity(yCT)
 
-proc parseSiPrefix(s: var string): SiPrefix =
-  ## Return early if we only have on rune in total or until we reach
-  ## a `⁻` or any of the superscript numbers. Important for things like
-  ## `m`. Only a prefix if there's more than one rune.
-  if s.runeLen == 1 or s.runeAt(1).toUtf8() in digitsAndMinus: return siIdentity
-  result = siIdentity
-  if s.runeAt(0).isUpper:
-    if s.isLongBaseUnit: return siIdentity # if it's Meter, Gram etc.
-    ## try to find Long Si prefix
-    for (el, prefix) in SiPrefixStringsLong:
-      if prefix == siIdentity: continue
-      if s.startsWith(el):
-        s.removePrefix(el)
-        return prefix
-  ## no is upper does not mean it might not short, since some are upper
-  ## else check for short prefix.
-  # Alternative:
-  # - lookup first characer & map to SI prefix
-  # - it *is* that prefix iff what comes after is a valid unit
-  # how to break tie between `T` (= tesla) and `TT` (= Tera Tesla) ?
-  let short = parseSiPrefixShort(s[0])
-  if startsAsKnownUnit(s[1 ..< s.len]):
-    s = s[1 ..< s.len]
-    result = short
+proc toNimType*(u: UnitInstance, short = false): string =
+  #if u.unitKind == ukUnitLess: return
+  ## XXX: handle base prefix of base units!
+  # We use the prefix of the base unit exactly then, when the instance
+  # does not override the prefix.
+  let prefix = u.prefix # if u.prefix != siIdentity: u.prefix
+               #else: u.unit.basePrefix
+  let siPrefixStr = if short: SiShortPrefixTable[prefix]
+                    else: SiPrefixTable[prefix]
+  result = siPrefixStr
+  if not short:
+    result.add u.unit.name
   else:
-    result = siIdentity
+    result.add u.unit.short
+  if u.power < 0:
+    result.add "⁻"
+  if u.power > 1 or u.power < 0:
+    for digit in getPow10Digits(u.power):
+      result.add digits[digit]
 
-proc hasNegativeExp(s: var string): bool =
-  var rune: Rune
-  var idx = 0
-  var oldIdx = idx
-  while idx < s.len:
-    oldIdx = idx
-    fastRuneAt(s, idx, rune)
-    if rune.toUtf8() == "⁻":
-      s.delete(oldIdx, idx - 1)
-      return true
+proc toNimTypeStr*(x: UnitProduct, short = false): string =
+  ## converts `x` to the correct string representation
+  # return early if no units in x
+  if x.units.len == 0: return "UnitLess"
+  ## XXX: add a `reduce` call / simplify
+  let xSorted = x.units.sorted
+  for idx, u in xSorted:
+    #if u.unitKind == ukUnitLess: continue
+    var str = toNimType(u, short)
+    if idx < xSorted.high:
+      str.add "•"
+    result.add str
 
-proc parseExponent(s: var string, negative: bool): int =
-  var buf: string
-  let idxStart = s.parseUntil(digits, errorOn = DigitsAscii)
-  var idx = idxStart
-  if idx > 0:
-    let numDigits = s[idx .. ^1].runeLen
-    var seen = 0
-    while idx < s.len:
-      var buf: Rune
-      fastRuneAt(s, idx, buf)
-      inc seen
-      let val = digits.find(buf.toUtf8()) * 10^(numDigits - seen)
-      result += val
-    result = if negative: -result else: result
-    # remove `idx` onwards from s
-    s.delete(idxStart, s.len)
+proc toNimType*(x: UnitProduct, short = false): NimNode =
+  ## converts `x` to the correct
+  # return early if no units in x
+  let name = x.toNimTypeStr(short)
+  result = if name.len == 0: ident("UnitLess") else: ident(name)
+
+
+
+proc toBaseTypeScale*(u: UnitInstance): float =
+  result = u.prefix.toFactor()
+  result *= u.value
+  ## XXX: multiply the `conversion` factor possibly if unit is not a base unit
+  case u.unit.kind
+  of utBase: discard
+  of utDerived:
+    # multiply with conversion factor
+    result *= u.unit.conversion.value
+  # divide out any possible base prefixes (e.g. for kilo gram)
+  result /= u.unit.basePrefix.toFactor()
+  result = pow(result, u.power.float)
+
+## TODO: better distinguish between converting to base SI prefixes and
+## converting non SI units to SI?
+proc toBaseTypeScale*(x: UnitProduct): float =
+  ## returns the scale required to turn `x` to its base type, i.e.
+  ## turn all units that are not already to its base form. This
+  ## includes converting non base prefix units to their base prefixes
+  ## *as well as* converting derived units (e.g. lbs, inch, ...) to
+  ## their base unit counterparts.
+  # XXX: ideally we could make sure `siPrefix` is init'd to 1.0
+  result = if x.value != 0.0: x.value else: 1.0 # global SI prefix as a factor
+  for u in x.units:
+    result *= toBaseTypeScale(u)
+
+proc toBaseType*(u: UnitInstance, needConversion: bool): UnitProduct =
+  ## Returns a modified instance of this unit that is based on the
+  ## base units of the system. E.g. `lbs` will be converted to `kg` assuming
+  ## SI system.
+  result = newUnitProduct()
+  if not needConversion or not u.unit.autoConvert:
+    ## If no auto conversion wished, simply assign base prefix (i.e. reset prefix) and add
+    var mu = u
+    mu.prefix = u.unit.basePrefix
+    result.add mu
   else:
-    # no exponent means `1`
-    result = 1
+    case u.unit.kind
+    of utBase:
+      var mu = u
+      # must assign `basePrefix` to get correct prefix in the *`UnitInstance`* and not just
+      # `DefinedUnit` for units where `basePrefix` is non trivial (e.g. kg being base)
+      mu.prefix = u.unit.basePrefix
+      result.units.add mu
+    of utDerived:
+      # result is simply the conversion (factor + unit) of this derived unit
+      result = u.unit.conversion
+      # now add possible further prefixes / powers of the input
+      result.value *= pow(u.prefix.toFactor(), u.power.float) # XXX: * u.value ? we don't use `value` atm
 
-#proc getUnitType(n: NimNode): NimNode =
-#  case n.kind
-#  of nnkIdent: result = n
-#  of nnkAccQuoted:
-#    var s: string
-#    for el in n:
-#      s.add el.strVal
-#    result = ident(s)
-#  else: result = n.getTypeInst.getUnitTypeImpl()
+proc toBaseType*(x: UnitProduct, needConversion: bool): UnitProduct =
+  ## converts `x` to a unit representing the base type.
+  ## WARNING: this is a lossy conversion, so make sure to extract the
+  ## conversion scales using `toBaseTypeScale` before doing this!
+  ## TODO: can we add to `CTUnit` a scale?
+  result = newUnitProduct()
+  for u in x.units:
+    result.add u.toBaseType(needConversion)
 
-proc lookupUnit(s: string): DefinedUnit =
-  ## looks up the given predefined unit in our CT tables of known units
-  result = UnitTab[s]
+proc toBaseUnit(q: CTBaseQuantity): DefinedUnit =
+  result = UnitTab[q]
 
-proc parseDefinedUnitUnicode(x: string): UnitProduct =
-  ## 1. split by `•`
-  ## for el in splits
-  ##   2. parse possible si prefix
-  ##   2a. remove prefix from string
-  ##   3. parse possible negative unicode char
-  ##   3a. parse possible exponent
-  ##   4. parse name of unit
-  ## Complication: We have 3 different notations for units
-  ## a) m, kg, m•s⁻², ...
-  ## b) Meter, Kg, Meter•Second⁻², ...
-  ## c) "meter per second squared" -> "meterPerSecondSquared"
-  ## a) and b) can be parsed together by both looking for `m` as well as `Meter` in each
-  ## element. Verbose always start capital letters, shorthand depending on SI prefix / unit (N, V, A...)
-  let xTStrs = if "•" in x: x.split("•")
-               else: x.split("·")
-  result = UnitProduct()
-  for el in xTStrs:
-    var mel = el
-    let prefix = mel.parseSiPrefix
-    let negative = hasNegativeExp(mel)
-    let exp = parseExponent(mel, negative)
-    let unit = lookupUnit(mel)
-    let ctUnit = newUnitInstance(el, unit, exp, prefix)
-    result.units.add ctUnit
+proc toUnitInstance*(q: CTBaseQuantity): UnitInstance =
+  let bUnit = q.toBaseUnit()
+  result = newUnitInstance(q.name, bUnit, 1, bUnit.basePrefix)
 
-#proc parseDefinedUnitAscii(x: string): UnitProduct =
-#  var idx = 0
-#  var buf: string
-#  while idx < x.len:
-#    idx += x.parseUntil(buf, until = '*', start = idx)
-#    let powIdx = buf.find("^")
-#    doAssert powIdx < buf.high, "Invalid unit, ends with `^`: " & $buf
-#    let exp = if powIdx > 0: parseInt(buf[powIdx + 1 .. buf.high])
-#              else: 1
-#    var mel = if powIdx > 0: buf[0 ..< powIdx]
-#              else: buf
-#    let prefix = mel.parseSiPrefix
-#    let unitKind = parseUnitKind(mel)
-#    let isShortHand = if parseEnum[UnitKind](mel, ukUnitLess) == ukUnitLess and mel != "UnitLess": true else: false
-#    let ctUnit = initDefinedUnit(buf, unitKind, exp, prefix,
-#                            isShortHand = isShortHand)
-#    result.add ctUnit
-#    inc idx
+proc toUnitInstance*(b: QuantityPower): UnitInstance =
+  let bUnit = b.quant.toBaseUnit()
+  result = newUnitInstance(b.quant.name, bUnit, b.power, bUnit.basePrefix)
 
-proc parseDefinedUnit*(s: string): UnitProduct =
-  ## TODO: avoid walking over `s` so many times!
-  if "•" in s or digitsAndMinus.anyIt(it in s):
-    result = parseDefinedUnitUnicode(s)
-  elif "*" in s or s.anyIt(it in AsciiChars):
-    #result = parseDefinedUnitAscii(s)
-    discard
-  # TODO: add verbose mode
-  #elif "Per" in s:
-  #  result = parseDefinedUnitVerbose(x)
+proc toBaseUnits(q: CTQuantity): UnitProduct =
+  ## Turns the given quantity into a `UnitProduct` of base units
+  case q.kind
+  of qtCompound:
+    result = newUnitProduct()
+    for b in q.baseSeq:
+      let baseUnit = b.quant.toBaseUnit()
+      let power = b.power
+      result.units.add newUnitInstance(
+        q.getName(), baseUnit, power, baseUnit.basePrefix
+      )
+  else: discard
+
+proc flatten*(units: UnitProduct, needConversion = true): UnitProduct =
+  ## extracts all base units from individual compound units and turns it into
+  ## a single UnitProduct of only base units. Finally simplifies the result.
+  ##
+  ## It will flatten all compound units that have the `autoConvert` property
+  ## set to `true`.
+  result = newUnitProduct()
+  var factor = 1.0
+  for unitInst in units.units:
+    let power = unitInst.power
+    let prefix = unitInst.prefix
+    let unit = unitInst.unit
+    if not needConversion or not unitInst.unit.autoConvert:
+      #var mu = unitInst
+      #factor *= pow(prefix.toFactor(), power.float)
+      #mu.prefix = mu.unit.basePrefix
+      result.add unitInst
+    else:
+      # unit allows auto conversion
+      case unit.quantity.kind
+      of qtFundamental: result.add unitInst # fundamental quantities remain as they are
+      of qtCompound:
+        # compound quantities will be flattened
+        ## TODO: how to handle global SI prefix in a compound CTUnit? Absorb
+        ## into a `factor` on ``one`` of the new CTUnits to be added?
+        ## For the purpose of `flatten` this does not play a role, because
+        ## units of different SI prefixes are still equal? Well, but they aren't
+        ## really. Can we do maths with them? Sure. Should they match in the
+        ## concept `SomeUnit`? No! If `Meter•Second⁻¹` is demanded we need that and
+        ## not allow `CentiMeter•Second⁻¹`?
+        # conversion factor is SI prefix to the unit's power
+        factor *= pow(prefix.toFactor, power.float)
+        for b in unit.quantity.baseSeq:
+          # convert given `QuantityPower` to a base unit
+          var u = b.toUnitInstance()
+          # and adjust power of this instance by power of the full compound
+          u.power *= power
+          #u.prefix =
+          result.add u
+        ## XXX: if derived (but autoConvert allowed) multiply by conversion
+        # of utDerived:
+  result.value = factor # assign the prefix
+
+proc simplify*(x: UnitProduct, mergePrefixes = false): UnitProduct =
+  ## simplifies the given unit `x`. E.g. turns `kg•kg` into `kg²`
+  ##
+  ## Note: this procedure expects to be called on *flattened* units, i.e.
+  ## we do *not* check the compound nature of units, if there are any, but
+  ## we only simplify what's here. We also *do not* handle different SI prefixes.
+  ## They will be treated as separate units.
+  ##
+  ## WARNING: This is a lossy procedure in terms of conversion factors, if
+  ## `mergePrefixes` is set to `true`. Make sure to call `toBaseTypeScale` before
+  ## using.
+  ## `mergePrefixes` keeps the prefix ``iff`` a unit only appears with one prefix.
+  ## If a unit appears with multiple prefixes, the `DefinedUnit.basePrefix` is used
+  ## instead (thus making it lossy).
+  ##
+  ## Further the `value` field of `x` (product of prefixes & conversions) will be *reset*
+  ## so that we can deduce the conversion from the resulting type to its base type.
+  # the `value` (product of prefixes & conversions) is *reset* so that this new
+  # unit. Therefore do not assign `x.value` to `result.value`.
+  result = newUnitProduct()
+  if mergePrefixes:
+    var cTab = initCountTable[DefinedUnit]()
+    # prefixTab stores the prefixes of units we add
+    var prefixTab = initTable[DefinedUnit, SiPrefix]()
+    for u in x.units:
+      if u.unit in prefixTab and prefixTab[u.unit] != u.prefix:
+        # have different prefixes of the same unit, need to merge
+        # to base prefix. This makes `mergePrefixes` lossy.
+        prefixTab[u.unit] = u.unit.basePrefix
+      else:                      # prefix only once so far, keep it
+        prefixTab[u.unit] = u.prefix
+      inc(cTab, u.unit, u.power) # ignore prefix, i.e. merge them all to one
+
+    for unit, power in pairs(cTab):
+      if power != 0: # power 0 implies unit is divided out
+        result.add newUnitInstance($unit, unit, power, prefixTab[unit])
   else:
-    # else does not matter which proc, because it should be a single unit, e.g. `KiloGram`
-    result = parseDefinedUnitUnicode(s)
+    var cTab = initCountTable[(DefinedUnit, SiPrefix)]()
+    for u in x.units:
+      inc(cTab, (u.unit, u.prefix), u.power) # treat prefixes as distinct
+    for tup, power in pairs(cTab):
+      let (unit, prefix) = tup
+      if power != 0: # power 0 implies unit is divided out
+        result.add newUnitInstance($unit, unit, power, prefix)
 
-#proc parseDefinedUnit(x: NimNode): UnitProduct =
-#  if x.isUnitLessNumber:
-#    let ctUnit = initDefinedUnit(x.getTypeImpl.repr, ukUnitLess, 1, siIdentity)
-#    result.add ctUnit
-#    return result
-#  let xTyp = x.getUnitType
-#  var xT = xTyp.strVal
-#  ## TODO: avoid walking over `xT` so many times!
-#  result = xt.parseDefinedUnit()
+proc invert*(x: UnitProduct): UnitProduct =
+  ## Inverts the given `UnitProduct`, i.e. it performs a "division".
+  result = newUnitProduct()
+  for u in x.units:
+    var unit = u
+    unit.power = -unit.power
+    result.add unit
 
+proc `==`*(a, b: UnitProduct): bool =
+  ## comparison done by:
+  ## - only equal if set of `unitKind` is same
+  ## - only equal if for each element of `unitKind` set the `power` is the same
+  ## - only equal if for each element the SiPrefix is the same
+  ##
+  ## Units are equal iff:
+  ## - the product of all *base units* (including their power) is the same
+  ## Since there are multiple representations of the same unit (e.g. `Newton` as
+  ## a single UnitInstance or a `UnitProduct` comprising base units up to `Newton`)
+  ## we have to flatten each input and then compare for same base units & powers.
+  let aScale = a.toBaseTypeScale()
+  let bScale = b.toBaseTypeScale()
+  let aFlat = a.flatten.simplify
+  let bFlat = b.flatten.simplify
+  let aFlatSeq = aFlat.units.sorted
+  let bFlatSeq = bFlat.units.sorted
 
+  # to really make sure they are equal have to compare the si prefix of each
+  if aFlatSeq.len != bFlatSeq.len:
+    return false
+  for idx in 0 ..< aFlatSeq.len:
+    if aFlatSeq[idx] != bFlatSeq[idx]:
+      return false
+  if aScale != bScale:
+    return false
+  result = true
 
+proc needConversionToBase*(a, b: UnitProduct): bool =
+  ## Returns true, if the given products `a` and `b` contain compound units that
+  ## represent the same quantity, but are of different units.
+  # compare the (possible compound) quantities and see if they have different units
+  let aSorted = a.sorted()
+  let bSorted = a.sorted()
+  result = true
+  if a.len == b.len:
+    # same length, just check if they have the same units (ignoring prefixes)
+    result = false # if the loop matches, we *don't* need to convert
+    for i in 0 ..< a.len:
+      if a.units[i].unit != b.units[i].unit:
+        return true
+  elif a.len == 0 or b.len == 0:
+    result = false # if one of them is UnitLess, no need to convert
 
-
-
-
-
-
-
-
-
-
-
+## ##############################################################
+## Code dealing with the `declareUnit` macro & parsing of its AST
+## ##############################################################
 proc parseShort(n: NimNode): string =
   doAssert n.len == 1 and n.kind == nnkStmtList and n[0].kind == nnkIdent
   result = n[0].strVal
@@ -307,7 +402,6 @@ proc parseQuantity(n: NimNode): CTQuantity =
   result = QuantityTab[n[0].strVal]
 
 proc parseConversion(n: NimNode): UnitProduct = ## DefinedUnitValue !
-  echo n.treerepr
   doAssert n.len == 1 and n.kind == nnkStmtList and n[0].kind in {nnkDotExpr}
   let dotEx = n[0]
   result = parseDefinedUnit(dotEx[1].strVal)
@@ -320,13 +414,17 @@ proc parsePrefix(n: NimNode): SiPrefix =
   doAssert n.len == 1 and n.kind == nnkStmtList and n[0].kind == nnkIdent
   result = parseEnum[SiPrefix](n[0].strVal)
 
+proc parseAutoConvert(n: NimNode): bool =
+  doAssert n.len == 1 and n.kind == nnkStmtList and n[0].kind == nnkIdent
+  result = parseBool(n[0].strVal)
+
 proc assertOption(n: NimNode): bool =
   result = n.kind == nnkCall and
     n.len == 2 and
     n[0].kind == nnkIdent and
     n[1].kind == nnkStmtList
 
-proc parseUnit(n: NimNode): DefinedUnit =
+proc parseUnit(tab: var UnitTable, n: NimNode): DefinedUnit =
   ## Parses:
   ##
   ##  Call
@@ -346,8 +444,10 @@ proc parseUnit(n: NimNode): DefinedUnit =
   var
     short: string
     quantity: CTQuantity
-    conversion: UnitProduct
+    conversion = newUnitProduct()
+    hasConversion = false
     prefix: SiPrefix = siIdentity # identity if not otherwise specified
+    autoConvert = true
   for arg in n[1]: # parse the stmt list, i.e. the "options"
     if not assertOption(arg):
       error("Invalid field " & $arg.repr & " in `declareUnits` setting a unit option.")
@@ -355,30 +455,25 @@ proc parseUnit(n: NimNode): DefinedUnit =
     case field
     of "short": short = parseShort(arg[1])
     of "quantity": quantity = parseQuantity(arg[1])
-    of "conversion": conversion = parseConversion(arg[1])
+    of "conversion": hasConversion = true; conversion = parseConversion(arg[1])
     of "prefix": prefix = parsePrefix(arg[1])
+    of "autoConvert": autoConvert = parseAutoConvert(arg[1])
     else: error("Invalid unit option " & $field & " defining the unit: " & $result.name & ".")
-  ShortUnits.add short
-  LongUnits.add name
-  if not conversion.isNil:
+
+  if hasConversion:
     # is *not* a base unit (inch, Liter, PoundForce, ..., something that needs conversion)
-    result = DefinedUnit(kind: utDerived,
-                         name: name,
-                         basePrefix: prefix,
-                         short: short,
-                         quantity: quantity,
-                         conversion: conversion)
+    result = newDefinedUnit(utDerived, name, prefix, short, quantity, autoConvert,
+                            quantity.kind, conversion = conversion)
   else:
     # *is* a base unit (but possibly compound!)
-    LongBaseUnits.add name
-    result = DefinedUnit(kind: utBase,
-                         name: name,
-                         basePrefix: prefix,
-                         short: short,
-                         quantity: quantity)
-  UnitTab.insert(result)
+    result = newDefinedUnit(utBase, name, prefix, short, quantity, autoConvert,
+                            quantity.kind)
+  if quantity.kind == qtCompound and not hasConversion:
+    tab.insert(result, hasConversion, quantity.toBaseUnits.toNimTypeStr())
+  else:
+    tab.insert(result, hasConversion)
 
-proc parseUnits(n: NimNode): DefinedUnits =
+proc parseUnits(tab: var UnitTable, n: NimNode): DefinedUnits =
   ## Handles parsing the given base units or derived units
   ##
   ##    StmtList
@@ -392,9 +487,42 @@ proc parseUnits(n: NimNode): DefinedUnits =
   ## Parses the given calls defining the units.
   doAssert n.kind == nnkStmtList
   for unit in n:
-    result.add parseUnit(unit)
+    result.add tab.parseUnit(unit)
 
-proc parseCall(c: NimNode): DefinedUnits =
+proc addNaturalUnitConversions(tab: var UnitTable, n: NimNode) =
+  ## Parses the following tree and adjusts the `toNaturalUnit` conversion
+  ## field for the referenced units.
+  ## Call
+  ##   Ident "Gram"
+  ##   StmtList
+  ##     DotExpr
+  ##       FloatLit 1.7826627e-36
+  ##       Ident "eV"
+  doAssert n.kind == nnkStmtList
+  for unit in n:
+    doAssert unit.kind == nnkCall and unit[0].kind == nnkIdent and unit[1].kind == nnkStmtList
+    let name = unit[0].strVal
+    let body = unit[1][0]
+    var conv: UnitProduct
+    case body.kind
+    of nnkDotExpr:
+      doAssert body[0].kind == nnkFloatLit
+      conv = parseDefinedUnit(body[1].strVal)
+      conv.value = body[0].floatVal
+    of nnkFloatLit:
+      doAssert body.floatVal == 1.0
+      conv = newUnitProduct()
+    else:
+      error("Invalid node kind " & $body.kind & " for definition of natural unit conversion " &
+        "for unit: " & $name)
+    let idx = tab.getIdx(name)
+    # get the unit from the table, adjust the field and write back
+    var definedUnit = tab.units[idx]
+    doAssert definedUnit.quantityKind == qtFundamental, "Can only define natural unit conversions for base units!"
+    definedUnit.toNaturalUnit = conv
+    tab.units[idx] = definedUnit
+
+proc parseCall(tab: var UnitTable, c: NimNode): DefinedUnits =
   ## Handles dispatching based on base units / derived ident
   ##
   ##  Call
@@ -408,56 +536,15 @@ proc parseCall(c: NimNode): DefinedUnits =
   var baseUnits: DefinedUnits
   var derivedUnits: DefinedUnits
   if c[0].kind == nnkIdent and c[0].strVal == "BaseUnits":
-    baseUnits = parseUnits(c[1])
+    baseUnits = tab.parseUnits(c[1])
   elif c[0].kind == nnkIdent and c[0].strVal == "Derived":
-    derivedUnits = parseUnits(c[1]) ## FIXME: hand `baseUnits` to above procs to lookup conversions? baseUnits)
+    derivedUnits = tab.parseUnits(c[1]) ## FIXME: hand `baseUnits` to above procs to lookup conversions? baseUnits)
+  elif c[0].kind == nnkIdent and c[0].strVal == "NaturalUnits":
+    tab.addNaturalUnitConversions(c[1])
+  else:
+    error("The branch " & $c[0].repr & " is not known.")
   result.add baseUnits
   result.add derivedUnits
-
-proc toNimType(u: UnitInstance, short = false): string =
-  #if u.unitKind == ukUnitLess: return
-  ## XXX: handle base prefix of base units!
-  let siPrefixStr = if short: SiShortPrefixTable[u.prefix]
-                    else: SiPrefixTable[u.prefix]
-  result = siPrefixStr
-  if not short:
-    result.add u.unit.name
-  else:
-    result.add u.unit.short
-  if u.power < 0:
-    result.add "⁻"
-  if u.power > 1 or u.power < 0:
-    for digit in getPow10Digits(u.power):
-      result.add digits[digit]
-
-proc toNimTypeStr(x: UnitProduct, short = false): string =
-  ## converts `x` to the correct string representation
-  # return early if no units in x
-  if x.units.len == 0: return "UnitLess"
-  ## XXX: add a `reduce` call / simplify
-  let xSorted = x.units.sorted
-  for idx, u in xSorted:
-    #if u.unitKind == ukUnitLess: continue
-    var str = toNimType(u, short)
-    if idx < xSorted.high:
-      str.add "•"
-    result.add str
-
-proc toBaseUnit(q: CTBaseQuantity): DefinedUnit =
-  result = UnitTab[q]
-
-proc toBaseUnits(q: CTQuantity): UnitProduct =
-  ## Turns the given quantity into a `UnitProduct` of base units
-  case q.kind
-  of qtCompound:
-    result = UnitProduct()
-    for b in q.baseSeq:
-      let baseUnit = b.quant.toBaseUnit()
-      let power = b.power
-      result.units.add newUnitInstance(
-        q.getName(), baseUnit, power, baseUnit.basePrefix
-      )
-  else: discard
 
 proc genUnitTypes(units: DefinedUnits): NimNode =
   ## Generates all unit type definitions.
@@ -503,8 +590,6 @@ proc genUnitTypes(units: DefinedUnits): NimNode =
       # 2. generate the short name
       result.add defineType(unit.short, unit.name)
 
-  echo result.repr
-
 macro declareUnits*(defs: untyped): untyped =
   ## Declares a set of base and derived units.
   ##
@@ -520,29 +605,72 @@ macro declareUnits*(defs: untyped): untyped =
   ##   alias to Second⁻¹, which is `distinct Frequency` due to being first in the
   ##   macro call.... How can we better handle this? In practice this shouldn't really
   ##   matter though (it was the same before anyway)
+  ##
+  ## `autoConvert` can be used to set whether a unit will be converted to its base
+  ## quantity representation (i.e. N -> kg•m•s⁻²) in a `flatten` call. This has effects
+  ## for unit math with similar units.
   var units: DefinedUnits
   for call in defs:
     if call.kind == nnkCall:
-      units.add parseCall(call)
+      units.add UnitTab.parseCall(call)
     else:
       error("Invalid node kind " & $call.kind & " for `declareUnits` definition.")
   result = newStmtList()
   # 1. generate type definitions
   result.add genUnitTypes(units)
 
+proc genSiPrefixes(n: NimNode, genShort: bool, genLong: bool,
+                   excludes: seq[string] = @[]): seq[NimNode] =
+  ## get the type of the unit so that we know what to base these units on
+  let typ = n
+  if genLong:
+    for (si, prefix) in SiPrefixStringsLong:
+      if prefix == siIdentity: continue
+      if si in excludes:
+        result.add ident("_") # if we exclude, add placeholder. Used to mark for cross reference long / short
+        continue
+      let typStr = ident($si & typ.strVal)
+      let isTyp = nnkDistinctTy.newTree(typ)
+      result.add nnkTypeDef.newTree(nnkPostfix.newTree(ident"*", typStr), newEmptyNode(), isTyp)
+  if genShort:
+    for (si, prefix) in SiPrefixStringsShort:
+      if prefix == siIdentity: continue
+      if si in excludes:
+        result.add ident("_") # if we exclude, add placeholder. Used to mark for cross reference long / short
+        continue
+      let typStr = ident($si & typ.strVal)
+      result.add typStr
 
-  # generate
-  # DerivedSiUnits = Newton | Joule
-
-  # shorthand types
-  # generate
-  # m = Meter
-  # s = Second
-  # A = Ampere
-  # g = Gram
-  # Kg = KiloGram
-  # kg = Kg ## XXX: This should go, but it's a good case to think about how to resolve aliases!
-  # ...
-
-
-  # generate BaseUnitKind and UnitKind enums
+macro generateSiPrefixedUnits*(units: untyped): untyped =
+  ## generates all SI prefixed units for all units given. That just means
+  ## appending each SI prefix to these units, both in long and short form.
+  ## NOTE: This should only be used on ``raw`` units and not explicit compound
+  ## units!
+  expectKind(units, nnkStmtList)
+  result = nnkTypeSection.newTree()
+  for unit in units:
+    doAssert unit.kind in {nnkTupleConstr, nnkPar, nnkCommand}
+    var sisShort: seq[NimNode]
+    var sisLong: seq[NimNode]
+    if unit.kind == nnkCommand:
+      var excludes: seq[string]
+      doAssert unit[0].kind in {nnkTupleConstr, nnkPar}
+      doAssert unit[1].kind == nnkCommand
+      let excls = unit[1]
+      doAssert excls[0].kind == nnkIdent and excls[0].strVal == "exclude"
+      doAssert excls[1].kind == nnkBracket
+      for br in excls[1]:
+        doAssert br.kind == nnkIdent
+        excludes.add br.strVal
+      sisShort = genSiPrefixes(unit[0][0], true, false, excludes = excludes)
+      sisLong = genSiPrefixes(unit[0][1], false, true, excludes = excludes)
+    else:
+      sisShort = genSiPrefixes(unit[0], true, false)
+      sisLong = genSiPrefixes(unit[1], false, true)
+    for si in sisLong:
+      result.add si
+    ## generate cross references from long to short
+    let skipIdent = ident("_") # if a prefix is excluded, added as `_`. Thus skip those cross references
+    for (siShort, siLong) in zip(sisShort, sisLong):
+      if eqIdent(siShort, skipIdent) or eqIdent(siLong, skipIdent): continue
+      result.add nnkTypeDef.newTree(nnkPostfix.newTree(ident"*", siShort), newEmptyNode(), siLong[0][1])

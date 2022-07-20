@@ -1,11 +1,13 @@
 import std / [macros, sets, sequtils, tables, tables]
 
-import utils
+import macro_utils
 
 type
   QuantityType* = enum
     qtFundamental, qtCompound
 
+  ## TODO: add `id` to quantities to better map them to dimensions such that
+  ## we can avoid performing string operations the whole time?
   CTBaseQuantity* = object
     name*: string
 
@@ -22,6 +24,28 @@ type
       name*: string # name of the derived quantity (e.g. Force)
       baseSeq*: seq[QuantityPower]
 
+
+proc `==`*(q1, q2: CTBaseQuantity): bool = q1.name == q2.name
+proc `<`*(q1, q2: CTBaseQuantity): bool = q1.name < q2.name
+
+proc `<`*(q1, q2: QuantityPower): bool =
+  if q1.quant < q2.quant:
+    result = true
+  elif q1.quant > q2.quant:
+    result = false
+  else: # same quantity
+    result = q1.power < q2.power
+
+proc `$`*(q: CTBaseQuantity): string = q.name
+
+proc `$`*(q: CTQuantity): string =
+  ## XXX: add full option to also get baseSeq
+  result = "(CTQuantity: "
+  case q.kind
+  of qtFundamental: result.add $q.b
+  of qtCompound: result.add q.name
+  result.add ")"
+
 #const QuantityTab = CacheTable"QuantityTab"
 var QuantityTab* {.compiletime.} = initTable[string, CTQuantity]()
 
@@ -31,6 +55,24 @@ iterator compoundQuantities*(qt: Table[string, CTQuantity]): CTQuantity =
   for name, quant in pairs(qt):
     if quant.kind == qtCompound:
       yield quant
+
+proc toQuantityPower*(q: CTQuantity): seq[QuantityPower] =
+  ## Turns the given quantity into a `seq[QuantityPower]` independent of
+  ## the kind of quantity. Useful to perform dimensional analysis.
+  case q.kind
+  of qtFundamental: result.add QuantityPower(quant: q.b, power: 1)
+  of qtCompound: result = q.baseSeq
+
+import std / hashes
+proc hash*(q: CTQuantity): Hash =
+  result = result !& hash(q.kind)
+  case q.kind
+  of qtFundamental:
+    result = result !& hash(q.b)
+  of qtCompound:
+    result = result !& hash(q.name)
+    result = result !& hash(q.baseSeq)
+  result = !$result
 
 proc `==`*(q1, q2: CTQuantity): bool =
   if q1.kind == q2.kind:
@@ -188,9 +230,11 @@ proc genQuantityKindEnum*(base, derived: seq[CTQuantity]): NimNode =
     ident"qkUnitLess" # UnitLess quantity kind must be first element
   )
   for b in base:
-    en.add ident("qk" & b.getName())
+    let bName = b.getName()
+    en.add nnkEnumFieldDef.newTree(ident("qk" & bName), newLit bName)
   for d in derived:
-    en.add ident("qk" & d.getName())
+    let dName = d.getName()
+    en.add nnkEnumFieldDef.newTree(ident("qk" & dName), newLit dName)
   result.add en
   result = nnkTypeSection.newTree(result)
 
