@@ -25,8 +25,13 @@ func almostEq(a, b: float, epsilon = 1e-8): bool =
     # use relative error
     result = diff / min(absA + absB, maximumPositiveValue(float64)) < epsilon
 
-proc `=~=`(a, b: SomeUnit|UnitLess): bool =
-  result = almostEq(a.float, b.float, epsilon = 1e-5) and type(a) is type(b)
+proc `=~=`[T: SomeUnit|UnitLess; U: SomeUnit|UnitLess](a: T; b: U): bool =
+  when T is U:
+    result = almostEq(a.float, b.float, epsilon = 1e-5) and type(a) is type(b)
+  elif commonQuantity(T, U):
+    result = almostEq(a.float, b.float, epsilon = 1e-5) and type(a) is type(b)
+  else:
+    {.error: "Given type " & $T & " and " & $U & " have different quantities.".}
 
 suite "Unchained - Basic definitions":
   test "Simple type definitions":
@@ -242,18 +247,86 @@ suite "Unchained - Basic unit math":
     # unrelated to special case of `g/kg`:
     check A / 1e-3.mm•mol⁻¹ =~= 39950.mm⁻¹•mol
 
-  test "Math of compound units":
-    ## TODO: for certain compound units math is somewhat broken, as
-    ## we don't transform to the correct units.
-    ## Consider
+suite "Unchained - Math with compound units":
+
+  test "Math: `+` adding units w/ `autoConvert = false` still converts if different units used":
+    ## We *do* convert units with `autoConvert = false` to base units in case we perform math with
+    ## other base units.
     let x = 1.Liter
     let y = 1.m³
-    ## TODO: fix me. Should be m³!
-    check type(x + y) is Liter
+    check type(x + y) is Meter³
     check type(y + x) is Meter³
-    echo "I'm a *WRONG* test illustrating issue #9. Fix me!"
-    check x + y =~= 1.001.Liter ## WRONG!!!
-    check y + x =~= 1.001.Meter³ ## correct
+    check x + y =~= 1.001.Meter³
+    check y + x =~= 1.001.Meter³
+
+  ## Conversion in the following tests refers to conversions of compound units to the flattened
+  ## base representation, i.e. from Newton to KiloGram•Meter•Second⁻²
+  test "Math: `+` adding units w/ `autoConvert = true` does *not* convert if same unit":
+    let f1 = 10.mN
+    let f2 = 0.5.N
+    check type(f1 + f2) is Newton
+    check f1 + f2 =~= 0.51.N
+
+  test "Math: `-` subtracting units w/ `autoConvert = true` does *not* convert if same unit":
+    let f1 = 10.mN
+    let f2 = 0.5.N
+    check type(f1 - f2) is Newton
+    check f1 - f2 =~= -0.49.N
+
+  test "Math: `*` multiplying units w/ `autoConvert = true` does *not* convert if same unit & prefix":
+    let f1 = 10.mN
+    let f2 = 10.mN
+    defUnit(MilliNewton²)
+    check type(f1 * f2) is MilliNewton²
+    check f1 * f2 =~= 100.MilliNewton²
+
+  test "Math: `*` multiplying units w/ `autoConvert = true` does *not* convert if same unit & different prefix":
+    let f1 = 10.mN
+    let f2 = 1.N
+    defUnit(Newton²)
+    check type(f1 * f2) is Newton²
+    check f1 * f2 =~= 0.01.Newton²
+
+  test "Math: `/` dividing units w/ `autoConvert = true` does *not* convert if same unit":
+    let f1 = 10.mN²
+    let f2 = 10.mN
+    let f3 = 1.N
+    check type(f1 / f2) is MilliNewton
+    check f1 / f2 =~= 1.MilliNewton
+    check type(f1 / f3) is Newton
+    check f1 / f3 =~= 1e-5.Newton
+
+  test "Math: `+` adding units w/ `autoConvert = false` does *not* convert if same unit":
+    let f1 = 10.mL
+    let f2 = 0.5.L
+    check type(f1 + f2) is Liter
+    check f1 + f2 =~= 0.51.L
+
+  test "Math: `-` subtracting units w/ `autoConvert = false` does *not* convert if same unit":
+    let f1 = 10.mL
+    let f2 = 0.5.L
+    check type(f1 - f2) is Liter
+    check f1 - f2 =~= -0.49.L
+
+  test "Math: `*` multipying units w/ `autoConvert = false` does *not* convert if same unit":
+    let f1 = 10.mL
+    let f2 = 10.mL
+    let f3 = 1.L
+    defUnit(MilliLiter²)
+    defUnit(Liter²)
+    check type(f1 * f2) is MilliLiter²
+    check f1 * f2 =~= 100.MilliLiter²
+    check type(f1 * f3) is Liter²
+    check f1 * f3 =~= 0.01.Liter²
+
+  test "Math: `/` dividing units w/ `autoConvert = false` does *not* convert if same unit":
+    let f1 = 10.mL²
+    let f2 = 10.mL
+    let f3 = 1.L
+    check type(f1 / f2) is MilliLiter
+    check f1 / f2 =~= 1.MilliLiter
+    check type(f1 / f3) is Liter
+    check f1 / f3 =~= 1e-5.Liter
 
 suite "Unchained - Comparisons of units":
   test "Comparisons: `<` for units of same type":
@@ -509,8 +582,8 @@ suite "Unchained - isAUnit concept checking":
     check isAUnit(Newton)
     defUnit(m•m•m•m•m•m)
     check isAUnit(m•m•m•m•m•m)
-    defUnit(Kg•Meter•Joule)
-    check isAUnit(Kg•Meter•Joule)
+    defUnit(KiloGram•Meter•Joule)
+    check isAUnit(KiloGram•Meter•Joule)
     check not isAUnit(float)
     check not isAUnit(string)
     check not isAUnit(seq[string])
@@ -551,6 +624,39 @@ suite "Unchained - practical examples turned tests":
     check typeof(ω) is Second⁻¹•Radian
     check typeof(A * cos(argument)) is CentiMeter
     check A * cos(argument) =~= -8.62319.cm
+
+  test "Density of argon":
+    defUnit(g•cm⁻³)
+    defUnit(g•mol⁻¹)
+    proc density(p: mbar, M: g•mol⁻¹, temp: Kelvin): g•cm⁻³ =
+      ## returns the density of the gas for the given pressure.
+      ## The pressure is assumed in `mbar` and the temperature (in `K`).
+      ## Returns the density in `g / cm^3`
+      let gasConstant = 8.314.J•K⁻¹•mol⁻¹ # joule K^-1 mol^-1
+      let pressure = p.to(Pa) # pressure in Pa (not necessarily needed to be done manually)
+      # convert to `g•cm⁻³` as desired
+      result = (pressure * M / (gasConstant * temp)).to(g•cm⁻³)
+    # Argon density at 20°C at 1050 mbar
+    let M_Ar = 39.95.g•mol⁻¹ # molar mass. Numerically same as relative atomic mass
+    let ρAr = density(1050.mbar, M_Ar, temp = 293.15.K)
+    check ρAr =~= 0.0017211.g•cm⁻³
+    defUnit(g•L⁻¹)
+    check ρAr.to(g•L⁻¹) =~= 1.7211.g•L⁻¹
+
+  test "Ionization energy of argon":
+    proc I[T](z: int): T =
+      result = (10.eV * z.float).to(T) # 188.0 eV from NIST table for Ar (Z = 18)
+    check typeof(I[eV](18)) is eV
+    check I[eV](18) =~= 180.eV
+
+    let x: eV = 10.eV * 18.0
+    check typeof(x) is eV
+    check x =~= 180.eV
+
+    check typeof(I[Joule](18)) is Joule
+    let e = 1.602176634e-19
+    check I[Joule](18) =~= (180.0 * e).J
+    check I[Joule](18) =~= 180.eV.to(Joule)
 
 suite "Unchained - imperial units":
   test "Pound":
@@ -739,7 +845,7 @@ suite "Unchained - Bug issues":
 #  # mixing of non SI and SI units (via conversion to SI units)
 #  let m1 = 100.lbs
 #  let m2 = 10.kg
-#  # check typeof(m1 + m2) is Kg ## TODO: fix taking order on addition etc
+#  # check typeof(m1 + m2) is KiloGram ## TODO: fix taking order on addition etc
 #  ## equal, but check is broken
 #  check m1.to(kg) + m2 == 55.36.KiloGram
 
