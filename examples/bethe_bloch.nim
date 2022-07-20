@@ -16,6 +16,7 @@ macro `^`(x: untyped, num: static int): untyped =
 # often given in `[MeV mol⁻¹ cm²]`, but we don't care
 let K = 4 * π * N_A * r_e^2 * m_e * c^2
 
+defUnit(g•cm⁻³)
 defUnit(cm³•g⁻¹)
 defUnit(J•m⁻¹)
 defUnit(cm⁻³)
@@ -35,8 +36,8 @@ proc betheBloch(ρ: g•cm⁻³, z, Z, A, β: UnitLess): J•m⁻¹ =
   ## result in J / m
   let ec = e^2 / (4 * π * ε_0)
   let lnArg = 2 * m_e * c^2 * β^2 / (I[Joule](Z) * (1 - β^2))
-  result = 4 * π / (m_e * c^2) * electronDensity(ρ, Z, A) * z^2 / (β^2) *
-    ec^2 * ( ln(lnArg) - β^2 )
+  result = (4 * π / (m_e * c^2) * electronDensity(ρ, Z, A) * z^2 / (β^2) *
+    ec^2 * ( ln(lnArg) - β^2 )).to(J•m⁻¹)
 
 proc calcβ(γ: UnitLess): UnitLess =
   result = sqrt(1.0 - 1.0 / (γ^2))
@@ -70,6 +71,7 @@ let A_Ar = 39.95.UnitLess # relative atomic mass
 
 # Argon density at 20°C at 1050 mbar
 let ρAr = density(1050.mbar, M_Ar, temp = 293.15.K)
+defUnit(g•L⁻¹)
 echo "Density ", ρAr
 
 import seqmath, ggplotnim, sequtils, strformat
