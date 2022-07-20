@@ -82,6 +82,9 @@ const SiShortPrefixTable* = block:
     tab[val] = key
   tab
 
+proc `$`*(prefix: SiPrefix): string =
+  result = SiPrefixTable[prefix]
+
 proc toFactor*(prefix: SiPrefix): float =
   ## note: can't compute value reasonably, due to hecto, centi, deci and deca
   case prefix
