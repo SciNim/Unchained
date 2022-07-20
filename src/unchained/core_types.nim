@@ -9,7 +9,8 @@ type
   Quantity* = distinct Unit
   CompoundQuantity* = distinct Quantity
 
-  UnitLess* = distinct Unit
+  Dimensionless* = distinct Quantity
+  UnitLess* = distinct Dimensionless
 
   SiPrefix* = enum
     siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
