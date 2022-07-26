@@ -10,9 +10,14 @@ srcDir        = "src"
 
 requires "nim >= 1.2.0"
 
+task installTestDeps, "Install dependencies to run tests in CI":
+  exec "nimble install ggplotnim"
+
 task test, "Runs the test":
   exec "nim c -r tests/tunchained.nim"
   exec "nim c -r tests/tresolveAlias.nim"
+  exec "nim c -r examples/bethe_bloch.nim"
+  exec "nim c -r examples/custom_unit_system.nim"
 
 task regressionTests, "Run regression tests (require cligen)":
   # NOTE: the following even compiled before, but took 10 GB of RAM. In a CI this will fail
