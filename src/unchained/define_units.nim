@@ -374,6 +374,30 @@ proc `==`*(a, b: UnitProduct): bool =
     return false
   result = true
 
+proc sameQuantityDifferentUnit(u1, u2: UnitInstance): bool =
+  result = u1.unit.quantity == u2.unit.quantity and u1.unit != u2.unit
+
+proc sameQuantityDifferentUnit(u: UnitInstance, p: UnitProduct): bool =
+  ## Returns `true` if there is a unit in `p` that shares the exact
+  ## same quantity as `u`, but is a different unit.
+  for unit in p.units:
+    if u.sameQuantityDifferentUnit(unit):
+      return true
+
+proc sameBaseQuantitiesDifferentPowers(u1, u2: UnitInstance): bool =
+  ## Checks if `u1` and `u2` are units of the same base quantities with different
+  ## powers
+  let u1Q = u1.unit.quantity.toQuantityPower().sorted()
+  let u2Q = u2.unit.quantity.toQuantityPower().sorted()
+  if u1Q.len != u2Q.len:
+    result = false
+  else:
+    for i in 0 ..< u1Q.len:
+      let up1 = u1Q[i]
+      let up2 = u2Q[i]
+      if up1.quant == up2.quant and up1.power != up2.power:
+        return true
+
 proc needConversionToBase*(a, b: UnitProduct): bool =
   ## Returns true, if the given products `a` and `b` contain compound units that
   ## represent the same quantity, but are of different units.
@@ -385,10 +409,19 @@ proc needConversionToBase*(a, b: UnitProduct): bool =
     # same length, just check if they have the same units (ignoring prefixes)
     result = false # if the loop matches, we *don't* need to convert
     for i in 0 ..< a.len:
-      if a.units[i].unit != b.units[i].unit:
+      # check if they are the *same quantity*, but different units. If any, need to convert.
+      ## XXX: in principle only have to convert *these* 2 units then!
+      if sameQuantityDifferentUnit(a.units[i], b.units[i]) or
+         sameBaseQuantitiesDifferentPowers(a.units[i], b.units[i]):
         return true
   elif a.len == 0 or b.len == 0:
     result = false # if one of them is UnitLess, no need to convert
+  else:
+    # check if any two units with different quantities found in a & b
+    result = false
+    for i in 0 ..< a.len:
+      if a.units[i].sameQuantityDifferentUnit(b):
+        result = true
 
 ## ##############################################################
 ## Code dealing with the `declareUnit` macro & parsing of its AST
