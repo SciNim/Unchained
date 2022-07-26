@@ -31,15 +31,15 @@ block:
   # addition and subtraction of same units
   let a = 5.kg
   let b = 10.kg
-  check typeof(a + b) is Kg
+  check typeof(a + b) is KiloGram
   check a + b == 15.kg
-  check typeof(a - b) is Kg
+  check typeof(a - b) is KiloGram
   check a - b == 15.kg
 block:
   # addition and subtraction of units of the same ``quantity`` but different scale
   let a = 5.kg
   let b = 500.g
-  check typeof(a + b) is Kg
+  check typeof(a + b) is KiloGram
   check a + b == 5.5.kg
   # if units do not match, the SI unit is used!
 block:
@@ -93,8 +93,8 @@ block:
   # mixing of non SI and SI units (via conversion to SI units)
   let m1 = 100.lbs
   let m2 = 10.kg
-  check typeof(m1 + m2) is Kg
-  check m1 + m2 == 55.3592.Kg
+  check typeof(m1 + m2) is KiloGram
+  check m1 + m2 == 55.3592.KiloGram
 block:
   # natural unit support (c = 1, h = 1)
   let speed: NaturalVelocity = 0.1.UnitLess # fraction of c
