@@ -226,7 +226,12 @@ proc insert*(tab: var UnitTable, u: DefinedUnit, hasConversion: bool,
     tab.longBaseUnits[u.name] = idx
   if compoundName.len > 0:
     doAssert u.quantity.kind == qtCompound
-    tab.expandedCompoundName[compoundName] = idx
+    if compoundName notin tab:
+      tab.expandedCompoundName[compoundName] = idx
+      when defined(debugUnits):
+        echo "INFO: skipping insertion of compound ", compoundName, " for unit: ", u.name, " due to ",
+           "existing unit ", tab.units[tab.expandedCompoundName[compoundName]], " already present. ",
+           "Change the order of the unit definitions if you prefer a different priority."
   tab.short[u.short] = idx
   tab.units.add u
 
