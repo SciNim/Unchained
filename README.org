@@ -18,7 +18,7 @@ It supports:
 
 Aside from bugs and polish the main thing missing is proper handling
 of natural units (they exist, but are untested and their unit in terms
-of =eV= is not implemented).  
+of =eV= is not implemented).
 
 In no particular order things that either are or need to be supported:
 #+begin_src nim
@@ -59,6 +59,11 @@ block:
   check typeof(F / mass) is Meter•Second⁻²
   check F / mass == a
 block:
+  # automatic deduction of compound units for simple cases
+  let force = 1.kg * 1.m * 1.s⁻²
+  echo force # 1 Newton
+  doAssert typeof(force) is Newton
+block:
   # conversion between units of the same quantity
   let f = 10.N
   check typeof(f.to(kN)) is KiloNewton
@@ -76,19 +81,9 @@ block:
   let x2 = 10.m
   # sin(x2 / y) ## errors at CT due to non unit less argument
 block:
-  # imperial units (most are missing)
+  # imperial units
   let mass = 100.lbs
-
-  
-## Yet to be implemented  
-block:
-  # units using english language (using accented quotes)
-  let a = 10.`meter per second squared`
-  let b = 5.`kilogram meter per second squared`
-  check typeof(a) is Meter•Second⁻²
-  check typeof(b) is Newton
-  check a == 10.m•s⁻²
-  check b == 5.N
+  let distance = 100.inch
 block:
   # mixing of non SI and SI units (via conversion to SI units)
   let m1 = 100.lbs
@@ -96,18 +91,30 @@ block:
   check typeof(m1 + m2) is KiloGram
   check m1 + m2 == 55.3592.KiloGram
 block:
-  # natural unit support (c = 1, h = 1)
-  let speed: NaturalVelocity = 0.1.UnitLess # fraction of c
-  let m_e: NaturalMass = 511.keV
+  # natural unit conversions
+  let speed = (0.1 * c).toNaturalUnit() # fraction of c, defined in `constants`
+  let m_e = 9.1093837015e-31.kg.toNaturalUnit()
   # math between natural units remains natural
-  let p: NaturalMomentum = speed * m_e
-  check p == 51.1.keV
+  let p = speed * m_e # result will be in `eV`
+  check p.to(keV) == 51.1.keV
 block:
   # auto conversion of natural units
   let a = 10.MeV
   let b = 200.eV
   check typeof(a / b) is UnitLess # `UnitLess` is 
   check a / b == 50_000.Unitless
+
+  
+
+## If there is demand the following kind of syntax may be implemented in the future
+when false:
+  # units using english language (using accented quotes)
+  let a = 10.`meter per second squared`
+  let b = 5.`kilogram meter per second squared`
+  check typeof(a) is Meter•Second⁻²
+  check typeof(b) is Newton
+  check a == 10.m•s⁻²
+  check b == 5.N
 #+end_src
 
 Things to note:
