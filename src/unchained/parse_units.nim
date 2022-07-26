@@ -1,5 +1,5 @@
 # stdlib
-import std / [macros, strutils, unicode, typetraits, strformat, parseutils, math, sequtils, options]
+import std / [macros, strutils, unicode, typetraits, parseutils, math, sequtils, options]
 # local files
 import core_types, ct_unit_types, macro_utils
 

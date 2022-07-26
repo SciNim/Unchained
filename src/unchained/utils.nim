@@ -1,4 +1,4 @@
-import std / [macros, algorithm]
+import std / [macros]
 
 macro `^`*(x: untyped, num: static int): untyped =
   ## general purpose power using `^` for integers, which works for any
