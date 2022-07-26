@@ -240,7 +240,7 @@ proc pretty(x: UnitInstance, short = false): string = x.toNimType(short)
 proc pretty(x: UnitProduct, short = false): string = x.toNimTypeStr(short)
 
 macro quantityList*(): untyped =
-  result = enumerateTypes(bindSym("SomeQuantity"))
+  result = nnkBracket.newTree()
   result.add newLit"Quantity"
   result.add newLit"CompoundQuantity"
   result.add newLit"Unit"
