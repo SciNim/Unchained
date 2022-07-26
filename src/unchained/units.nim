@@ -251,8 +251,6 @@ macro quantityList*(): untyped =
   result.add newLit"DerivedQuantity"
   result.add newLit"BaseQuantity"
 
-const qTypes* = quantityList()
-
 macro isAUnit*(x: typed): untyped =
   ## NOTE: it's really hard to replace this by something cleaner :/
   ## Ideally this should be replaced by something that uses shared logic with
@@ -262,7 +260,7 @@ macro isAUnit*(x: typed): untyped =
   of nnkSym, nnkDistinctTy:
     let typ = x
     var xT = if typ.kind == nnkDistinctTy: typ[0] else: typ
-    while xT.strVal notin quantityList:
+    while xT.strVal notin quantityList():
       xT = xT.getTypeImpl
       case xT.kind
       of nnkDistinctTy:
