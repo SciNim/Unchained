@@ -1,18 +1,5 @@
 import math, macros, unchained
 
-macro `^`(x: untyped, num: static int): untyped =
-  result = nnkInfix.newTree(ident"*")
-
-  proc addInfix(n, x: NimNode, num: int) =
-    var it = n
-    if num > 0:
-      it.add nnkInfix.newTree(ident"*")
-      it[1].addInfix(x, num - 1)
-    while it.len < 3:
-      it.add x
-
-  result.addInfix(x, num - 2)
-
 # often given in `[MeV mol⁻¹ cm²]`, but we don't care
 let K = 4 * π * N_A * r_e^2 * m_e * c^2
 
@@ -26,6 +13,7 @@ defUnit(mol⁻¹)
 defUnit(keV•cm⁻¹)
 
 proc electronDensity(ρ: g•cm⁻³, Z, A: UnitLess): cm⁻³ =
+  # `M_u` defined in `unchained.constants`
   result = N_A * Z * ρ / (A * M_u.to(g•mol⁻¹))
 
 proc I[T](z: float): T =
