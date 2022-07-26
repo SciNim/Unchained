@@ -658,6 +658,21 @@ suite "Unchained - practical examples turned tests":
     check I[Joule](18) =~= (180.0 * e).J
     check I[Joule](18) =~= 180.eV.to(Joule)
 
+  test "Product of base units units with keV do not convert":
+    let time = 3318.Hour
+    let weight = (time.to(Second) * 0.5.cm * 0.5.cm * 0.2.keV)
+    defUnit(keV•cm²•s)
+    check typeof(weight) is keV•cm²•s
+    check weight =~= (3318.0 * 3600.0 * 0.5 * 0.5 * 0.2).keV•cm²•s
+
+  test "Inverse time multiplied with time yields UnitLess":
+    let time = 3318.Second⁻¹
+    let weight = time * 500.Second
+    # this checks that the result is *not* Second•Hertz, which while valid is
+    # not our desired unit for this. It's a check for he `needConversion` logic
+    check typeof(weight) is UnitLess
+    check weight =~= (3318.0 * 500.0).UnitLess
+
 suite "Unchained - imperial units":
   test "Pound":
     block:
