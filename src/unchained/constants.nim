@@ -1,5 +1,5 @@
 import math
-import units
+import si_units, units
 
 ## A (so far small) set of (mostly physics related) constants defined
 ## in the units of Unchained.
