@@ -1,4 +1,4 @@
-import unchained / units
+import unchained
 import macros
 import unittest
 
@@ -153,7 +153,7 @@ suite "Resolve valid units":
   checkUnit(rad)
   checkUnit(sr)
   checkUnit(°)
-  checkUnit(units.min)
+  #checkUnit(`min`)
   checkUnit(h)
   checkUnit(day)
   checkUnit(yr)
@@ -302,7 +302,7 @@ suite "Valid unit-ful values":
     wrapFoo(rad)
     wrapFoo(sr)
     wrapFoo(°)
-    wrapFoo(units.min)
+    #wrapFoo(units.min)
     wrapFoo(h)
     wrapFoo(day)
     wrapFoo(yr)
