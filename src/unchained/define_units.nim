@@ -12,7 +12,7 @@ type
 
 ## The `UnitTab` is one of the fundamenal pieces of the macro logic. It stores all units
 ## defined in the `declareUnit` call and is later used to access type information.
-var UnitTab {.compileTime.} = newUnitTable()
+var UnitTab* {.compileTime.} = newUnitTable()
 
 proc parseDefinedUnit*(x: string): UnitProduct =
   ## Overload that wraps the local `UnitTab` and hands it for parsing
