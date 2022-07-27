@@ -1,3 +1,9 @@
+* v0.2.1
+- fix underlying issue of #5, the loss of type information when using
+  unitful =const= variables in unit math. The issue was our
+  =isUnitLessNumber= check, as for =const= variables with numbers
+  their node kind is still =nnkFloatLit=. The type needs to be looked
+  at instead.
 * v0.2.0
 - replaces definition of quantities and units by a fully declarative
   setup, which allows for much easier definition of custom unit
