@@ -802,6 +802,13 @@ suite "Unchained - Bug issues":
       result = E.to(Joule) / hp
     check 1.keV.xrayEnergyToFreq =~= 2.41799e17.Hz
 
+  test "Math with unitful `const` variables works":
+    ## this was previously broken, issue #5. The unit was dropped when parsing
+    ## the unit, as the `isUnitLessNumber` check returned `true` for `const` values
+    const g_aγ = 1e-10.GeV⁻¹
+    let x = g_aγ * 1.0.eV²
+    check typeof(x) is ElectronVolt
+    check x =~= 1e-19.eV
 
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
