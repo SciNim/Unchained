@@ -43,11 +43,21 @@ jobs:
           path: nim
           version: ${{ matrix.branch }}
 
-      - name: Setup SSL/TLS certificates (Windows)
+      - name: Setup MSYS2 (Windows)
         if: ${{matrix.target == 'windows'}}
-        shell: powershell
+        uses: msys2/setup-msys2@v2
+        with:
+          path-type: inherit
+          update: true
+          install: base-devel git mingw-w64-x86_64-toolchain
+
+      - name: Install dependencies (Windows)
+        if: ${{matrix.target == 'windows'}}
+        shell: msys2 {0}
         run: |
-          bitsadmin.exe /rawreturn /transfer "cURL-certicates" /priority FOREGROUND https://curl.se/ca/cacert.pem D:\a\unchained\unchained\nim\bin\cacert.pem
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm mingw-w64-x86_64-cairo
+          pacman -S --needed --noconfirm mingw-w64-x86_64-lapack
 
       - name: Setup nimble & deps
         shell: bash
