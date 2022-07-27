@@ -188,7 +188,7 @@ proc parseDerivedQuantities*(quants: NimNode, baseQuantities: HashSet[CTBaseQuan
       var qt = CTQuantity(kind: qtCompound, name: quant[0].strVal)
       for tup in quant[1][0]:
         case tup.kind
-        of nnkTupleConstr:
+        of nnkTupleConstr, nnkPar:
           doAssert tup[0].kind == nnkIdent and tup[1].kind == nnkIntLit
           let base = tup[0].strVal
           let power = tup[1].intVal.int
