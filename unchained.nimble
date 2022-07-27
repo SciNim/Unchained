@@ -16,7 +16,8 @@ task installTestDeps, "Install dependencies to run tests in CI":
 task test, "Runs the test":
   exec "nim c -r tests/tunchained.nim"
   exec "nim c -r tests/tresolveAlias.nim"
-  exec "nim c -r examples/bethe_bloch.nim"
+  when not defined(windows): # For some reason in CI in this repo lapack isn't found using msys2 (works in ggplotnim)
+    exec "nim c -r examples/bethe_bloch.nim"
   exec "nim c -r examples/custom_unit_system.nim"
 
 task regressionTests, "Run regression tests (require cligen)":
