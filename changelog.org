@@ -4,6 +4,7 @@
   =isUnitLessNumber= check, as for =const= variables with numbers
   their node kind is still =nnkFloatLit=. The type needs to be looked
   at instead.
+- bump Nim version requirement to 1.6 to reflect the real version we support
 * v0.2.0
 - replaces definition of quantities and units by a fully declarative
   setup, which allows for much easier definition of custom unit
