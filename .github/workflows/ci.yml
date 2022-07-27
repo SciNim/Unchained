@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         #branch: [version-1-2, version-1-4, devel]
-        branch: [devel]
+        branch: [version-1-6, devel]
         target: [linux, macos, windows]
         include:
           - target: linux
@@ -38,7 +38,7 @@ jobs:
           path: unchained
 
       - name: Setup Nim
-        uses: alaviss/setup-nim@0.1.0
+        uses: alaviss/setup-nim@0.1.1
         with:
           path: nim
           version: ${{ matrix.branch }}
