@@ -1,3 +1,9 @@
+* v0.2.0
+- replaces definition of quantities and units by a fully declarative
+  setup, which allows for much easier definition of custom unit
+  systems, see PR #24 for more details
+- also see =examples/custom_unit_system.nim= for a (admittedly
+  ridiculous) example of defining a custom unit system
 * v0.1.10
 - =defUnits= now has an =export= option to define a unit that is
   exported (therefore this =defUnit= can only be used at top level!)
@@ -14,8 +20,7 @@
   unit will be string converted to a name with the short unit naming,
   i.e. m•s⁻¹ instead of Meter•Second⁻¹. For now the default will
   remain the long version, but that may change in the future.
-  
-        
+          
 * v0.1.9
 - add =sqrt= for units that are a perfect square
 - add =abs= for units  
