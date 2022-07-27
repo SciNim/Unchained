@@ -88,12 +88,13 @@ proc getUnitType*(n: NimNode): NimNode =
 
 proc isUnitLessNumber*(n: NimNode): bool =
   case n.kind
-  of nnkIntLit .. nnkFloatLit: result = true
   of nnkIdent: result = false # most likely direct unit
   of nnkAccQuoted:
     ## TODO: disallow things that are not a number?
     result = false
   else:
+    ## NOTE: We cannot check for intLit / floatLit etc, as a `const` variable that
+    ## has a unit will still be treated as a literal!
     let nTyp = n.getTypeInst
     if nTyp.kind == nnkSym:
       ## TODO: improve this check / include other numeric types
