@@ -55,6 +55,7 @@ jobs:
           cd unchained
           nimble refresh -y
           nimble install -y
+          nimble installTestDeps
 
       - name: Run tests
         shell: bash

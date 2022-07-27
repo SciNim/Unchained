@@ -11,7 +11,7 @@ srcDir        = "src"
 requires "nim >= 1.2.0"
 
 task installTestDeps, "Install dependencies to run tests in CI":
-  exec "nimble install ggplotnim"
+  exec "nimble install -y ggplotnim"
 
 task test, "Runs the test":
   exec "nim c -r tests/tunchained.nim"
