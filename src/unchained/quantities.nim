@@ -66,6 +66,12 @@ proc toQuantityPower*(q: CTQuantity): seq[QuantityPower] =
 import std / hashes
 proc hash*(q: CTBaseQuantity): Hash =
   result = result !& hash(q.name)
+  result = !$result
+
+proc hash*(qp: QuantityPower): Hash =
+  result = result !& hash(qp.quant)
+  result = result !& hash(qp.power)
+  result = !$result
 
 proc hash*(q: CTQuantity): Hash =
   result = result !& hash(q.kind)
