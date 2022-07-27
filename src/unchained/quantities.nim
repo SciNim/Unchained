@@ -64,6 +64,9 @@ proc toQuantityPower*(q: CTQuantity): seq[QuantityPower] =
   of qtCompound: result = q.baseSeq
 
 import std / hashes
+proc hash*(q: CTBaseQuantity): Hash =
+  result = result !& hash(q.name)
+
 proc hash*(q: CTQuantity): Hash =
   result = result !& hash(q.kind)
   case q.kind
