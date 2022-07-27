@@ -4,7 +4,7 @@ import si_units, units
 ## A (so far small) set of (mostly physics related) constants defined
 ## in the units of Unchained.
 
-let
+const
   c* = 299792458.0.Meter•Second⁻¹
   ε_0* = 8.8541878128e-12.A•s•V⁻¹•m⁻¹
   e* = 1.602176634e-19.C
