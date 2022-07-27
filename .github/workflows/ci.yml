@@ -52,7 +52,12 @@ jobs:
           update: true
           install: base-devel git mingw-w64-x86_64-toolchain
 
-      - name: Install dependencies (Windows)
+      - name: Install test dependencies (OSX)
+        if: ${{matrix.target == 'macos'}}
+        run: |
+          brew install imagemagick cairo
+
+      - name: Install test dependencies (Windows)
         if: ${{matrix.target == 'windows'}}
         shell: msys2 {0}
         run: |
