@@ -1,16 +1,17 @@
-
 name: unchained CI
 on:
   push:
     paths:
+      - 'examples/**'
+      - 'src/**'
       - 'tests/**'
-      - 'unchained.nim'
       - 'unchained.nimble'
       - '.github/workflows/ci.yml'
   pull_request:
     paths:
+      - 'examples/**'
+      - 'src/**'
       - 'tests/**'
-      - 'unchained.nim'
       - 'unchained.nimble'
       - '.github/workflows/ci.yml'
 
