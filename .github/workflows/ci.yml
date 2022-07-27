@@ -67,8 +67,16 @@ jobs:
           nimble install -y
           nimble installTestDeps
 
-      - name: Run tests
+      - name: Run tests (Linux & Mac)
+        if: ${{matrix.target != 'windows'}}
         shell: bash
+        run: |
+          cd unchained
+          nimble -y test
+
+      - name: Run tests (Windows)
+        if: ${{matrix.target == 'windows'}}
+        shell: msys2 {0}
         run: |
           cd unchained
           nimble -y test
