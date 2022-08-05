@@ -1,3 +1,5 @@
+* v0.2.2
+- fix =to= to explicitly only work with =SomeUnit= types
 * v0.2.1
 - fix underlying issue of #5, the loss of type information when using
   unitful =const= variables in unit math. The issue was our
