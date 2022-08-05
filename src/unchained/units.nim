@@ -402,7 +402,7 @@ macro determineScale(x: typedesc, y: typedesc): float =
   let yScale = yCT.toBaseTypeScale()
   result = newLit(xScale / yScale)
 
-proc to*[T; U](x: T, to: typedesc[U]): U =
+proc to*[T: SomeUnit; U: SomeUnit](x: T, to: typedesc[U]): U =
   ## TODO: replace by macro as well so that we can deal with arbitrary types
   ##
   ## check if conversion possible
