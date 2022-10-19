@@ -36,6 +36,7 @@ declareQuantities:
     SolidAngle:            [(Length, 2), (Length, -2)]
     MagneticFieldStrength: [(Mass, 1), (Time, -2), (Current, -1)]
     Activity:              [(Time, -1)]
+    AreaDensity:           [(Length, -2), (Mass, 1)]
 
 ## Define units is imported only *after* the quantities are declared!
 #import define_units
