@@ -782,6 +782,7 @@ suite "Unchained - imperial units":
       check type(Ns) is N•s
 
 
+import std/sugar
 suite "Unchained - Bug issues":
   test "Different names in equality operator":
     block:
@@ -809,6 +810,18 @@ suite "Unchained - Bug issues":
     let x = g_aγ * 1.0.eV²
     check typeof(x) is ElectronVolt
     check x =~= 1e-19.eV
+
+  test "CT error due to sequence arguments of units":
+    # reported by Arkanoid on matrix/discord
+    func `*` [§L, §R](a: openArray[§L], b: §R): auto =
+      collect(newSeqOfCap(a.len)):
+        for i in 0..<a.len:
+          a[i] * b
+    let
+      a = @[1.UnitLess, 2.UnitLess, 3.UnitLess]
+      b = 5.m•s⁻¹
+    check a * b == @[5.m•s⁻¹, 10.m•s⁻¹, 15.m•s⁻¹]
+
 
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
