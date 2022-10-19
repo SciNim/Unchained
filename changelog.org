@@ -1,3 +1,7 @@
+* v0.2.4
+- fix regression #29, multiplication / division between base and
+  derived units (e.g. SI and an imperial) did not convert, even if
+  they shared a common quantity
 * v0.2.3
 - fix resolving =ntyGenericInst= (which also effectively handles
   =ntySequence= it seems)
