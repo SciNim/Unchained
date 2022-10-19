@@ -316,7 +316,11 @@ macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let scaleOriginal = xCT.toBaseTypeScale()
     # and flatten if needed
     xCT = xCT.flatten(needConversion)
-    var resTypeCT = xCT.simplify(mergePrefixes = true)
+    var resTypeCT: UnitProduct
+    if needConversion:
+      resTypeCT = xCT.toBaseType(needConversion).simplify(mergePrefixes = true)
+    else:
+      resTypeCT = xCT.simplify(mergePrefixes = true)
     # determine scale of resulting units
     let scaleConv = resTypeCT.toBaseTypeScale() ## WRONG: must not *always* call conversion
     let resType = resTypeCT.simplify().toNimType()
@@ -352,7 +356,11 @@ macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let scaleOriginal = xCT.toBaseTypeScale()
 
     xCT = xCT.flatten(needConversion)
-    var resTypeCT = xCT.simplify(mergePrefixes = true)
+    var resTypeCT: UnitProduct
+    if needConversion:
+      resTypeCT = xCT.toBaseType(needConversion).simplify(mergePrefixes = true)
+    else:
+      resTypeCT = xCT.simplify(mergePrefixes = true)
     let scaleConv = resTypeCT.toBaseTypeScale()
     let resType = resTypeCT.simplify().toNimType()
     if scaleOriginal != scaleConv:
