@@ -20,3 +20,4 @@ const
   #K = 4 * π * N_A * r_e * r_e * m_e_c2 * (100.0^2)# [MeV mol⁻¹ cm²]
   k_B* = 1.380649e-23.Joule•Kelvin⁻¹
   hp* = 6.62607015e-34.Joule•Hertz⁻¹
+  G_Newton* = 6.6743e-11.N•m²•kg⁻²
