@@ -1,3 +1,8 @@
+* v0.2.3
+- fix resolving =ntyGenericInst= (which also effectively handles
+  =ntySequence= it seems)
+- add =G_Newton= constant
+- add =AreaDensity= quantity    
 * v0.2.2
 - fix =to= to explicitly only work with =SomeUnit= types
 * v0.2.1
