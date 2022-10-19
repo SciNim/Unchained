@@ -114,16 +114,20 @@ proc enumerateTypes*(t: NimNode): NimNode =
     if ch.strVal == "or": continue
     result.add newLit(ch.strVal)
 
+from std / strutils import normalize
 proc resolveAlias*(n: NimNode): NimNode =
   ## returns the first type that is `distinct` (i.e. convert Newton -> KiloGram•Meter•Second⁻²)
   case n.kind
   of nnkDistinctTy: result = n
   of nnkBracketExpr:
-    if n[0].strVal == "typedesc": ## Only resolve bracket expr if it's actually a `typedesc[X]`!
+    if n[0].strVal.normalize == "typedesc": ## Only resolve bracket expr if it's actually a `typedesc[X]`!
       if n[1].kind == nnkSym:
         result = n[1].getImpl.resolveAlias
       else:
         result = n[1].resolveAlias
+    else:
+      # else we leave the type as is, e.g. `seq[string]`
+      result = n
   of nnkSym:
     if n.getTypeInst.kind != nnkSym: result = n.getTypeInst.resolveAlias
     elif n.getTypeImpl.kind != nnkSym: result = n.getTypeImpl.resolveAlias
