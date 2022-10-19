@@ -709,6 +709,18 @@ suite "Unchained - imperial units":
       let y = 1.Meter
       check type(x + y) is Meter
       check x + y =~= 1.3048.Meter
+    block Multiply:
+      let x = 5.m
+      let y = 3.ft⁻¹
+      check x * y =~= 49.2126.UnitLess
+      check typeof(x * y) is UnitLess
+    block Divide:
+      let x = 15.m
+      let y = 5.m.to(ft)
+      check typeof(y) is Foot
+      check x / y =~= 3.UnitLess
+      check typeof(x / y) is UnitLess
+
 
   test "Yard":
     block:
