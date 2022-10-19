@@ -213,7 +213,13 @@ proc toBaseType*(u: UnitInstance, needConversion: bool): UnitProduct =
       result.units.add mu
     of utDerived:
       # result is simply the conversion (factor + unit) of this derived unit
-      result = u.unit.conversion
+      result = newUnitProduct(u.unit.conversion.value)
+      # starting from a new unit product (as it's a ref) and apply powers of `u` to each
+      # base unit of the converted unit.
+      for bu in u.unit.conversion.units:
+        var mbu = bu
+        mbu.power *= u.power
+        result.units.add mbu
       # now add possible further prefixes / powers of the input
       result.value *= pow(u.prefix.toFactor(), u.power.float) # XXX: * u.value ? we don't use `value` atm
 
