@@ -68,11 +68,16 @@ proc resolveTypeFromTypeDesc(n: NimNode): NimNode =
   doAssert typ.kind == nnkBracketExpr, "no, was " & $typ.treerepr
   result = typ[1]
 
+proc resolveTypeFromGenericInst(n: NimNode): NimNode =
+  # simply leave as is
+  result = n
+
 proc getUnitTypeImpl*(n: NimNode): NimNode =
   case n.typeKind
   of ntyAlias: result = n.resolveTypeFromAlias()
   of ntyDistinct: result = n.resolveTypeFromDistinct()
   of ntyTypeDesc: result = n.resolveTypeFromTypeDesc()
+  of ntyGenericInst: result = n.resolveTypeFromGenericInst()
   else: error("Unsupported : " & $n.typeKind)
 
 proc getUnitType*(n: NimNode): NimNode =
@@ -114,10 +119,11 @@ proc resolveAlias*(n: NimNode): NimNode =
   case n.kind
   of nnkDistinctTy: result = n
   of nnkBracketExpr:
-    if n[1].kind == nnkSym:
-      result = n[1].getImpl.resolveAlias
-    else:
-      result = n[1].resolveAlias
+    if n[0].strVal == "typedesc": ## Only resolve bracket expr if it's actually a `typedesc[X]`!
+      if n[1].kind == nnkSym:
+        result = n[1].getImpl.resolveAlias
+      else:
+        result = n[1].resolveAlias
   of nnkSym:
     if n.getTypeInst.kind != nnkSym: result = n.getTypeInst.resolveAlias
     elif n.getTypeImpl.kind != nnkSym: result = n.getTypeImpl.resolveAlias
