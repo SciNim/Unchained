@@ -102,10 +102,10 @@ proc pretty*[T: SomeUnit](s: T, precision: int, short: bool): string =
   result.trimZeros()
   if not short:
     let typStr = unitName(T)
-    result.add &" {typStr}"
+    result.add &" {typStr}"
   else:
     let typStr = shortName(T)
-    result.add &" {typStr}"
+    result.add &" {typStr}"
 
 proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1, short = false)
 
