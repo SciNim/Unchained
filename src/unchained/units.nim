@@ -3,6 +3,8 @@ import math, macros, options, sets, tables, strutils, unicode, typetraits, strfo
 ## This file is the main user facing API
 import core_types, ct_unit_types, macro_utils, define_units, quantities
 
+const ShortFormat {.booldefine.} = true
+
 proc pretty(x: UnitInstance, short = true): string = x.toNimType(short, internal = false)
 proc pretty(x: UnitProduct, short = true): string = x.toNimTypeStr(short, internal = false)
 
@@ -113,7 +115,7 @@ proc pretty*[T: SomeUnit](s: T, precision: int, short: bool): string =
     else:
       result.add &" {typStr}"
 
-proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1, short = true)
+proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1, short = ShortFormat)
 
 macro defUnit*(arg: untyped, toExport: bool = false): untyped =
   ## Helper template to define new units (not required to be used manually)
