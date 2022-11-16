@@ -1,8 +1,10 @@
 * v0.2.5
 - improve `^` handling for static integers (powers smaller 2 now
   supported as well as negative powers)
-- allow to print unit names without unicode half width space, if
-  compiled with `-d:noUnicode`.   
+- allow to print unit names without unicode half width space and no
+  unicode symbols in unit names, if compiled with `-d:noUnicode`.
+- *BREAKING*: changes the default behavior of printing unitful
+  variables from long format to short format!
 * v0.2.4
 - fix regression #29, multiplication / division between base and
   derived units (e.g. SI and an imperial) did not convert, even if
