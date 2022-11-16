@@ -863,6 +863,84 @@ suite "Utils":
     check x ^ -4 == 1 / (x * x * x * x)
     check x ^ -5 == 1 / (x * x * x * x * x)
 
+suite "Quantity concepts":
+  test "Quantity concepts accept correct arguments":
+    proc foo[L: Length](x: L) =
+      check true
+    foo(1.m)
+    foo(1.km)
+    foo(1.inch)
+
+  test "Quantity concepts reject wrong arguments":
+    proc foo[L: Length](x: L) =
+      check true
+
+    template checkWrong(arg: untyped): untyped =
+      when compiles(arg):
+        check false
+      else:
+        check true
+    checkWrong(foo(1.Hour))
+    checkWrong(foo(1.keV))
+    checkWrong(foo(1.Pa))
+
+  test "Multiple quantity concepts":
+    proc foo[L: Length; T: Time](x: L, y: T) =
+      check true
+    foo(1.m, 1.s)
+    foo(1.km, 1.h)
+    foo(1.inch, 1.min)
+
+    #proc bar[E: Energy; M: Mass](x: E, m: M) =
+    #  result = E
+    #
+    #bar(5.keV,
+
+  test "Quantity concepts retain their types":
+    proc foo[L: Length](x: L): auto =
+      result = x
+    check foo(1.m) == 1.Meter
+    check foo(1.km) == 1.KiloMeter
+    check foo(1.inch) == 1.Inch
+
+  test "Quantity concepts conversion works correctly":
+    proc foo[L: Length](x: L): Meter =
+      result = x.to(Meter)
+    check foo(1.m) == 1.Meter
+    check foo(1.km) == 1000.Meter
+    check foo(1.inch) == 0.0254.Meter
+
+  test "Multiple quantity concepts to accept different units":
+    defUnit(km•h⁻¹)
+    proc foo[L: Length; T: Time](x: L, y: T): km•h⁻¹=
+      result = (x / y).to(km•h⁻¹)
+    check foo(5.km, 10.min) == 30.km•h⁻¹
+    check foo(5.km, 0.5.h) == 10.km•h⁻¹
+    check foo(60.km, 1.s) == (60 * 3600).km•h⁻¹
+
+  test "Quantity concepts can be used as return type":
+    proc foo[F: Force, A: Acceleration](f: F, a: A): Mass =
+      result = f / a
+    check foo(10.N, 1.m•s⁻²) == 10.kg
+    check foo(10.MN, 1000.m•s⁻²) == 0.01.m⁻¹•s²•MN
+    check foo(10.PoundForce, 10.inch•s⁻²) == 1.s²•inch⁻¹•lbf
+
+  test "Quantity concepts can be correctly converted":
+    proc foo[F: Force, A: Acceleration](f: F, a: A): kg =
+      result = (f / a).to(kg)
+    check foo(10.N, 1.m•s⁻²) == 10.kg
+    check foo(10.MN, 1000.m•s⁻²) == 10000.kg
+    check foo(10.PoundForce, 10.inch•s⁻²) == 1.s²•inch⁻¹•lbf.to(kg)
+
+  test "Cannot use implicit generics with quantity concepts":
+    ## NOTE: this would be lovely, but currently we can't extract type information
+    ## in this case. Feel free to try to make it work!
+    proc foo(x: Length): auto =
+      result = 2 * x
+    when compiles(foo(2.m)):
+      check false
+    else:
+      check true
 
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
