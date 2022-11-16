@@ -5,6 +5,8 @@
   unicode symbols in unit names, if compiled with `-d:noUnicode`.
 - *BREAKING*: changes the default behavior of printing unitful
   variables from long format to short format!
+  - to change the behavior you can either call ~pretty~ manually and
+    hand ~short = false~ or compile with ~-d:ShortFormat=false~.
 * v0.2.4
 - fix regression #29, multiplication / division between base and
   derived units (e.g. SI and an imperial) did not convert, even if
