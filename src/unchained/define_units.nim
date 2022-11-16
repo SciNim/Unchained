@@ -126,7 +126,8 @@ proc commonQuantity*(x: typedesc, y: typedesc): bool =
   let yCT = y.getTypeInst.parseDefinedUnit()
   result = xCT.commonQuantity(yCT)
 
-proc toNimType*(u: UnitInstance, short = false): string =
+proc toNimType*(u: UnitInstance, short = false,
+                internal: static bool = true): string =
   #if u.unitKind == ukUnitLess: return
   ## XXX: handle base prefix of base units!
   # We use the prefix of the base unit exactly then, when the instance
@@ -140,13 +141,23 @@ proc toNimType*(u: UnitInstance, short = false): string =
     result.add u.unit.name
   else:
     result.add u.unit.short
-  if u.power < 0:
-    result.add "⁻"
+  when internal or not defined(noUnicode):
+    if u.power < 0:
+      result.add "⁻"
+  else:
+    if u.power < 0:
+      result.add "^-"
+    elif u.power > 1:
+      result.add "^"
   if u.power > 1 or u.power < 0:
     for digit in getPow10Digits(u.power):
-      result.add digits[digit]
+      when internal or not defined(noUnicode):
+        result.add digits[digit]
+      else:
+        result.add DigitsAscii[digit]
 
-proc toNimTypeStr*(x: UnitProduct, short = false): string =
+proc toNimTypeStr*(x: UnitProduct, short = false,
+                   internal: static bool = true): string =
   ## converts `x` to the correct string representation
   # return early if no units in x
   if x.units.len == 0: return "UnitLess"
@@ -154,9 +165,12 @@ proc toNimTypeStr*(x: UnitProduct, short = false): string =
   let xSorted = x.units.sorted
   for idx, u in xSorted:
     #if u.unitKind == ukUnitLess: continue
-    var str = toNimType(u, short)
+    var str = toNimType(u, short, internal)
     if idx < xSorted.high:
-      str.add "•"
+      when internal or not defined(noUnicode):
+        str.add "•"
+      else:
+        str.add "*"
     result.add str
 
 proc toNimType*(x: UnitProduct, short = false): NimNode =
@@ -164,8 +178,6 @@ proc toNimType*(x: UnitProduct, short = false): NimNode =
   # return early if no units in x
   let name = x.toNimTypeStr(short)
   result = if name.len == 0: ident("UnitLess") else: ident(name)
-
-
 
 proc toBaseTypeScale*(u: UnitInstance): float =
   result = u.prefix.toFactor()
