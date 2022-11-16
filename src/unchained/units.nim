@@ -8,39 +8,6 @@ const ShortFormat {.booldefine.} = true
 proc pretty(x: UnitInstance, short = true): string = x.toNimType(short, internal = false)
 proc pretty(x: UnitProduct, short = true): string = x.toNimTypeStr(short, internal = false)
 
-macro quantityList*(): untyped =
-  result = nnkBracket.newTree()
-  result.add newLit"Quantity"
-  result.add newLit"CompoundQuantity"
-  result.add newLit"Unit"
-  result.add newLit"Quantity"
-  result.add newLit"SiUnit"
-  result.add newLit"DerivedSiUnits"
-  result.add newLit"SomeQuantity"
-  result.add newLit"DerivedQuantity"
-  result.add newLit"BaseQuantity"
-
-macro isAUnit*(x: typed): untyped =
-  ## NOTE: it's really hard to replace this by something cleaner :/
-  ## Ideally this should be replaced by something that uses shared logic with
-  ## `getUnitTypeImpl` & making use of CT tables (possibly of objects?)
-  let x = x.resolveAlias()
-  case x.kind
-  of nnkSym, nnkDistinctTy:
-    let typ = x
-    var xT = if typ.kind == nnkDistinctTy: typ[0] else: typ
-    while xT.strVal notin quantityList():
-      xT = xT.getTypeImpl
-      case xT.kind
-      of nnkDistinctTy:
-        xT = xT[0]
-      else:
-        return newLit false
-  else:
-    return newLit false
-  ## in this case investigation is true
-  result = newLit true
-
 ## The main concept used for type matching of units
 type
   SomeUnit* = concept x

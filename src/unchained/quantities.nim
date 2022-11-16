@@ -24,7 +24,6 @@ type
       name*: string # name of the derived quantity (e.g. Force)
       baseSeq*: seq[QuantityPower]
 
-
 proc `==`*(q1, q2: CTBaseQuantity): bool = q1.name == q2.name
 proc `<`*(q1, q2: CTBaseQuantity): bool = q1.name < q2.name
 
@@ -86,10 +85,12 @@ proc `==`*(q1, q2: CTQuantity): bool =
 proc contains*(s: HashSet[CTBaseQuantity], key: string): bool =
   result = CTBaseQuantity(name: key) in s
 
-proc getName*(q: CTQuantity): string =
+proc getName*(q: CTQuantity, typeName: bool = false): string =
+  ## Suffix `QT` == `QuantityType`
+  let suffix = if typeName: "QT" else: ""
   case q.kind
-  of qtFundamental: result = q.b.name
-  of qtCompound: result = q.name
+  of qtFundamental: result = q.b.name & suffix
+  of qtCompound: result = q.name & suffix
 
 proc reduce(s: seq[QuantityPower]): seq[QuantityPower] =
   ## Reduces possible duplicate units with different powers.
@@ -215,7 +216,7 @@ proc genQuantityTypes*(quants: seq[CTQuantity], qType: QuantityType): NimNode =
                 "CompoundQuantity"
               else:
                 "UnitLess"
-    let qName = quant.getName()
+    let qName = quant.getName(typeName = true)
     result.add defineDistinctType(qName, q)
     quantList.add ident(qName)
   let qtc = case qType
@@ -230,10 +231,10 @@ proc genQuantityKindEnum*(base, derived: seq[CTQuantity]): NimNode =
     ident"qkUnitLess" # UnitLess quantity kind must be first element
   )
   for b in base:
-    let bName = b.getName()
+    let bName = b.getName(typeName = true)
     en.add nnkEnumFieldDef.newTree(ident("qk" & bName), newLit bName)
   for d in derived:
-    let dName = d.getName()
+    let dName = d.getName(typeName = true)
     en.add nnkEnumFieldDef.newTree(ident("qk" & dName), newLit dName)
   result.add en
   result = nnkTypeSection.newTree(result)
