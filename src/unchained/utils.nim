@@ -8,7 +8,7 @@ macro `^`*(x: typed, num: static int): untyped =
   ## result. Negative powers are written as `1 / x^p`
   if num == 0:
     result = quote do:
-      `x` * typeof(`x`)(0.0)
+      1.0
   elif num == 1:
     result = x
   elif num == -1:

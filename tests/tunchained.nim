@@ -834,6 +834,35 @@ suite "Unchained - Bug issues":
       b = 5.m•s⁻¹
     check a * b == @[5.m•s⁻¹, 10.m•s⁻¹, 15.m•s⁻¹]
 
+suite "Utils":
+  test "Power w/ static integer exponents for floats":
+    let x = 5
+    check x ^ 0  == 1.0
+    check x ^ 1  == x
+    check x ^ 2  == x * x
+    check x ^ 3  == x * x * x
+    check x ^ 4  == x * x * x * x
+    check x ^ 5  == x * x * x * x * x
+    check x ^ -1 == 1 / x
+    check x ^ -2 == 1 / (x * x)
+    check x ^ -3 == 1 / (x * x * x)
+    check x ^ -4 == 1 / (x * x * x * x)
+    check x ^ -5 == 1 / (x * x * x * x * x)
+
+  test "Power w/ static integer exponents for units":
+    let x = 5.kg
+    check x ^ 0  == 1.0
+    check x ^ 1  == x
+    check x ^ 2  == x * x
+    check x ^ 3  == x * x * x
+    check x ^ 4  == x * x * x * x
+    check x ^ 5  == x * x * x * x * x
+    check x ^ -1 == 1 / x
+    check x ^ -2 == 1 / (x * x)
+    check x ^ -3 == 1 / (x * x * x)
+    check x ^ -4 == 1 / (x * x * x * x)
+    check x ^ -5 == 1 / (x * x * x * x * x)
+
 
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
