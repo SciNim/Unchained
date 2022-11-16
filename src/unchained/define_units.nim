@@ -764,7 +764,7 @@ macro isAUnit*(x: typed): untyped =
 
 macro isQuantity*(x: typed, quant: typed): untyped =
   ## Checks if `x` (a unit) is the same quantity as `quant`
-  doAssert quant.kind in {nnkSym, nnkIdent}
+  doAssert quant.kind == nnkStrLit
   let q = QuantityTab[quant.strVal]
   result = newLit commonQuantity(x.parseDefinedUnit(), q)
 
@@ -782,8 +782,8 @@ macro generateQuantityConcepts*(): untyped =
   ## the defined quantity (and does not refer to the concept itself!)
   result = newStmtList()
   for k, v in QuantityTab:
-    let quantName = ident(k)
-    let conceptName = nnkPostfix.newTree(ident"*", quantName)
+    let quantName = k
+    let conceptName = nnkPostfix.newTree(ident"*", ident(quantName))
     result.add quote do:
       type
         `conceptName` = concept x
