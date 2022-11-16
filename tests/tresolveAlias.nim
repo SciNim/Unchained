@@ -20,40 +20,40 @@ suite "Resolve valid units":
   checkUnit(UnitLess)
 
   ## Base Quantities
-  checkUnit(Time)
-  checkUnit(Length)
-  checkUnit(Mass)
-  checkUnit(Current)
-  checkUnit(Temperature)
-  checkUnit(AmountOfSubstance)
-  checkUnit(Luminosity)
+  checkUnit(TimeQT)
+  checkUnit(LengthQT)
+  checkUnit(MassQT)
+  checkUnit(CurrentQT)
+  checkUnit(TemperatureQT)
+  checkUnit(AmountOfSubstanceQT)
+  checkUnit(LuminosityQT)
 
   checkUnit(BaseQuantity)
 
   ## Derived quantities, TODO: should be `distinct CompoundQuantity`? Not a single dimension!
-  checkUnit(Velocity)
-  checkUnit(Acceleration)
-  checkUnit(Momentum)
-  checkUnit(Force)
-  checkUnit(Energy)
-  checkUnit(Density)
+  checkUnit(VelocityQT)
+  checkUnit(AccelerationQT)
+  checkUnit(MomentumQT)
+  checkUnit(ForceQT)
+  checkUnit(EnergyQT)
+  checkUnit(DensityQT)
 
-  checkUnit(ElectricPotential)
+  checkUnit(ElectricPotentialQT)
   # Since declarative quantity def currently not defined
-  # checkUnit(Voltage)
+  # checkUnit(VoltageQT)
 
-  checkUnit(Frequency)
+  checkUnit(FrequencyQT)
 
-  checkUnit(Charge)
-  checkUnit(Power)
-  checkUnit(ElectricResistance)
-  checkUnit(Capacitance)
-  checkUnit(Inductance)
-  checkUnit(Pressure)
+  checkUnit(ChargeQT)
+  checkUnit(PowerQT)
+  checkUnit(ElectricResistanceQT)
+  checkUnit(CapacitanceQT)
+  checkUnit(InductanceQT)
+  checkUnit(PressureQT)
 
   # angles and solid angles are technically UnitLess.
-  checkUnit(Angle)
-  checkUnit(SolidAngle)
+  checkUnit(AngleQT)
+  checkUnit(SolidAngleQT)
 
   checkUnit(DerivedQuantity)
 
@@ -184,37 +184,37 @@ suite "Valid unit-ful values":
     wrapFoo(UnitLess)
 
     ## Base Quantities
-    wrapFoo(Time)
-    wrapFoo(Length)
-    wrapFoo(Mass)
-    wrapFoo(Current)
-    wrapFoo(Temperature)
-    wrapFoo(AmountOfSubstance)
-    wrapFoo(Luminosity)
+    wrapFoo(TimeQT)
+    wrapFoo(LengthQT)
+    wrapFoo(MassQT)
+    wrapFoo(CurrentQT)
+    wrapFoo(TemperatureQT)
+    wrapFoo(AmountOfSubstanceQT)
+    wrapFoo(LuminosityQT)
 
     ## Derived quantities, TODO: should be `distinct CompoundQuantity`? Not a single dimension!
-    wrapFoo(Velocity)
-    wrapFoo(Acceleration)
-    wrapFoo(Momentum)
-    wrapFoo(Force)
-    wrapFoo(Energy)
-    wrapFoo(Density)
+    wrapFoo(VelocityQT)
+    wrapFoo(AccelerationQT)
+    wrapFoo(MomentumQT)
+    wrapFoo(ForceQT)
+    wrapFoo(EnergyQT)
+    wrapFoo(DensityQT)
 
-    wrapFoo(ElectricPotential)
-    #wrapFoo(Voltage)
+    wrapFoo(ElectricPotentialQT)
+    #wrapFoo(VoltageQT)
 
-    wrapFoo(Frequency)
+    wrapFoo(FrequencyQT)
 
-    wrapFoo(Charge)
-    wrapFoo(Power)
-    wrapFoo(ElectricResistance)
-    wrapFoo(Capacitance)
-    wrapFoo(Inductance)
-    wrapFoo(Pressure)
+    wrapFoo(ChargeQT)
+    wrapFoo(PowerQT)
+    wrapFoo(ElectricResistanceQT)
+    wrapFoo(CapacitanceQT)
+    wrapFoo(InductanceQT)
+    wrapFoo(PressureQT)
 
     #  angles are technically UnitLess.
-    wrapFoo(Angle)
-    wrapFoo(SolidAngle)
+    wrapFoo(AngleQT)
+    wrapFoo(SolidAngleQT)
 
     ## Base SI units
     wrapFoo(Second)
