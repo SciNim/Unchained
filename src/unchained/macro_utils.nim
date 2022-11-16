@@ -78,6 +78,26 @@ proc getUnitTypeImpl*(n: NimNode): NimNode =
   of ntyDistinct: result = n.resolveTypeFromDistinct()
   of ntyTypeDesc: result = n.resolveTypeFromTypeDesc()
   of ntyGenericInst: result = n.resolveTypeFromGenericInst()
+  of ntyUserTypeClass:
+    ## NOTE: Attempting to resolve a type from such an implicit generic doesn't
+    ## work properly. See tests/tResolveImplicitQuantity.nim
+    ## for a case in which no `getType*` yields anything useful.
+    error("""Cannot get a type from a `ntyUserTypeClass`. You are likely using a quantity concept as a generic argument directly, instead of using an explicit generic. Replace usage of the kind
+
+    ```nim
+    proc foo(x: Length)
+    ```
+
+    by
+
+    ```nim
+    proc foo[T: Length](x: T)
+    ```
+
+    as currently we cannot reliably extract the real type of `Length` in the former case.
+    If your problem is a different one, please open an issue at:
+    https://github.com/SciNim/unchained
+""")
   else: error("Unsupported : " & $n.typeKind)
 
 proc getUnitType*(n: NimNode): NimNode =

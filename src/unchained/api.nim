@@ -13,3 +13,6 @@ import unchained / [utils, core_types, units]
 export core_types
 export units
 export utils
+
+from unchained / define_units import isAUnit
+export isAUnit

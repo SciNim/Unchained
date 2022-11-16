@@ -38,6 +38,9 @@ declareQuantities:
     Activity:              [(Time, -1)]
     AreaDensity:           [(Length, -2), (Mass, 1)]
 
+# generate the concepts for the quantities to use them as types in procedures
+generateQuantityConcepts()
+
 ## Define units is imported only *after* the quantities are declared!
 #import define_units
 export define_units.commonQuantity

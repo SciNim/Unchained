@@ -113,7 +113,9 @@ proc toQuantityPower(units: UnitProduct): seq[QuantityPower] =
     if result.len == 0:
       result[qkUnitLess] = 1
 
-proc commonQuantity*(a, b: UnitProduct): bool =
+proc commonQuantity*[T: UnitProduct | CTQuantity;
+                     U: UnitProduct | CTQuantity](
+                       a: T; b: U ): bool =
   ## Comparison is done by checking for the same base units and powers using
   ## `UnitProduct`.
   let aQuant = a.toQuantityPower()
@@ -622,7 +624,7 @@ proc genUnitTypes(units: DefinedUnits): NimNode =
     let typ = quant.toBaseUnits().toNimTypeStr()
     let typShort = quant.toBaseUnits().toNimTypeStr(short = true)
     if typ notin generatedCompounds:
-      result.add defineDistinctType(typ, quant.getName())
+      result.add defineDistinctType(typ, quant.getName(typeName = true))
       result.add defineType(typShort, typ)
       generatedCompounds.incl typ
 
@@ -637,7 +639,7 @@ proc genUnitTypes(units: DefinedUnits): NimNode =
       result.add defineType(unit.short, unit.name)
     else:
       # 1. generate main definition, i.e. long name = distinct quantity
-      result.add defineDistinctType(unit.name, unit.quantity.getName())
+      result.add defineDistinctType(unit.name, unit.quantity.getName(typeName = true))
       # 2. generate the short name
       result.add defineType(unit.short, unit.name)
 
@@ -725,3 +727,65 @@ macro generateSiPrefixedUnits*(units: untyped): untyped =
     for (siShort, siLong) in zip(sisShort, sisLong):
       if eqIdent(siShort, skipIdent) or eqIdent(siLong, skipIdent): continue
       result.add nnkTypeDef.newTree(nnkPostfix.newTree(ident"*", siShort), newEmptyNode(), siLong[0][1])
+
+
+macro quantityList*(): untyped =
+  result = nnkBracket.newTree()
+  result.add newLit"Quantity"
+  result.add newLit"CompoundQuantity"
+  result.add newLit"Unit"
+  result.add newLit"Quantity"
+  result.add newLit"SiUnit"
+  result.add newLit"DerivedSiUnits"
+  result.add newLit"SomeQuantity"
+  result.add newLit"DerivedQuantity"
+  result.add newLit"BaseQuantity"
+
+macro isAUnit*(x: typed): untyped =
+  ## NOTE: it's really hard to replace this by something cleaner :/
+  ## Ideally this should be replaced by something that uses shared logic with
+  ## `getUnitTypeImpl` & making use of CT tables (possibly of objects?)
+  let x = x.resolveAlias()
+  case x.kind
+  of nnkSym, nnkDistinctTy:
+    let typ = x
+    var xT = if typ.kind == nnkDistinctTy: typ[0] else: typ
+    while xT.strVal notin quantityList():
+      xT = xT.getTypeImpl
+      case xT.kind
+      of nnkDistinctTy:
+        xT = xT[0]
+      else:
+        return newLit false
+  else:
+    return newLit false
+  ## in this case investigation is true
+  result = newLit true
+
+macro isQuantity*(x: typed, quant: typed): untyped =
+  ## Checks if `x` (a unit) is the same quantity as `quant`
+  doAssert quant.kind in {nnkSym, nnkIdent}
+  let q = QuantityTab[quant.strVal]
+  result = newLit commonQuantity(x.parseDefinedUnit(), q)
+
+macro generateQuantityConcepts*(): untyped =
+  ## Generates concepts for all known quantities of the type
+  ##
+  ## ```nim
+  ## type
+  ##   Length = concept x
+  ##     isAUnit(x)
+  ##     isQuantity(x, Length)
+  ## ```
+  ##
+  ## where the second argument `Length` is simply the name of
+  ## the defined quantity (and does not refer to the concept itself!)
+  result = newStmtList()
+  for k, v in QuantityTab:
+    let quantName = ident(k)
+    let conceptName = nnkPostfix.newTree(ident"*", quantName)
+    result.add quote do:
+      type
+        `conceptName` = concept x
+          isAUnit(x)
+          isQuantity(x, `quantName`)
