@@ -113,7 +113,7 @@ proc pretty*[T: SomeUnit](s: T, precision: int, short: bool): string =
     else:
       result.add &" {typStr}"
 
-proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1, short = false)
+proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1, short = true)
 
 macro defUnit*(arg: untyped, toExport: bool = false): untyped =
   ## Helper template to define new units (not required to be used manually)
