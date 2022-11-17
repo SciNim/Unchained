@@ -1,3 +1,15 @@
+* v0.3.0
+- concepts for each quantity to match different units of same quantity
+  in procedure calls!
+- ~<~ for CT units now sorts positive powers before negative, this can
+  be a *breaking* change
+- in `.` define the resulting type based on what's given, not
+  simplified, this can be a *breaking* change
+- add ~toDef~ to combine the usage of ~defUnit~ with ~to~ (this can be
+  problematic, see docstring)
+- clean up ~defUnit~ and also always generate the short name version
+  of a given unit
+- update README
 * v0.2.5
 - improve `^` handling for static integers (powers smaller 2 now
   supported as well as negative powers)
