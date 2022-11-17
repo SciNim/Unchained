@@ -387,12 +387,9 @@ macro determineScale(x: typedesc, y: typedesc): float =
   result = newLit(xScale / yScale)
 
 proc to*[T: SomeUnit; U: SomeUnit](x: T, to: typedesc[U]): U =
-  ## TODO: replace by macro as well so that we can deal with arbitrary types
-  ##
-  ## check if conversion possible
-
-  ## TODO: check here if we convert between equivalent quantities, but different
-  ## units (`not` just difference in SI). Or rather extend `determineScale`.
+  ## Converts the given unit `x` to the desired target unit `to`. The
+  ## units must represent the same quantities, otherwise a CT error is
+  ## thrown.
   when T is U:
     result = x
   elif commonQuantity(T, U):
@@ -404,28 +401,30 @@ proc to*[T: SomeUnit; U: SomeUnit](x: T, to: typedesc[U]): U =
     {.error: "Cannot convert " & $T & " to " & $U & " as they represent different " &
       "quantities!".}
 
-when false:
-  macro toImpl(x: typed, to: static CTCompoundUnit): NimNode =
-    ## TODO: replace by macro as well so that we can deal with arbitrary types
-    ##
-    ## check if conversion possible
-    let xCT = parseDefinedUnit(x)
-    let yCT = to
-    if xCT == yCT:
-      result = x
-    elif xCT.commonQuantity(yCT):
-      # perform conversion
-      ## thus determine scaling factor due to different SI prefixes
-      let xScale = xCT.toBaseTypeScale()
-      let yScale = yCT.toBaseTypeScale()
-      let scale = xScale / yScale
-      let resType = yCT.toNimType()
-      result = quote do:
-        defUnit(`resType`)
-        `resType`(`x`.float * `scale`)
-    else:
-      error("Cannot convert " & $(xCT.toNimType()) & " to " & $(yCT.toNimType()) & " as they represent different " &
-        "quantities!")
+macro toDef*[T: SomeUnit](x: T, to: untyped): untyped =
+  ## A macro version of `to` above, which works for target types `to`, which
+  ## have not been defined via `defUnit` yet. Calls `defUnit` and then dispatches
+  ## to `to`.
+  ##
+  ## NOTE: Under certain use cases the order of evaluation by the Nim compiler can
+  ## lead to "type mismatch" errors. For example
+  ##
+  ## ```nim
+  ## block:
+  ##   defUnit(km•h⁻¹)
+  ##   proc foo[M: Mass; A: Acceleration](m: M, a: A): km•h⁻¹ =
+  ##     result = (m * a).toDef(km•h⁻¹)
+  ## ```
+  ##
+  ## in this case the compiler won't understand that `km•h⁻¹` is already defined
+  ## leading to ambiguous errors ("got X, expected X = Alias").
+  ##
+  ## Therefore, use at your own risk. Useful in short pieces of code though!
+  let toCT = parseDefinedUnit(to).toNimType(short = true)
+  result = quote do:
+    when not declared(`toCT`):
+      defUnit(`toCT`)
+    `x`.to(`toCT`)
 
 {.experimental: "dotOperators".}
 macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
