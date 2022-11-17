@@ -434,18 +434,20 @@ macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
   let typX = x.getTypeInst()
   let yCT = y.parseDefinedUnit()
 
-  let resType = yCT.simplify(mergePrefixes = true).toNimType()
+  let simplified = yCT.simplify(mergePrefixes = true).toNimType()
   # check whether argument is actually `UnitLess` and not something that fails
   # parsing as a unit. TODO: improve unit parsing to handle this? Need a failed
   # parsing state != UnitLess
   let isUnitLess = y.strVal == "UnitLess" or
     (yCT.units.len > 1 and # > 1 means something like mol•mol⁻¹ can work
-     resType.strVal == "UnitLess")
-  let rewrite = not isUnitLess and resType.strVal == "UnitLess" # parsing failed
+     simplified.strVal == "UnitLess")
+  let rewrite = not isUnitLess and simplified.strVal == "UnitLess" # parsing failed
   let xr = x.sanitizeInput()
   if not rewrite:
+    let resType = yCT.toNimType()
     result = quote do:
-      defUnit(`resType`)
+      when not declared(`resType`):
+        defUnit(`resType`)
       `resType`(`xr`.float)
   else:
     # parsing as a unit failed, rewrite to get possible CT error or correct result
