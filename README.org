@@ -7,22 +7,89 @@ based code (aside from insertion of possible conversion factors, but
 those would have to be written by hand otherwise of course).
 
 It supports:
-- all base SI units
+- all base SI units and (most) compound SI units
+- units as short and long name:
+  #+begin_src nim
+import unchained
+let x = 10.m
+let y = 10.Meter
+doAssert x == y
+  #+end_src
 - some imperial units
 - all SI prefixes
+  #+begin_src nim
+import unchained
+let x = 10.Mm # mega meter
+let y = 5.ng # nano gram
+let z = 10.aT # atto tesla 
+  #+end_src
 - arbitrary math with units composing to new units, e.g. (which do not have
-  to be defined previously!), e.g. =10.m * 10.m * 10.m * 10.m * 10.m=
+  to be defined previously!),
+  #+begin_src nim
+import unchained
+let x = 10.m * 10.m * 10.m * 10.m * 10.m
+doAssert typeof(x) is Meter⁵
+  #+end_src
   without having to predefine a =Meter⁵= type
 - automatic conversion between SI prefixes if a mix is used
+  #+begin_src nim
+import unchained
+let x = 5.kg + 5.lbs
+doAssert typeof(x) is kg
+doAssert x == 7.26796.kg
+  #+end_src
+- manual conversion of units to compatible other units via ~to~
+  (e.g. 
+  #+begin_src nim
+import unchained
+let x = 5.m•s⁻¹
+defUnit(km•h⁻¹) # needs to be defined to be able to convert to
+                # `to` could be a macro that defines it for us 
+doAssert x.to(km•h⁻¹) == 18.km•h⁻¹
+# the `toDef` macro can be used to both define and convert a unit,
+# but under certain use cases it can break (see its documentation)
+  #+end_src
+- comparisons between units compare real value taking into account SI
+  prefixes and even different units of the same quantity:  
+#+begin_src nim
+import unchained
+let x = 10.Mm # mega meter
+doAssert x == 10_000_000.m
+let y = 5.ng # nano gram
+doAssert y == 5e-9.g
+let z = 10.aT # atto tesla
+doAssert z == 10e-18.T
+# and even different units of same quantity
+let a = 5000.inch•s⁻¹
+let b = a.toDef(km•h⁻¹) # defines the unit and convers `a` to it
+doAssert b == 457.2.km•h⁻¹
+doAssert typeof(a) is inch•s⁻¹ # SI units have higher precedence than non SI
+doAssert typeof(b) is km•h⁻¹
+doAssert a == b # comparison is true, as the effective value is the same!
+#+end_src
+  Note: comparison between units is performed using an ~almostEqual~
+  implementation. By default it uses ~ε = 1e-8~. The power can be
+  changed at CT by using the ~-d:UnitCompareEpsilon=<integer>~ where
+  the given integer is the negative power used.
+- all quantities (e.g. ~Length~, ~Mass~, ...) defined as a ~concept~
+  to allow matching different units of same quantity in function
+  argument
+  #+begin_src nim
+import unchained
+proc force[M: Mass, A: Acceleration](m: M, a: A): Force = m * a
+let m = 80.kg
+let g = 9.81.m•s⁻²
+let f = force(m, g)
+doAssert typeof(f) is Newton
+doAssert f == 784.8000000000001.N
+  #+end_src
+- define your own custom unit systems, see [[examples/custom_unit_system.nim]]  
 - ...
 
-Aside from bugs and polish the main thing missing is proper handling
-of natural units (they exist, but are untested and their unit in terms
-of =eV= is not implemented).
-
-In no particular order things that either are or need to be supported:
+A longer snippet showing different features below. See also
+[[examples/bethe_bloch.nim]] for a more complicated use case.
 #+begin_src nim
-## The following already work unless `TODO` (not all units implemented)
+import unchained
 block:
   # defining simple units
   let mass = 5.kg
@@ -31,33 +98,34 @@ block:
   # addition and subtraction of same units
   let a = 5.kg
   let b = 10.kg
-  check typeof(a + b) is KiloGram
-  check a + b == 15.kg
-  check typeof(a - b) is KiloGram
-  check a - b == 15.kg
+  doAssert typeof(a + b) is KiloGram
+  doAssert a + b == 15.kg
+  doAssert typeof(a - b) is KiloGram
+  doAssert a - b == -5.kg
 block:
   # addition and subtraction of units of the same ``quantity`` but different scale
   let a = 5.kg
   let b = 500.g
-  check typeof(a + b) is KiloGram
-  check a + b == 5.5.kg
+  doAssert typeof(a + b) is KiloGram
+  doAssert a + b == 5.5.kg
   # if units do not match, the SI unit is used!
 block:
   # product of prefixed SI unit keeps same prefix unless multiple units of same quantity involved
   let a = 1.m•s⁻²
   let b = 500.g
-  check typeof(a * b) is Gram•Meter•Second⁻²
-  check typeof(a * b) is MilliNewton
-  check a * b == 500.g•m•s⁻²
+  doAssert typeof(a * b) is Gram•Meter•Second⁻²
+  doAssert typeof((a * b).to(MilliNewton)) is MilliNewton
+  doAssert a * b == 500.g•m•s⁻²
 block:
   let mass = 5.kg
   let a = 9.81.m•s⁻²
   # unit multiplication has to be commutative
   let F: Newton = mass * a
-  let F2: Newton = a * mass # TODO
+  let F2: Newton = a * mass
   # unit division works as expected
-  check typeof(F / mass) is Meter•Second⁻²
-  check F / mass == a
+  doAssert typeof(F / mass) is N•kg⁻¹
+  doAssert typeof((F / mass).to(Meter•Second⁻²)) is Meter•Second⁻²
+  doAssert F / mass == a
 block:
   # automatic deduction of compound units for simple cases
   let force = 1.kg * 1.m * 1.s⁻²
@@ -66,13 +134,14 @@ block:
 block:
   # conversion between units of the same quantity
   let f = 10.N
-  check typeof(f.to(kN)) is KiloNewton
-  check f.to(kN) == 0.01.kN
+  doAssert typeof(f.to(kN)) is KiloNewton
+  doAssert f.to(kN) == 0.01.kN
 block:
   # pre-defined physical constants
   let E_e⁻_rest: Joule = m_e * c*c # math operations `*cannot*` use superscripts!
   # m_e = electron mass in kg
   # c = speed of light in vacuum in m/s
+from std/math import sin  
 block:
   # automatic CT error if argument of e.g. sin, ln are not unit less
   let x = 5.kg
@@ -88,23 +157,15 @@ block:
   # mixing of non SI and SI units (via conversion to SI units)
   let m1 = 100.lbs
   let m2 = 10.kg
-  check typeof(m1 + m2) is KiloGram
-  check m1 + m2 == 55.3592.KiloGram
+  doAssert typeof(m1 + m2) is KiloGram
+  doAssert m1 + m2 == 55.359237.KiloGram
 block:
   # natural unit conversions
   let speed = (0.1 * c).toNaturalUnit() # fraction of c, defined in `constants`
   let m_e = 9.1093837015e-31.kg.toNaturalUnit()
   # math between natural units remains natural
   let p = speed * m_e # result will be in `eV`
-  check p.to(keV) == 51.1.keV
-block:
-  # auto conversion of natural units
-  let a = 10.MeV
-  let b = 200.eV
-  check typeof(a / b) is UnitLess # `UnitLess` is 
-  check a / b == 50_000.Unitless
-
-  
+  doAssert p.to(keV) == 51.099874.keV
 
 ## If there is demand the following kind of syntax may be implemented in the future
 when false:
@@ -119,27 +180,27 @@ when false:
 
 Things to note:
 - real units use capital letters and are verbose
-- shorthands defined for all typical units
+- shorthands defined for all typical units using their common
+  abbreviation (upper or lower case depending on the unit, e.g. ~s~ (second)
+  and ~N~ (Newton)
 - conversion of numbers to units done using `.` call and using
   shorthand names  
 - `•` symbol is product of units to allow unambiguous parsing of units
+  -> specific unicode symbol may become user customizable in the future
 - no division of units, but negative exponents
 - exponents are in superscript
 - usage of `•` and superscript is to circumvent Nim's identifier
   rules!
 - SI units are the base. If ambiguous operation that can be solved by
-  unit conversion, SI units are used.  
+  unit conversion, SI units are used (in the default SI unit system
+  predefined when simply importing ~unchained~)
 - math operations *cannot* use superscripts!
-- physical units are defined
+- some physical constants are defined, more likely in the future 
 - conversion from prefixed SI unit to non prefixed SI unit *only*
   happens if multiple prefixed units of same quantity involved
 - =UnitLess= is a =distinct float= unit that has a converter to
   =float= (such that =UnitLess= magically works with math functions
   expecting floats).
-- type comparison with =is= is somewhat broken, because it checks for
-  explicit equalness, but not up aliases. Due to that reason we will
-  provide a custom =is= operator that perform type equality checks in
-  the same way as it is done for ~==~.
 
 ** Why "Unchained"?
 Un = Unit
