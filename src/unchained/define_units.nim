@@ -24,6 +24,15 @@ proc parseDefinedUnit*(x: NimNode): UnitProduct =
 
 proc `<`*(a, b: UnitInstance): bool =
   ## Comparison based on the order in `UnitTab`.
+  # 1. check if one is positive power and other negative,
+  # if so return early and ignore actual units (so that
+  # `inch•s⁻¹` remains this order, desipte lower precedence of
+  # `inch` compared to `s`
+  if a.power > 0 and b.power < 0:
+    return true
+  elif b.power > 0 and a.power < 0:
+    return false
+  # 2. if not returned take unit precedence into account
   let aIdx = UnitTab.getIdx(a)
   let bIdx = UnitTab.getIdx(b)
   if aIdx < bIdx:

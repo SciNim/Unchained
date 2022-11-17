@@ -621,7 +621,7 @@ suite "Unchained - practical examples turned tests":
     let t = 1.s
     let argument = ω * t + φ
     check typeof(argument) is Radian
-    check typeof(ω) is Second⁻¹•Radian
+    check typeof(ω) is Radian•Second⁻¹
     check typeof(A * cos(argument)) is CentiMeter
     check A * cos(argument) =~= -8.62319.cm
 
