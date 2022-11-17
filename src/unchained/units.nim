@@ -129,12 +129,13 @@ macro defUnit*(arg: untyped, toExport: bool = false): untyped =
             type `arg`* = distinct CompoundQuantity
 
 ## TODO: we should really combine these macros somewhat?
+from utils import almostEqual
 macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
   var xCT = parseDefinedUnit(x)
   var yCT = parseDefinedUnit(y)
   if xCT == yCT:
     result = quote do:
-      (`x`.float == `y`.float)
+      almostEqual(`x`.float, `y`.float)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
@@ -147,7 +148,7 @@ macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
     # compare scaled to base type units
     ## TODO: use almostEqual?
     result = quote do:
-      (`x`.float * `xScale` == `y`.float * `yScale`)
+      almostEqual(`x`.float * `xScale`, `y`.float * `yScale`)
   else:
     error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
