@@ -85,48 +85,48 @@ proc pretty*[T: SomeUnit](s: T, precision: int, short: bool): string =
 proc `$`*[T: SomeUnit](s: T): string = pretty(s, precision = -1, short = ShortFormat)
 
 macro defUnit*(arg: untyped, toExport: bool = false): untyped =
-  ## Helper template to define new units (not required to be used manually)
-
-  ## TODO: emit both short and long hand version of the given unit
+  ## Defines the given unit `arg` the scope. If `toExport` is `true` and the call happens
+  ## at top level, the unit will be exported.
+  ##
+  ## This is required for any not predefined compound unit (product of different units),
+  ## unless the same unit appeared "naturally" due to a math operation or `.` dot operator
+  ## assigning a unit. Note however that it may still be desired to call `defUnit` manually
+  ## to be certain the unit is available, as implicitly defined units are only visible
+  ## in the scope 'below' their definition (which can lead to confusing errors).
   let argCT = parseDefinedUnit(arg)
   let toExport = toExport.strVal == "true"
-  ## TODO: instead of just using the long version, what to do for
-  ## J•m or something like this? For max compatibility the RHS
-  ## should actually be the base unit stuff.
-  if true: # when would we want the other branch now?
-    let resType = argCT.simplify(mergePrefixes = true).toNimType()
-    if resType.strVal != "UnitLess":
-      if not toExport:
-        result = quote do:
-          when not declared(`resType`):
-            type `resType` = distinct CompoundQuantity
-          when not declared(`arg`):
-            type `arg` = `resType`
-      else:
-        result = quote do:
-          when not declared(`resType`):
-            type `resType`* = distinct CompoundQuantity
-          when not declared(`arg`):
-            type `arg`* = `resType`
+  let resType = argCT.simplify(mergePrefixes = true).toNimType()
+  let resTypeShort = argCT.simplify(mergePrefixes = true).toNimType(short = true)
+  if resType.strVal != "UnitLess":
+    if not toExport:
+      result = quote do:
+        when not declared(`resType`):
+          type `resType` = distinct CompoundQuantity
+        when not declared(`arg`):
+          type `arg` = `resType`
+        when not declared(`resTypeShort`):
+          type `resTypeShort` = `resType`
     else:
-      if not toExport:
-        result = quote do:
-          when not declared(`arg`):
-            type `arg` = `resType`
-      else:
-        result = quote do:
-          when not declared(`arg`):
-            type `arg`* = `resType`
+      result = quote do:
+        when not declared(`resType`):
+          type `resType`* = distinct CompoundQuantity
+        when not declared(`arg`):
+          type `arg`* = `resType`
+        when not declared(`resTypeShort`):
+          type `resTypeShort`* = `resType`
   else:
-    if arg.strVal != "UnitLess":
-      if not toExport:
-        result = quote do:
-          when not declared(`arg`):
-            type `arg` = distinct CompoundQuantity
-      else:
-        result = quote do:
-          when not declared(`arg`):
-            type `arg`* = distinct CompoundQuantity
+    if not toExport:
+      result = quote do:
+        when not declared(`arg`):
+          type `arg` = `resType`
+        when not declared(`resTypeShort`):
+          type `resTypeShort` = `resType`
+    else:
+      result = quote do:
+        when not declared(`arg`):
+          type `arg`* = `resType`
+        when not declared(`resTypeShort`):
+          type `resTypeShort`* = `resType`
 
 ## TODO: we should really combine these macros somewhat?
 from utils import almostEqual
