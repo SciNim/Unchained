@@ -13,9 +13,9 @@ type
   UnitLess* = distinct Dimensionless
 
   SiPrefix* = enum
-    siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
+    siQuecto, siRonto, siYocto, siZepto, siAtto, siFemto, siPico, siNano, siMicro, siMilli, siCenti, siDeci,
     siIdentity,
-    siDeca, siHecto, siKilo, siMega, siGiga, siTera, siPeta, siExa, siZetta, siYotta
+    siDeca, siHecto, siKilo, siMega, siGiga, siTera, siPeta, siExa, siZetta, siYotta, siRonna, siQuetta
 
 const digits* = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
 const digitsAndMinus* = ["⁻","⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
@@ -23,6 +23,8 @@ const DigitsAscii* = ["0","1","2","3","4","5","6","7","8","9"]
 const AsciiChars* = {'*', '^', '-', '0' .. '9'}
 
 const SiPrefixStringsLong* = {
+  "Quecto" :   siQuecto,
+  "Ronto" :   siRonto,
   "Yocto" :    siYocto,
   "Zepto" :    siZepto,
   "Atto" :     siAtto,
@@ -43,10 +45,14 @@ const SiPrefixStringsLong* = {
   "Peta" :     siPeta,
   "Exa" :      siExa,
   "Zetta" :    siZetta,
-  "Yotta" :    siYotta
+  "Yotta" :    siYotta,
+  "Ronna" :    siRonna,
+  "Quetta" :   siQuetta
 }
 
 const SiPrefixStringsShort* = {
+  "q"  :    siQuecto,
+  "r"  :    siRonto,
   "y"  :    siYocto,
   "z"  :    siZepto,
   "a"  :     siAtto,
@@ -67,7 +73,9 @@ const SiPrefixStringsShort* = {
   "P"  :     siPeta,
   "E"  :      siExa,
   "Z"  :    siZetta,
-  "Y"  :    siYotta
+  "Y"  :    siYotta,
+  "R"  :    siRonna,
+  "Q"  :    siQuetta
 }
 
 const SiPrefixTable* = block:
@@ -88,24 +96,28 @@ proc `$`*(prefix: SiPrefix): string =
 proc toFactor*(prefix: SiPrefix): float =
   ## note: can't compute value reasonably, due to hecto, centi, deci and deca
   case prefix
-  of siYocto: result = 1e-24
-  of siZepto: result = 1e-21
-  of siAtto: result = 1e-18
-  of siFemto: result = 1e-15
-  of siPico: result = 1e-12
-  of siNano: result = 1e-9
-  of siMicro: result = 1e-6
-  of siMilli: result = 1e-3
-  of siCenti: result = 1e-2
-  of siDeci: result = 1e-1
-  of siIdentity: result = 1.0
-  of siDeca: result = 1e1
-  of siHecto: result = 1e2
-  of siKilo: result = 1e3
-  of siMega: result = 1e6
-  of siGiga: result = 1e9
-  of siTera: result = 1e12
-  of siPeta: result = 1e15
-  of siExa: result = 1e18
-  of siZetta: result = 1e21
-  of siYotta: result = 1e24
+  of siQuecto:   result = 1e-30
+  of siRonto:    result = 1e-27
+  of siYocto:    result = 1e-24
+  of siZepto:    result = 1e-21
+  of siAtto:     result = 1e-18
+  of siFemto:    result = 1e-15
+  of siPico:     result = 1e-12
+  of siNano:     result = 1e-9
+  of siMicro:    result = 1e-6
+  of siMilli:    result = 1e-3
+  of siCenti:    result = 1e-2
+  of siDeci:     result = 1e-1
+  of siIdentity: result = 1e0
+  of siDeca:     result = 1e1
+  of siHecto:    result = 1e2
+  of siKilo:     result = 1e3
+  of siMega:     result = 1e6
+  of siGiga:     result = 1e9
+  of siTera:     result = 1e12
+  of siPeta:     result = 1e15
+  of siExa:      result = 1e18
+  of siZetta:    result = 1e21
+  of siYotta:    result = 1e24
+  of siRonna:    result = 1e27
+  of siQuetta:   result = 1e30
