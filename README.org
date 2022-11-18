@@ -81,7 +81,7 @@ let m = 80.kg
 let g = 9.81.m•s⁻²
 let f = force(m, g)
 doAssert typeof(f) is Newton
-doAssert f == 784.8000000000001.N
+doAssert f == 784.8.N
   #+end_src
 - define your own custom unit systems, see [[examples/custom_unit_system.nim]]  
 - ...
