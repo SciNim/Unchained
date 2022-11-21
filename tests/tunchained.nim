@@ -576,6 +576,14 @@ suite "Unchained - Type definitions":
       let a = 10.kg•m•J•F
       let b = 10.KiloGram•Meter•Joule•Farad
 
+  test "`toDef` defines and converts a unit":
+    let x = 1.eV
+    let y = 10.kg * 9.81.m•s⁻² * 10.m # Potential energy of 10 kg on Earth in 10m height
+    let z = 10.kg * 9.81.m•s⁻²
+    check z.toDef(J•m⁻¹) =~= 98.1.J•m⁻¹
+    check z.toDef(eV•m⁻¹) =~= (98.1 / e.float).eV•m⁻¹
+    check z.toDef(MeV•m⁻¹) =~= (98.1 / e.float / 1e6).MeV•m⁻¹
+
 suite "Unchained - isAUnit concept checking":
   test "Matches units correctly":
     check isAUnit(Meter)
