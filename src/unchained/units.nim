@@ -148,11 +148,6 @@ macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
-    # now convert x, y to base types
-    let needConversion = needConversionToBase(xCT, yCT)
-    xCT = xCT.toBaseType(needConversion).simplify()
-    yCT = yCT.toBaseType(needConversion).simplify()
-    let resType = xCT.toNimType()
     # compare scaled to base type units
     ## TODO: use almostEqual?
     result = quote do:
@@ -170,11 +165,6 @@ macro `<`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
-    # now convert x, y to base types
-    let needConversion = needConversionToBase(xCT, yCT)
-    xCT = xCT.toBaseType(needConversion).simplify()
-    yCT = yCT.toBaseType(needConversion).simplify()
-    let resType = xCT.toNimType()
     # compare scaled to base type units
     result = quote do:
       (`x`.float * `xScale` < `y`.float * `yScale`)
@@ -191,11 +181,6 @@ macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
-    # now convert x, y to base types
-    let needConversion = needConversionToBase(xCT, yCT)
-    xCT = xCT.toBaseType(needConversion).simplify()
-    yCT = yCT.toBaseType(needConversion).simplify()
-    let resType = xCT.toNimType()
     # compare scaled to base type units
     result = quote do:
       (`x`.float * `xScale` <= `y`.float * `yScale`)
