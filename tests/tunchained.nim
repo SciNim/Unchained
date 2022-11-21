@@ -570,11 +570,9 @@ suite "Unchained - Type definitions":
     check foo(a) == 20.Meter•Second⁻⁷
 
   test "Unit definition defines both shorthand and long hand":
-    ## TODO :fix
     defUnit(kg•m•J•F)
-    when false:
-      let a = 10.kg•m•J•F
-      let b = 10.KiloGram•Meter•Joule•Farad
+    let a = 10.kg•m•J•F
+    let b = 10.KiloGram•Meter•Joule•Farad
 
   test "`toDef` defines and converts a unit":
     let x = 1.eV
@@ -583,6 +581,70 @@ suite "Unchained - Type definitions":
     check z.toDef(J•m⁻¹) =~= 98.1.J•m⁻¹
     check z.toDef(eV•m⁻¹) =~= (98.1 / e.float).eV•m⁻¹
     check z.toDef(MeV•m⁻¹) =~= (98.1 / e.float / 1e6).MeV•m⁻¹
+
+  test "Equivalent units are valid type aliases":
+    block ValidAliases:
+      ## These are valid because they can be direcly mapped to an
+      ## equivalent type using base units without any scaling factor.
+      defUnit(J•s)
+      defUnit(N•m)
+
+      let x = 1.kg * 1.m² * 1.s⁻¹
+      check typeof(x) is J•s
+      check typeof(x) is Second•Joule
+      check typeof(x) is kg•m²•s⁻¹
+      check typeof(x) is KiloGram•Meter²•Second⁻¹
+
+      let y = 1.kg * 1.m² * 1.s⁻²
+      check typeof(y) is N•m
+      check typeof(y) is Meter•Newton
+      check typeof(y) is kg•m²•s⁻²
+      check typeof(y) is KiloGram•Meter²•Second⁻²
+
+    block InvalidDueToPrefix:
+      ## These are invalid, due to a non identity SI prefix forbidding their
+      ## conversion to a base unit without a factor, hence they cannot have
+      ## base aliases
+      defUnit(mJ•s)
+      defUnit(MN•m)
+
+      let x1 = 1.kg * 1.m² * 1.s⁻¹
+      check typeof(x1) isnot mJ•s
+      check typeof(x1) isnot Second•MilliJoule
+      let x2 = 1.mJ•s
+      check typeof(x2) isnot kg•m²•s⁻¹
+      check typeof(x2) isnot KiloGram•Meter²•Second⁻¹
+
+      let y1 = 1.kg * 1.m² * 1.s⁻²
+      check typeof(y1) isnot MN•m
+      check typeof(y1) isnot Meter•MegaNewton
+      let y2 = 1.MN•m
+      check typeof(y2) isnot kg•m²•s⁻²
+      check typeof(y2) isnot KiloGram•Meter²•Second⁻²
+
+    block InvalidDueToConversion:
+      ## They are also invalid, if the compound unit used requires a conversion
+      ## factor to base units, e.g. for eV or lbs
+      defUnit(eV•kg)
+      defUnit(lbs•m)
+
+      let x = 1.eV * 1.kg
+      check typeof(x) is eV•kg
+      check typeof(x) is KiloGram•ElectronVolt
+
+      defUnit(KiloGram•Joule) # even required to define `KiloGram•Joule`!)
+      check typeof(x) isnot KiloGram•Joule
+      check typeof(x) isnot kg•J
+      check typeof(x) isnot KiloGram²•Meter²•Second⁻²
+      check typeof(x) isnot kg²•m²•s⁻²
+
+      let y = 1.lbs * 1.m
+      check typeof(y) is m•lbs
+      check typeof(y) is Meter•Pound
+
+      defUnit(KiloGram•Meter)
+      check typeof(y) isnot KiloGram•Meter
+      check typeof(y) isnot kg•m
 
 suite "Unchained - isAUnit concept checking":
   test "Matches units correctly":
@@ -813,9 +875,19 @@ suite "Unchained - Bug issues":
     block:
       let a = 1.N•s
       let b = 1.kg•m•s⁻¹
-      # this cannot hold, as the nim compile does not recognize that they are the same
-      check typeof(a) isnot typeof(b)
+      # this was not true in previous versions of unchained. Now we define the base units
+      # in `defUnit` as well for compounds, making this comparison true! (see next block)
+      check typeof(a) is typeof(b)
       # but this works
+      check a == b
+    block:
+      # However, they are _only_ the same if e.g. Newton does not have a different SI prefix!
+      defUnit(mN•s)
+      let a = 1.N•s.to(mN•s)
+      let b = 1.kg•m•s⁻¹
+      check typeof(a) isnot typeof(b)
+      # but this works, because they represent the same measure! Their units are simply different
+      # because mN cannot be properly represented as a pure base unit product *without a scale factor*!
       check a == b
 
   test "Division of compound units (issue #16)":
