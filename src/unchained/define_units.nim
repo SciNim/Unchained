@@ -279,7 +279,9 @@ proc toBaseUnits(q: CTQuantity): UnitProduct =
       )
   else: discard
 
-proc flatten*(units: UnitProduct, needConversion = true): UnitProduct =
+proc flatten*(units: UnitProduct, needConversion = true,
+              onlyFlattenSiIdentity = false,
+              dontFlattenDerived = false): UnitProduct =
   ## extracts all base units from individual compound units and turns it into
   ## a single UnitProduct of only base units. Finally simplifies the result.
   ##
@@ -291,7 +293,12 @@ proc flatten*(units: UnitProduct, needConversion = true): UnitProduct =
     let power = unitInst.power
     let prefix = unitInst.prefix
     let unit = unitInst.unit
-    if not needConversion or not unitInst.unit.autoConvert:
+    let noFlattenIdentity = onlyFlattenSiIdentity and prefix != siIdentity
+    let noFlattenDerived = dontFlattenDerived and unit.kind == utDerived
+    if not needConversion or
+       not unitInst.unit.autoConvert or
+       noFlattenIdentity or
+       noFlattenDerived:
       #var mu = unitInst
       #factor *= pow(prefix.toFactor(), power.float)
       #mu.prefix = mu.unit.basePrefix
