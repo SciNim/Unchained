@@ -95,38 +95,46 @@ macro defUnit*(arg: untyped, toExport: bool = false): untyped =
   ## in the scope 'below' their definition (which can lead to confusing errors).
   let argCT = parseDefinedUnit(arg)
   let toExport = toExport.strVal == "true"
-  let resType = argCT.simplify(mergePrefixes = true).toNimType()
-  let resTypeShort = argCT.simplify(mergePrefixes = true).toNimType(short = true)
+
+  let resTypeCT = argCT.simplify(mergePrefixes = true)
+  let resType = resTypeCT.toNimType()
+  let resTypeShort = resTypeCT.toNimType(short = true)
+  ## for the "base" type:
+  ## - flatten: replace all compound units with their base units `iff`:
+  ##   - the compound is of identity SI prefix (otherwise need a factor for SI prefix
+  ##     conversion, which cannot be mapped to a *pure type*
+  ##   - the compound is *not* a derived compound, i.e. eV or lbs that requires a
+  ##     conversion factor
+  let baseTypeCT = argCT.flatten(onlyFlattenSiIdentity = true,
+                               dontFlattenDerived = true).simplify
+  let baseType = baseTypeCT.toNimType()
+  let baseTypeShort = baseTypeCT.toNimType(short = true)
+  let distinctQuant = nnkDistinctTy.newTree(bindSym"CompoundQuantity")
+  proc emitType(typ, asTyp: NimNode, toExport: bool): NimNode =
+    let expTyp = if toExport: nnkPostfix.newTree(ident"*", typ)
+                 else: typ
+    result = nnkTypeSection.newTree(
+      nnkTypeDef.newTree(
+        expTyp,
+        newEmptyNode(),
+        asTyp
+      )
+    )
+    # now wrap in declared
+    result = quote do:
+      when not declared(`typ`):
+        `result`
+
+  result = newStmtList()
   if resType.strVal != "UnitLess":
-    if not toExport:
-      result = quote do:
-        when not declared(`resType`):
-          type `resType` = distinct CompoundQuantity
-        when not declared(`arg`):
-          type `arg` = `resType`
-        when not declared(`resTypeShort`):
-          type `resTypeShort` = `resType`
-    else:
-      result = quote do:
-        when not declared(`resType`):
-          type `resType`* = distinct CompoundQuantity
-        when not declared(`arg`):
-          type `arg`* = `resType`
-        when not declared(`resTypeShort`):
-          type `resTypeShort`* = `resType`
+    result.add emitType(baseType,      distinctQuant, toExport)
+    result.add emitType(baseTypeShort, baseType,      toExport)
+    result.add emitType(resType,       baseType,      toExport)
+    result.add emitType(arg,           resType,       toExport)
+    result.add emitType(resTypeShort,  resType,       toExport)
   else:
-    if not toExport:
-      result = quote do:
-        when not declared(`arg`):
-          type `arg` = `resType`
-        when not declared(`resTypeShort`):
-          type `resTypeShort` = `resType`
-    else:
-      result = quote do:
-        when not declared(`arg`):
-          type `arg`* = `resType`
-        when not declared(`resTypeShort`):
-          type `resTypeShort`* = `resType`
+    result.add emitType(arg,          resType, toExport)
+    result.add emitType(resTypeShort, resType, toExport)
 
 ## TODO: we should really combine these macros somewhat?
 from utils import almostEqual
