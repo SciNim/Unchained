@@ -834,6 +834,13 @@ suite "Unchained - Bug issues":
       b = 5.m•s⁻¹
     check a * b == @[5.m•s⁻¹, 10.m•s⁻¹, 15.m•s⁻¹]
 
+  test "Quantity concepts would not match due to wrong ordering":
+    # whether they matched depended on the order in which the
+    # quantity was defined in the unit system, due to a missing `sort`
+    check Meter is Length
+    check Joule is Energy
+    check Newton is Force
+
 suite "Utils":
   test "Power w/ static integer exponents for floats":
     let x = 5

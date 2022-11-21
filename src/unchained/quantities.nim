@@ -1,4 +1,4 @@
-import std / [macros, sets, sequtils, tables, tables]
+import std / [macros, sets, sequtils, tables, tables, algorithm]
 
 import macro_utils
 
@@ -60,7 +60,9 @@ proc toQuantityPower*(q: CTQuantity): seq[QuantityPower] =
   ## the kind of quantity. Useful to perform dimensional analysis.
   case q.kind
   of qtFundamental: result.add QuantityPower(quant: q.b, power: 1)
-  of qtCompound: result = q.baseSeq
+  of qtCompound:
+    result = q.baseSeq
+    result.sort()
 
 import std / hashes
 proc hash*(q: CTQuantity): Hash =
