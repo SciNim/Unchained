@@ -619,12 +619,14 @@ proc genUnitTypes(units: DefinedUnits): NimNode =
   ## Generates all unit type definitions.
   ##
   ## In the general case, e.g. for `Newton`:
-  ##
-  ##  type
-  ##    # maybe this won't be needed anymore?
-  ##    KiloGram•Meter•Second⁻²* = distinct Force
-  ##    Newton* = KiloGram•Meter•Second⁻²
-  ##    N* = Newton
+  ## ```nim
+  ## type
+  ##   Newton = distinct Force
+  ##   N = Newton
+  ##   KiloGram•Meter•Second⁻² = Newton
+  ##   kg•m•s⁻² = Newton
+  ##   ...
+  ## ```
   ##
   ## And for base units:
   ##
@@ -634,8 +636,24 @@ proc genUnitTypes(units: DefinedUnits): NimNode =
   ##
   ## This is because compound units are not necessarily unique.
   result = nnkTypeSection.newTree()
-  # 1. generate all units for all compound quantities
   var generatedCompounds = initHashSet[string]()
+  for unit in units:
+    let quant = unit.quantity
+    # 1. unit = distinct quantity
+    result.add defineDistinctType(unit.name, quant.getName(typeName = true))
+    # 2. unit short = unit
+    result.add defineType(unit.short, unit.name)
+    if quant.kind == qtCompound and unit.kind == utBase:
+      # 3. base type alias = unit
+      let quantBase = quant.toBaseUnits()
+      let long = quantBase.toNimTypeStr()
+      if long notin generatedCompounds:
+        result.add defineType(long, unit.name)
+        # 4. short base type alias = unit
+        result.add defineType(quantBase.toNimTypeStr(short = true), unit.name)
+        generatedCompounds.incl long
+  # generate remaining units that belong to quantities, which don't have their
+  # own unit & base unit representations (e.g. Acceleration & m•s⁻²)
   for quant in compoundQuantities(QuantityTab):
     let typ = quant.toBaseUnits().toNimTypeStr()
     let typShort = quant.toBaseUnits().toNimTypeStr(short = true)
@@ -643,21 +661,6 @@ proc genUnitTypes(units: DefinedUnits): NimNode =
       result.add defineDistinctType(typ, quant.getName(typeName = true))
       result.add defineType(typShort, typ)
       generatedCompounds.incl typ
-
-  for unit in units:
-    let asBase = unit.quantity.toBaseUnits()
-    if not asBase.isNil and unit.kind == utBase: # not a unit with a conversion
-      # this is a base compound unit without a conversion
-      # 1. generate the alias for the long name
-      let compound = asBase.toNimTypeStr()
-      result.add defineType(unit.name, compound)
-      # 2. generate the short name alias
-      result.add defineType(unit.short, unit.name)
-    else:
-      # 1. generate main definition, i.e. long name = distinct quantity
-      result.add defineDistinctType(unit.name, unit.quantity.getName(typeName = true))
-      # 2. generate the short name
-      result.add defineType(unit.short, unit.name)
 
 macro declareUnits*(defs: untyped): untyped =
   ## Declares a set of base and derived units.
