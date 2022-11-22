@@ -120,7 +120,6 @@ macro defUnit*(arg: untyped, toExport: bool = false): untyped =
         asTyp
       )
     )
-    # now wrap in declared
     result = quote do:
       when not declared(`typ`):
         `result`
@@ -130,8 +129,8 @@ macro defUnit*(arg: untyped, toExport: bool = false): untyped =
     result.add emitType(baseType,      distinctQuant, toExport)
     result.add emitType(baseTypeShort, baseType,      toExport)
     result.add emitType(resType,       baseType,      toExport)
-    result.add emitType(arg,           resType,       toExport)
-    result.add emitType(resTypeShort,  resType,       toExport)
+    result.add emitType(resTypeShort,  baseType,      toExport)
+    result.add emitType(arg,           baseType,      toExport)
   else:
     result.add emitType(arg,          resType, toExport)
     result.add emitType(resTypeShort, resType, toExport)
