@@ -591,13 +591,13 @@ suite "Unchained - Type definitions":
 
       let x = 1.kg * 1.m² * 1.s⁻¹
       check typeof(x) is J•s
-      check typeof(x) is Second•Joule
+      check typeof(x) is Joule•Second
       check typeof(x) is kg•m²•s⁻¹
       check typeof(x) is KiloGram•Meter²•Second⁻¹
 
       let y = 1.kg * 1.m² * 1.s⁻²
       check typeof(y) is N•m
-      check typeof(y) is Meter•Newton
+      check typeof(y) is Newton•Meter
       check typeof(y) is kg•m²•s⁻²
       check typeof(y) is KiloGram•Meter²•Second⁻²
 
@@ -610,14 +610,14 @@ suite "Unchained - Type definitions":
 
       let x1 = 1.kg * 1.m² * 1.s⁻¹
       check typeof(x1) isnot mJ•s
-      check typeof(x1) isnot Second•MilliJoule
+      check typeof(x1) isnot MilliJoule•Second
       let x2 = 1.mJ•s
       check typeof(x2) isnot kg•m²•s⁻¹
       check typeof(x2) isnot KiloGram•Meter²•Second⁻¹
 
       let y1 = 1.kg * 1.m² * 1.s⁻²
       check typeof(y1) isnot MN•m
-      check typeof(y1) isnot Meter•MegaNewton
+      check typeof(y1) isnot MegaNewton•Meter
       let y2 = 1.MN•m
       check typeof(y2) isnot kg•m²•s⁻²
       check typeof(y2) isnot KiloGram•Meter²•Second⁻²
@@ -630,11 +630,11 @@ suite "Unchained - Type definitions":
 
       let x = 1.eV * 1.kg
       check typeof(x) is eV•kg
-      check typeof(x) is KiloGram•ElectronVolt
+      check typeof(x) is ElectronVolt•KiloGram
 
-      defUnit(KiloGram•Joule) # even required to define `KiloGram•Joule`!)
-      check typeof(x) isnot KiloGram•Joule
-      check typeof(x) isnot kg•J
+      defUnit(Joule•KiloGram) # even required to define `KiloGram•Joule`!)
+      check typeof(x) isnot Joule•KiloGram
+      check typeof(x) isnot J•kg
       check typeof(x) isnot KiloGram²•Meter²•Second⁻²
       check typeof(x) isnot kg²•m²•s⁻²
 
