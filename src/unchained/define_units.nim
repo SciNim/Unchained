@@ -22,6 +22,9 @@ proc parseDefinedUnit*(x: NimNode): UnitProduct =
   ## Overload that wraps the local `UnitTab` and hands it for parsing
   result = UnitTab.parseDefinedUnit(x)
 
+proc insert*(unit: string, asUnit: UnitProduct) =
+  UnitTab.insert(unit, asUnit)
+
 proc `<`*(a, b: UnitInstance): bool =
   ## Comparison based on the order in `UnitTab`.
   # 1. check if one is positive power and other negative,
@@ -167,13 +170,15 @@ proc toNimType*(u: UnitInstance, short = false,
       else:
         result.add DigitsAscii[digit]
 
-proc toNimTypeStr*(x: UnitProduct, short = false,
+proc toNimTypeStr*(tab: var UnitTable, x: UnitProduct, short = false,
                    internal: static bool = true): string =
   ## converts `x` to the correct string representation
   # return early if no units in x
   if x.units.len == 0: return "UnitLess"
-  ## XXX: add a `reduce` call / simplify
+  elif short and x in tab.unitNames: return tab.unitNames[x]
+  elif not short and x in tab.unitNamesLong: return tab.unitNamesLong[x]
   let xSorted = x.units.sorted
+
   for idx, u in xSorted:
     #if u.unitKind == ukUnitLess: continue
     var str = toNimType(u, short, internal)
@@ -183,6 +188,15 @@ proc toNimTypeStr*(x: UnitProduct, short = false,
       else:
         str.add "*"
     result.add str
+  if short and x notin tab.unitNames:
+    tab.unitNames[x] = result
+  elif not short and x notin tab.unitNamesLong:
+    tab.unitNamesLong[x] = result
+
+proc toNimTypeStr*(x: UnitProduct, short = false,
+                   internal: static bool = true): string =
+  ## converts `x` to the correct string representation
+  result = UnitTab.toNimTypeStr(x, short, internal)
 
 proc toNimType*(x: UnitProduct, short = false): NimNode =
   ## converts `x` to the correct
