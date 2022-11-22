@@ -54,7 +54,7 @@ proc `<`*(a, b: UnitInstance): bool =
 
 proc sorted*(u: UnitProduct): UnitProduct =
   ## Returns a unit sorted version of `u`
-  result = newUnitProduct(u.value)
+  result = initUnitProduct(u.value)
   result.units.sort()
 
 proc toQuantityPower(units: UnitProduct): seq[QuantityPower] =
@@ -220,7 +220,7 @@ proc toBaseType*(u: UnitInstance, needConversion: bool): UnitProduct =
   ## Returns a modified instance of this unit that is based on the
   ## base units of the system. E.g. `lbs` will be converted to `kg` assuming
   ## SI system.
-  result = newUnitProduct()
+  result = initUnitProduct()
   if not needConversion or not u.unit.autoConvert:
     ## If no auto conversion wished, simply assign base prefix (i.e. reset prefix) and add
     var mu = u
@@ -236,7 +236,7 @@ proc toBaseType*(u: UnitInstance, needConversion: bool): UnitProduct =
       result.units.add mu
     of utDerived:
       # result is simply the conversion (factor + unit) of this derived unit
-      result = newUnitProduct(u.unit.conversion.value)
+      result = initUnitProduct(u.unit.conversion.value)
       # starting from a new unit product (as it's a ref) and apply powers of `u` to each
       # base unit of the converted unit.
       for bu in u.unit.conversion.units:
@@ -251,7 +251,7 @@ proc toBaseType*(x: UnitProduct, needConversion: bool): UnitProduct =
   ## WARNING: this is a lossy conversion, so make sure to extract the
   ## conversion scales using `toBaseTypeScale` before doing this!
   ## TODO: can we add to `CTUnit` a scale?
-  result = newUnitProduct()
+  result = initUnitProduct()
   for u in x.units:
     result.add u.toBaseType(needConversion)
 
@@ -270,7 +270,7 @@ proc toBaseUnits(q: CTQuantity): UnitProduct =
   ## Turns the given quantity into a `UnitProduct` of base units
   case q.kind
   of qtCompound:
-    result = newUnitProduct()
+    result = initUnitProduct()
     for b in q.baseSeq:
       let baseUnit = b.quant.toBaseUnit()
       let power = b.power
@@ -287,7 +287,7 @@ proc flatten*(units: UnitProduct, needConversion = true,
   ##
   ## It will flatten all compound units that have the `autoConvert` property
   ## set to `true`.
-  result = newUnitProduct()
+  result = initUnitProduct()
   var factor = 1.0
   for unitInst in units.units:
     let power = unitInst.power
@@ -348,7 +348,7 @@ proc simplify*(x: UnitProduct, mergePrefixes = false): UnitProduct =
   ## so that we can deduce the conversion from the resulting type to its base type.
   # the `value` (product of prefixes & conversions) is *reset* so that this new
   # unit. Therefore do not assign `x.value` to `result.value`.
-  result = newUnitProduct()
+  result = initUnitProduct()
   if mergePrefixes:
     var cTab = initCountTable[DefinedUnit]()
     # prefixTab stores the prefixes of units we add
@@ -376,7 +376,7 @@ proc simplify*(x: UnitProduct, mergePrefixes = false): UnitProduct =
 
 proc invert*(x: UnitProduct): UnitProduct =
   ## Inverts the given `UnitProduct`, i.e. it performs a "division".
-  result = newUnitProduct()
+  result = initUnitProduct()
   for u in x.units:
     var unit = u
     unit.power = -unit.power
@@ -513,7 +513,7 @@ proc parseUnit(tab: var UnitTable, n: NimNode): DefinedUnit =
   var
     short: string
     quantity: CTQuantity
-    conversion = newUnitProduct()
+    conversion = initUnitProduct()
     hasConversion = false
     prefix: SiPrefix = siIdentity # identity if not otherwise specified
     autoConvert = true
@@ -580,7 +580,7 @@ proc addNaturalUnitConversions(tab: var UnitTable, n: NimNode) =
       conv.value = body[0].floatVal
     of nnkFloatLit:
       doAssert body.floatVal == 1.0
-      conv = newUnitProduct()
+      conv = initUnitProduct()
     else:
       error("Invalid node kind " & $body.kind & " for definition of natural unit conversion " &
         "for unit: " & $name)
