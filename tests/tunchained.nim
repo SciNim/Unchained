@@ -865,6 +865,17 @@ suite "Unchained - imperial units":
 
 
 import std/sugar
+
+# required for Arkanoid's test snippet (m•s⁻¹ was removed and will likely
+# be readded), but if it wasn't the `defUnit` call *must* be at global
+# scope, otherwise we get ambiguous types with the same name, as the
+# generic types are resolved before the `defUnit` call is (thus creating
+# another `m•s⁻¹` before this one)
+# Note: has been readded
+# defUnit(m•s⁻¹) # predefined `m•s⁻¹` was removed (will be readded)
+# same holds for the generic test case using quantity concepts
+defUnit(km•h⁻¹)
+
 suite "Unchained - Bug issues":
   test "Different names in equality operator":
     block:
@@ -904,6 +915,9 @@ suite "Unchained - Bug issues":
     check x =~= 1e-19.eV
 
   test "CT error due to sequence arguments of units":
+    # Note: this requires the return type to be defined at top level,
+    # because the `suite` & `test` templates mean this is not at global scale.
+    # A local `defUnit` will be processed ``after`` the generic template.
     # reported by Arkanoid on matrix/discord
     func `*` [§L, §R](a: openArray[§L], b: §R): auto =
       collect(newSeqOfCap(a.len)):
@@ -998,7 +1012,9 @@ suite "Quantity concepts":
     check foo(1.inch) == 0.0254.Meter
 
   test "Multiple quantity concepts to accept different units":
-    defUnit(km•h⁻¹)
+    # Note: this requires the return type to be defined at top level,
+    # because the `suite` & `test` templates mean this is not at global scale.
+    # A local `defUnit` will be processed ``after`` the generic template.
     proc foo[L: Length; T: Time](x: L, y: T): km•h⁻¹=
       result = (x / y).to(km•h⁻¹)
     check foo(5.km, 10.min) == 30.km•h⁻¹
