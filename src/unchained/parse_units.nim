@@ -30,7 +30,14 @@ proc parseSiPrefixShort(c: char): SiPrefix =
   for (el, prefix) in SiPrefixStringsShort:
     if $c == el: return prefix
 
-proc startsAsKnownUnit(tab: UnitTable, s: string): bool =
+proc startsWith(s: openArray[char], prefix: string): bool =
+  ## Version of `startsWith` working on `openArray[char]`.
+  if prefix.len > s.len: return false
+  result = true
+  for i, p in prefix:
+    if s[i] != p: return false
+
+proc startsAsKnownUnit(tab: UnitTable, s: openArray[char]): bool =
   ## Checks if the given string stars like a known unit (short or long version)
   for short in shortNames(tab):
     if s.startsWith(short): return true
@@ -64,7 +71,7 @@ proc parseSiPrefix(tab: UnitTable, s: var string): SiPrefix =
   result = parseSiPrefixShort(s[0])
   if result != siIdentity: # if `result` is siIdentity, `parseSiPrefixShort` failed to
                            # match any short prefix. Hence we look at a unit
-    if tab.startsAsKnownUnit(s[1 ..< s.len]):
+    if tab.startsAsKnownUnit(s.toOpenArray(1, s.high)):
       s = s[1 ..< s.len]   # keep result as found prefix, remove it from `s`
     else:
       result = siIdentity  # did not find any prefixes, as rest of input is *not* a unit,
@@ -81,12 +88,18 @@ proc hasNegativeExp(s: var string): bool =
       s.delete(oldIdx, idx - 1)
       return true
 
+proc runeLen(s: string, start, stop: int): int =
+  var i = start
+  while i < stop:
+    i += runeLenAt(s, i)
+    inc result
+
 proc parseExponent(s: var string, negative: bool): int =
   var buf: string
   let idxStart = s.parseUntil(digits, errorOn = DigitsAscii)
   var idx = idxStart
   if idx > 0:
-    let numDigits = s[idx .. ^1].runeLen
+    let numDigits = s.runeLen(idx, s.len)
     var seen = 0
     while idx < s.len:
       var buf: Rune
