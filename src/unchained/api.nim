@@ -8,11 +8,12 @@
 ## declareUnits: ...
 
 # import the core types, API & utils
-import unchained / [utils, core_types, units]
+import unchained / [utils, core_types, units, unit_typedesc_math]
 
 export core_types
 export units
 export utils
+export unit_typedesc_math
 
 from unchained / define_units import isAUnit
 export isAUnit

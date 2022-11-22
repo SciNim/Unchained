@@ -1059,6 +1059,69 @@ suite "Quantity concepts":
     else:
       check true
 
+suite "Unchaine - math with typedescs to define units":
+  test "Pure typedesc math defines units":
+    block:
+      let x = kg + kg
+      check x == 2.kg
+      let y = kg - kg
+      check y == 0.kg
+    block:
+      check fails((let x = kg + s))
+      check fails((let x = kg - s))
+    block:
+      let x = kg + g
+      check x == 1.001.kg
+      let y = kg - g
+      check y == 0.999.kg
+    block:
+      let x = kg * s
+      check x == 1.kg•s
+    block:
+      let x = kg / s
+      check x == 1.kg•s⁻¹
+    block:
+      let x = kg * s * m
+      check x == 1.kg•m•s
+    block:
+      let x = kg * m^2 * s
+      check x == 1.kg•m²•s
+    block:
+      let x = kg * m^2 * s^(-1)
+      check x == 1.kg•m²•s⁻¹
+  test "Mix of units and typedescs":
+    block:
+      let x = 1.kg + kg
+      check x == 2.kg
+      let y = 1.kg - kg
+      check y == 0.kg
+    block:
+      check fails((let x = 1.kg + s))
+      check fails((let x = 1.kg - s))
+    block:
+      let x = 1.kg + g
+      check x == 1.001.kg
+      let y = 1.kg - g
+      check y == 0.999.kg
+    block:
+      let x = 1.kg * s
+      check x == 1.kg•s
+    block:
+      let x = 1.kg / s
+      check x == 1.kg•s⁻¹
+    block:
+      let x = 1.kg * s * m
+      check x == 1.kg•m•s
+    block:
+      let x = 1.kg * m^2 * s
+      check x == 1.kg•m²•s
+    block:
+      let x = 1.kg * m^2 * s^(-1)
+      check x == 1.kg•m²•s⁻¹
+    block:
+      let x = 1.kg * 1.m^2 * s^(-1)
+      check x == 1.kg•m²•s⁻¹
+
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
 #  (x.float * 1e-9).eV
