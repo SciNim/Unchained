@@ -35,7 +35,15 @@ proc `<`*(a, b: UnitInstance): bool =
     return true
   elif b.power > 0 and a.power < 0:
     return false
-  # 2. if not returned take unit precedence into account
+
+  # 2. if one unit is a compound unit, give it precedence over the
+  # other non compound. So that we write `N•m` instead of `m•N`
+  if a.unit.quantity.kind == qtCompound and b.unit.quantity.kind == qtFundamental:
+    return true
+  elif b.unit.quantity.kind == qtCompound and a.unit.quantity.kind == qtFundamental:
+    return false
+
+  # 3. if not returned take unit precedence into account
   let aIdx = UnitTab.getIdx(a)
   let bIdx = UnitTab.getIdx(b)
   if aIdx < bIdx:
