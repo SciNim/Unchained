@@ -1,3 +1,56 @@
+* v0.3.1
+- add new SI prefixes defined in November 2022:
+  https://www.bipm.org/documents/20126/77765681/Resolutions-2022.pdf/281f3160-fc56-3e63-dbf7-77b76500990f
+- add "unit typedesc math" helper module, which defines procedures
+  working with typedescs, so that the sometimes common approach:
+  #+begin_src nim
+let x = 1 * kg * m / s^2
+doAssert x == 1.kg•m•s⁻²
+let y = 1.kg * m^2 / s^2
+doAssert y == 1.kg•m²•s⁻²
+let z = 1.m^2
+doAssert z == 1.m²
+  #+end_src
+  just works.
+- fixes an issue with concept quantities where they would not match,
+  due to wrong ordering in quantity comparison
+- change default generated definitions of units:
+  Instead of generating the quantity types first and then all units, we
+  now generate all units first as based on distinct quantities. Then for
+  compound units we define all versions of base types as aliases to the
+  unit name. That way we give the compound unit name "priority" in the
+  eyes of the Nim compiler.
+- add caching of user defined units (string representation and
+  internal representation) for minor performance improvements and
+  keeping the user desired string representation around.
+- change precedence of units again, so that fundamental compound units
+  are preferred over base units. Means we write ~N•m~ instead of
+  ~m•N~.
+- make `$`, `pretty` macros to avoid Nim compiler eating alias names:
+  The issue with the recent changes in `defUnit` to add more aliases for
+  a better user experience is that generics tend to eat aliases. In a
+  generic setting the Nim compiler will often only give us the first non
+  aliased name. This is pretty annoying, as it then often gives us type
+  names different from what the user intended. This gets around it, as
+  we now perform the logic in place.
+  *NOTE*: Keep in mind that ~typeof~ has the same issue as
+  generics. The type name you see will be the first non alias name! As
+  such avoid it for most things (only use for ~is~ calls)
+- also turn ~to~ into a macro for the same reason as ~$~:
+  Also here the issue is the same. As a generic we lose access to the
+  real type of the symbol :(.
+  
+  Note that this may make ~toDef~ partially unnecessary. We'll see how
+  this works out.
+  
+  Also note that this breaks ~to~ in context of locally defined units
+  combined with generics, as the macro for ~defUnit~ won't be evaluated
+  before and thus ~to~ won't know the type.
+  
+  However, this is actually a lesser problem now, because we generate
+  more aliases so the *need* for ~to~ has drastically gone down.
+- minor performance improvements in unit name parsing from string
+  names by avoiding some copies.  
 * v0.3.0
 - concepts for each quantity to match different units of same quantity
   in procedure calls!
