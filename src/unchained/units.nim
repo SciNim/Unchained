@@ -392,20 +392,26 @@ macro determineScale(x: typedesc, y: typedesc): float =
   let yScale = yCT.toBaseTypeScale()
   result = newLit(xScale / yScale)
 
-proc to*[T: SomeUnit; U: SomeUnit](x: T, to: typedesc[U]): U =
+macro to*[T: SomeUnit; U: SomeUnit](x: T; to: typedesc[U]): U =
   ## Converts the given unit `x` to the desired target unit `to`. The
   ## units must represent the same quantities, otherwise a CT error is
   ## thrown.
-  when T is U:
-    result = x
-  elif commonQuantity(T, U):
+  let xCT = x.parseDefinedUnit()
+  let yCT = to.parseDefinedUnit()
+  if xCT == yCT:
+    let resType = yCT.toNimType(short = true)
+    result = quote do:
+      `resType`(`x`)
+  elif commonQuantity(xCT, yCT):
     # perform conversion
     ## thus determine scaling factor due to different SI prefixes
-    let scale = determineScale(T, U)
-    result = (x.float * scale).U
+    let scale = xCT.toBaseTypeScale() / yCT.toBaseTypeScale()
+    let resType = yCT.toNimType(short = true)
+    result = quote do:
+      `resType`(`x`.float * `scale`)
   else:
-    {.error: "Cannot convert " & $T & " to " & $U & " as they represent different " &
-      "quantities!".}
+    error("Cannot convert " & $T & " to " & $U & " as they represent different " &
+      "quantities!")
 
 macro toDef*[T: SomeUnit](x: T, to: untyped): untyped =
   ## A macro version of `to` above, which works for target types `to`, which
