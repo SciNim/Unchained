@@ -531,11 +531,11 @@ proc parseUnit(tab: var UnitTable, n: NimNode): DefinedUnit =
 
   if hasConversion:
     # is *not* a base unit (inch, Liter, PoundForce, ..., something that needs conversion)
-    result = newDefinedUnit(utDerived, name, prefix, short, quantity, autoConvert,
+    result = initDefinedUnit(utDerived, name, prefix, short, quantity, autoConvert,
                             quantity.kind, conversion = conversion)
   else:
     # *is* a base unit (but possibly compound!)
-    result = newDefinedUnit(utBase, name, prefix, short, quantity, autoConvert,
+    result = initDefinedUnit(utBase, name, prefix, short, quantity, autoConvert,
                             quantity.kind)
   if quantity.kind == qtCompound and not hasConversion:
     tab.insert(result, hasConversion, quantity.toBaseUnits.toNimTypeStr())

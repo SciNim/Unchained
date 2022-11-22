@@ -47,7 +47,7 @@ type
 proc initUnitProduct*(value = 1.0): UnitProduct =
   result = UnitProduct(value: value, units: newSeq[UnitInstance](), init: true)
 
-proc newDefinedUnit*(kind: DefinedUnitType,
+proc initDefinedUnit*(kind: DefinedUnitType,
                      name: string,
                      basePrefix: SiPrefix,
                      short: string,
