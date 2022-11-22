@@ -23,6 +23,7 @@ declareQuantities:
     Momentum:              [(Mass, 1), (Length, 1), (Time, -1)]
     Force:                 [(Mass, 1), (Length, 1), (Time, -2)]
     Energy:                [(Mass, 1), (Length, 2), (Time, -2)]
+    Torque:                [(Mass, 1), (Length, 2), (Time, -2)]
     ElectricPotential:     [(Mass, 1), (Length, 2), (Time, -3), (Current, -1)]
     # XXX: allow to define aliases here? Voltage: ElectricPotential ?
     Charge:                [(Time, 1), (Current, 1)]
