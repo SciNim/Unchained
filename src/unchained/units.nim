@@ -136,6 +136,9 @@ macro defUnit*(arg: untyped, toExport: bool = false): untyped =
     result.add emitType(arg,          resType, toExport)
     result.add emitType(resTypeShort, resType, toExport)
 
+  # add new unit to `UnitTab`
+  insert(arg.toStrLit.strVal, argCT)
+
 ## TODO: we should really combine these macros somewhat?
 from utils import almostEqual
 macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =

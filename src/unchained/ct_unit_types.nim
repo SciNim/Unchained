@@ -43,6 +43,13 @@ type
     longBaseUnits*: Table[string, int]
     short*: Table[string, int]
     units*: seq[DefinedUnit]
+    userDefinedUnits*: Table[string, UnitProduct] ## maps any user defined unit to its
+                                                  ## unit product. string is the name of the
+                                                  ## unit as produced in `defUnit` for `resType`
+                                                  ## The value is the user given type / generated type.
+    unitNames*: Table[UnitProduct, string] ## Maps all units that have been converted to strings
+                                           ## to their names.
+    unitNamesLong*: Table[UnitProduct, string] ## Equivalent to `unitNames` for long names.
 
 proc initUnitProduct*(value = 1.0): UnitProduct =
   result = UnitProduct(value: value, units: newSeq[UnitInstance](), init: true)
@@ -209,6 +216,9 @@ proc contains*(tab: UnitTable, u: string): bool =
   ## Checks if the given `u` is in the `UnitTable`
   result = u in tab.short or u in tab.long or u in tab.expandedCompoundName
 
+proc isUserDefined*(tab: UnitTable, u: string): bool =
+  result = u in tab.userDefinedUnits
+
 proc insert*(tab: var UnitTable, u: DefinedUnit, hasConversion: bool,
              compoundName = "") =
   ## Inserts the given `u` into the `UnitTable`. The correct sub field will be filled
@@ -236,6 +246,11 @@ proc insert*(tab: var UnitTable, u: DefinedUnit, hasConversion: bool,
   tab.short[u.short] = idx
   tab.units.add u
 
+proc insert*(tab: var UnitTable, unit: string, asUnit: UnitProduct) =
+  ## Insert the given user defined unit `unit`
+  if unit != "UnitLess" and unit notin tab and unit notin tab.userDefinedUnits:
+    tab.userDefinedUnits[unit] = asUnit
+
 proc `[]`*(tab: UnitTable, s: string): DefinedUnit =
   if s in tab.long:
     result = tab.units[tab.long[s]]
@@ -253,6 +268,9 @@ proc `[]`*(tab: UnitTable, q: CTQuantity): DefinedUnit =
 proc `[]`*(tab: UnitTable, q: CTBaseQuantity): DefinedUnit =
   let idx = tab.quantity[q.name]
   result = tab.units[idx]
+
+proc getUserDefined*(tab: UnitTable, s: string): UnitProduct =
+  result = tab.userDefinedUnits[s]
 
 proc getIdx*(tab: UnitTable, u: UnitInstance): int =
   ## Returns the index (i.e. priority) of the given unit instance

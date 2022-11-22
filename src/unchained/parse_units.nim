@@ -164,15 +164,20 @@ proc parseDefinedUnit*(tab: UnitTable, s: string): UnitProduct =
     # else does not matter which proc, because it should be a single unit, e.g. `KiloGram`
     result = tab.parseDefinedUnitUnicode(s)
 
-proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[DefinedUnit] =
+proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
   ## This first `getUnitType` tries to see if we already know this unit.
   ## In that case, we can just return it instead of parsing it again.
   ## This is especially useful for predefined aliases like `N = Newton = KiloGram•Meter•Second⁻²`
   ## as we otherwise fully resolve it to the long format.
+  proc fromTab(tab: UnitTable, nStr: string): Option[UnitProduct] =
+    if tab.isUserDefined(nStr):
+      result = some(tab.getUserDefined(nStr))
+    elif nStr in tab:
+      result = some(tab[nStr].toUnitInstance(assignPrefix = false).toUnitProduct())
+
   case n.kind
   of nnkIdent:
-    if n.strVal in tab:
-      result = some(tab[n.strVal])
+    result = fromTab(tab, n.strVal)
   of nnkSym:
     let nTyp = n.getTypeInst
     var nStr: string
@@ -181,8 +186,7 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[DefinedUnit] =
     of nnkDistinctTy: nStr = nTyp[1].strVal
     of nnkSym: nStr = nTyp.strVal
     else: error("Invalid node for type : " & nTyp.repr)
-    if nStr in tab:
-      result = some(tab[nStr])
+    result = fromTab(tab, nStr)
   of nnkTypeOfExpr:
     result = tab.tryLookupUnitType(n[0])
   else:
@@ -196,11 +200,12 @@ proc parseDefinedUnit*(tab: UnitTable, x: NimNode): UnitProduct =
     #let ctUnit = newUnitLess()
     #result.add ctUnit
     return result
+  # first check if part of previously user defined units
   let resOpt = tab.tryLookupUnitType(x)
   if resOpt.isSome:
     # as we lookup a unit from the `UnitTable` and we have a direct match for a unit
     #, we do *not* want to assigne the base prefix as we have the literal unit, not its base.
-    result = resOpt.get.toUnitInstance(assignPrefix = false).toUnitProduct
+    result = resOpt.get
   else:
     # have to fully parse it
     let xTyp = getUnitType(x)
