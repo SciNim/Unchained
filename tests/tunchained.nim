@@ -465,6 +465,18 @@ suite "Unchained - Conversion between units":
     let a = 10.g•m⁻²
     check a.to(kg•m⁻²) == 0.01.KiloGram•Meter⁻²
 
+  test "Conversion yields correct type in string representation":
+    let x = 5.N * 2.m
+    check $x == "10 N•m"
+    defUnit(N•m) # need it, because the above product defines `m•N`
+    check $x.to(N•m) == "10 N•m"
+
+    proc foo0(): N•m = 5.N * 2.m
+    check $foo0() == "10 N•m"
+    # N•m is equivalent to Joule in quantities and Nim compiler picks joule as the
+    # "default", as it is defined first!
+    check $typeof(foo0()) == "Joule"
+
 suite "Unchained - CT errors":
   test "Error on regular digit as exponent":
     doAssert fails(10.kg•m⁻2) # invalid `2` instead of `²`
@@ -665,10 +677,10 @@ suite "Unchained - syntax in accented quotes":
     check 10.`Mol^-1*KiloGram^2` == 10.mol⁻¹•kg²
 
     defUnit(`kg*m*s^-2`)
-    proc test(f: `kg*m*s^-2`): kg =
+    proc foo(f: `kg*m*s^-2`): kg =
       result = f / 9.81.m•s⁻²
-    check test(98.1.kg•m•s⁻²) =~= 10.kg
-    check test(98.1.`kg*m*s^-2`) =~= 10.kg
+    check foo(98.1.kg•m•s⁻²) =~= 10.kg
+    check foo(98.1.`kg*m*s^-2`) =~= 10.kg
 
 suite "Unchained - practical examples turned tests":
   test "Vacuum pumping time":
@@ -888,6 +900,8 @@ suite "Unchained - Bug issues":
       let b = 1.kg•m•s⁻¹
       # this was not true in previous versions of unchained. Now we define the base units
       # in `defUnit` as well for compounds, making this comparison true! (see next block)
+      check $a == "1 N•s"
+      check $b == "1 kg•m•s⁻¹"
       check typeof(a) is typeof(b)
       # but this works
       check a == b
