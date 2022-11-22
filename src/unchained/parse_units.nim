@@ -119,7 +119,7 @@ proc parseDefinedUnitUnicode(tab: UnitTable, x: string): UnitProduct =
   ## c) "meter per second squared" -> "meterPerSecondSquared"
   ## a) and b) can be parsed together by both looking for `m` as well as `Meter` in each
   ## element. Verbose always start capital letters, shorthand depending on SI prefix / unit (N, V, A...)
-  result = newUnitProduct()
+  result = initUnitProduct()
   if x == "UnitLess": return
   let xTStrs = if "•" in x: x.split("•")
                else: x.split("·")
@@ -133,7 +133,7 @@ proc parseDefinedUnitUnicode(tab: UnitTable, x: string): UnitProduct =
     result.units.add ctUnit
 
 proc parseDefinedUnitAscii(tab: UnitTable, x: string): UnitProduct =
-  result = newUnitProduct()
+  result = initUnitProduct()
   var idx = 0
   var buf: string
   while idx < x.len:
@@ -191,7 +191,7 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[DefinedUnit] =
       result = tab.tryLookupUnitType(nTyp)
 
 proc parseDefinedUnit*(tab: UnitTable, x: NimNode): UnitProduct =
-  result = newUnitProduct()
+  result = initUnitProduct()
   if x.isUnitLessNumber:
     #let ctUnit = newUnitLess()
     #result.add ctUnit

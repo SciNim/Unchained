@@ -492,7 +492,7 @@ proc toNaturalUnitImpl(t: UnitInstance): UnitProduct =
 
 proc toNaturalUnitImpl(t: UnitProduct): UnitProduct =
   ## Converts a compound unit to natural units
-  result = newUnitProduct()
+  result = initUnitProduct()
   for unit in t.units: # note: adding units takes care of accumulating `value`
     result.add toNaturalUnitImpl(unit)
 

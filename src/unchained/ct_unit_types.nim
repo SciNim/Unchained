@@ -29,9 +29,10 @@ type
     power*: int
     value*: float
 
-  UnitProduct* = ref object # a product of multiple (possibly compound) units
+  UnitProduct* = object # a product of multiple (possibly compound) units
     value*: float # value of this unit poduct
     units*: seq[UnitInstance]
+    init*: bool
     #siPrefix*: float # as a pure float value
   UnitTable* = ref object
     # quantity stores the *base unit* referring to a quantity (the key)
@@ -43,8 +44,8 @@ type
     short*: Table[string, int]
     units*: seq[DefinedUnit]
 
-proc newUnitProduct*(value = 1.0): UnitProduct =
-  result = UnitProduct(value: value, units: newSeq[UnitInstance]())
+proc initUnitProduct*(value = 1.0): UnitProduct =
+  result = UnitProduct(value: value, units: newSeq[UnitInstance](), init: true)
 
 proc newDefinedUnit*(kind: DefinedUnitType,
                      name: string,
@@ -53,8 +54,8 @@ proc newDefinedUnit*(kind: DefinedUnitType,
                      quantity: CTQuantity,
                      autoConvert: bool,
                      quantityKind: QuantityType,
-                     conversion = newUnitProduct(),
-                     toNaturalUnit = newUnitProduct()): DefinedUnit =
+                     conversion = initUnitProduct(),
+                     toNaturalUnit = initUnitProduct()): DefinedUnit =
   result = DefinedUnit(kind: kind,
                        name: name,
                        basePrefix: basePrefix,
@@ -62,8 +63,8 @@ proc newDefinedUnit*(kind: DefinedUnitType,
                        quantity: quantity,
                        autoConvert: autoConvert,
                        quantityKind: quantityKind)
-                       #conversion: newUnitProduct(),
-                       #toNaturalUnit: newUnitProduct())
+                       #conversion: initUnitProduct(),
+                       #toNaturalUnit: initUnitProduct())
   case quantityKind
   of qtFundamental: result.toNaturalUnit = toNaturalUnit
   else: discard
@@ -100,7 +101,7 @@ proc newUnitLess*(): UnitInstance =
       autoConvert: false,
       kind: utBase,
       quantityKind: qtFundamental,
-      toNaturalUnit: newUnitProduct()
+      toNaturalUnit: initUnitProduct()
     ),
     prefix: siIdentity,
     power: 0,
@@ -165,25 +166,25 @@ proc hash*(u: UnitInstance): Hash =
   result = !$result
 
 proc add*(comp: var UnitProduct, unit: UnitInstance) =
-  doAssert not comp.isNil
+  doAssert comp.init
   comp.units.add unit
 
 proc add*(comp: var UnitProduct, toAdd: UnitProduct) =
   ## adding a sequence of compound units equates to multiplying units
-  doAssert not comp.isNil
+  doAssert comp.init
   for u in toAdd.units:
     comp.add u
   comp.value *= toAdd.value
 
 proc clone*(up: UnitProduct): UnitProduct =
-  result = newUnitProduct(value = up.value)
+  result = initUnitProduct(value = up.value)
   for units in up.units:
     result.add units
 
 proc toUnitInstance*(u: DefinedUnit, assignPrefix = false): UnitInstance =
   ## `assignPrefix` can be used to overwrite assinging the base prefix to the
   ## resulting `UnitInstance.` if we lookup a unit from the `UnitTable` and we
-  ## have a direct match for a unit, we do *not* want to assigne the base prefix,
+  ## have a direct match for a unit, we do *not* want to assign the base prefix,
   ## as we have the literal unit, not its base.
   if assignPrefix:
     result = newUnitInstance(u.name, u, power = 1, prefix = u.basePrefix)
@@ -191,7 +192,7 @@ proc toUnitInstance*(u: DefinedUnit, assignPrefix = false): UnitInstance =
     result = newUnitInstance(u.name, u, power = 1, prefix = siIdentity)
 
 proc toUnitProduct*(u: UnitInstance): UnitProduct =
-  result = newUnitProduct()
+  result = initUnitProduct()
   result.add u
 
 ## Procedures for `UnitTable`
