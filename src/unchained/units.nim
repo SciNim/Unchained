@@ -155,16 +155,17 @@ macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
   var xCT = parseDefinedUnit(x)
   var yCT = parseDefinedUnit(y)
   if xCT == yCT:
+    let almostEq = bindSym("almostEqual")
     result = quote do:
-      almostEqual(`x`.float, `y`.float)
+      `almostEq`(`x`.float, `y`.float)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
     # compare scaled to base type units
-    ## TODO: use almostEqual?
+    let almostEq = bindSym("almostEqual")
     result = quote do:
-      almostEqual(`x`.float * `xScale`, `y`.float * `yScale`)
+      `almostEq`(`x`.float * `xScale`, `y`.float * `yScale`)
   else:
     error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
