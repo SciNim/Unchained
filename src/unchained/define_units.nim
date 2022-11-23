@@ -25,44 +25,6 @@ proc parseDefinedUnit*(x: NimNode): UnitProduct =
 proc insert*(unit: string, asUnit: UnitProduct) =
   UnitTab.insert(unit, asUnit)
 
-proc `<`*(a, b: UnitInstance): bool =
-  ## Comparison based on the order in `UnitTab`.
-  # 1. check if one is positive power and other negative,
-  # if so return early and ignore actual units (so that
-  # `inch•s⁻¹` remains this order, desipte lower precedence of
-  # `inch` compared to `s`
-  if a.power > 0 and b.power < 0:
-    return true
-  elif b.power > 0 and a.power < 0:
-    return false
-
-  # 2. if one unit is a compound unit, give it precedence over the
-  # other non compound. So that we write `N•m` instead of `m•N`
-  if a.unit.quantity.kind == qtCompound and b.unit.quantity.kind == qtFundamental:
-    return true
-  elif b.unit.quantity.kind == qtCompound and a.unit.quantity.kind == qtFundamental:
-    return false
-
-  # 3. if not returned take unit precedence into account
-  let aIdx = UnitTab.getIdx(a)
-  let bIdx = UnitTab.getIdx(b)
-  if aIdx < bIdx:
-    result = true
-  elif aIdx > bIdx:
-    result = false
-  else:
-    ## NOTE: the power seem "inverted". This is because we wish to have units with
-    ## larger powers ``in front`` of units with smaller powers. E.g.
-    ## `Meter•Meter⁻¹` instead of `Meter⁻¹•Meter`
-    ## We cannot sort in descending order, because the actual units in the `UnitKind`
-    ## enum needs to be respected.
-    if a.power > b.power:
-      result = true
-    elif a.power < b.power:
-      result = false
-    else:
-      result = a.prefix < b.prefix
-
 proc sorted*(u: UnitProduct): UnitProduct =
   ## Returns a unit sorted version of `u`
   result = initUnitProduct(u.value)
@@ -465,7 +427,7 @@ proc assertOption(n: NimNode): bool =
     n[0].kind == nnkIdent and
     n[1].kind == nnkStmtList
 
-proc parseUnit(tab: var UnitTable, n: NimNode): DefinedUnit =
+proc parseUnit(tab: var UnitTable, id: int, n: NimNode): DefinedUnit =
   ## Parses:
   ##
   ##  Call
@@ -503,18 +465,18 @@ proc parseUnit(tab: var UnitTable, n: NimNode): DefinedUnit =
 
   if hasConversion:
     # is *not* a base unit (inch, Liter, PoundForce, ..., something that needs conversion)
-    result = initDefinedUnit(utDerived, name, prefix, short, quantity, autoConvert,
-                            quantity.kind, conversion = conversion)
+    result = initDefinedUnit(utDerived, id, name, prefix, short, quantity, autoConvert,
+                             quantity.kind, conversion = conversion)
   else:
     # *is* a base unit (but possibly compound!)
-    result = initDefinedUnit(utBase, name, prefix, short, quantity, autoConvert,
-                            quantity.kind)
+    result = initDefinedUnit(utBase, id, name, prefix, short, quantity, autoConvert,
+                             quantity.kind)
   if quantity.kind == qtCompound and not hasConversion:
     tab.insert(result, hasConversion, quantity.toBaseUnits.toNimTypeStr())
   else:
     tab.insert(result, hasConversion)
 
-proc parseUnits(tab: var UnitTable, n: NimNode): DefinedUnits =
+proc parseUnits(tab: var UnitTable, id: var int, n: NimNode): DefinedUnits =
   ## Handles parsing the given base units or derived units
   ##
   ##    StmtList
@@ -528,7 +490,8 @@ proc parseUnits(tab: var UnitTable, n: NimNode): DefinedUnits =
   ## Parses the given calls defining the units.
   doAssert n.kind == nnkStmtList
   for unit in n:
-    result.add tab.parseUnit(unit)
+    result.add tab.parseUnit(id, unit)
+    inc id
 
 proc addNaturalUnitConversions(tab: var UnitTable, n: NimNode) =
   ## Parses the following tree and adjusts the `toNaturalUnit` conversion
@@ -563,7 +526,7 @@ proc addNaturalUnitConversions(tab: var UnitTable, n: NimNode) =
     definedUnit.toNaturalUnit = conv
     tab.units[idx] = definedUnit
 
-proc parseCall(tab: var UnitTable, c: NimNode): DefinedUnits =
+proc parseCall(tab: var UnitTable, id: var int, c: NimNode): DefinedUnits =
   ## Handles dispatching based on base units / derived ident
   ##
   ##  Call
@@ -577,9 +540,9 @@ proc parseCall(tab: var UnitTable, c: NimNode): DefinedUnits =
   var baseUnits: DefinedUnits
   var derivedUnits: DefinedUnits
   if c[0].kind == nnkIdent and c[0].strVal == "BaseUnits":
-    baseUnits = tab.parseUnits(c[1])
+    baseUnits = tab.parseUnits(id, c[1])
   elif c[0].kind == nnkIdent and c[0].strVal == "Derived":
-    derivedUnits = tab.parseUnits(c[1]) ## FIXME: hand `baseUnits` to above procs to lookup conversions? baseUnits)
+    derivedUnits = tab.parseUnits(id, c[1]) ## FIXME: hand `baseUnits` to above procs to lookup conversions? baseUnits)
   elif c[0].kind == nnkIdent and c[0].strVal == "NaturalUnits":
     tab.addNaturalUnitConversions(c[1])
   else:
@@ -654,9 +617,10 @@ macro declareUnits*(defs: untyped): untyped =
   ## quantity representation (i.e. N -> kg•m•s⁻²) in a `flatten` call. This has effects
   ## for unit math with similar units.
   var units: DefinedUnits
+  var id = 0
   for call in defs:
     if call.kind == nnkCall:
-      units.add UnitTab.parseCall(call)
+      units.add UnitTab.parseCall(id, call)
     else:
       error("Invalid node kind " & $call.kind & " for `declareUnits` definition.")
   result = newStmtList()
