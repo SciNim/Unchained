@@ -305,7 +305,7 @@ macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       resTypeCT = xCT.simplify(mergePrefixes = true)
     # determine scale of resulting units
     let scaleConv = resTypeCT.toBaseTypeScale() ## WRONG: must not *always* call conversion
-    let resType = resTypeCT.simplify().toNimType()
+    let resType = resTypeCT.toNimType()
     if scaleOriginal != scaleConv:
       let scale = scaleOriginal / scaleConv
       result = quote do:
@@ -344,7 +344,7 @@ macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     else:
       resTypeCT = xCT.simplify(mergePrefixes = true)
     let scaleConv = resTypeCT.toBaseTypeScale()
-    let resType = resTypeCT.simplify().toNimType()
+    let resType = resTypeCT.toNimType()
     if scaleOriginal != scaleConv:
       let scale = scaleOriginal / scaleConv
       result = quote do:

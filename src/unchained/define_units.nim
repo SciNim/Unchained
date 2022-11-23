@@ -106,7 +106,8 @@ proc toNimType*(u: UnitInstance, short = false,
                #else: u.unit.basePrefix
   let siPrefixStr = if short: SiShortPrefixTable[prefix]
                     else: SiPrefixTable[prefix]
-  result = siPrefixStr
+  result = newStringOfCap(100)
+  result.add siPrefixStr
   if not short:
     result.add u.unit.name
   else:
@@ -411,8 +412,6 @@ proc needConversionToBase*(a, b: UnitProduct): bool =
   ## Returns true, if the given products `a` and `b` contain compound units that
   ## represent the same quantity, but are of different units.
   # compare the (possible compound) quantities and see if they have different units
-  let aSorted = a.sorted()
-  let bSorted = a.sorted()
   result = true
   if a.len == b.len:
     # same length, just check if they have the same units (ignoring prefixes)
