@@ -383,15 +383,13 @@ proc sameBaseQuantitiesDifferentPowers(u1, u2: UnitInstance): bool =
   ## powers. This assumes `u1` and `u2` are common quantities!
   let u1Q = u1.unit.quantity.toQuantityPower()
   let u2Q = u2.unit.quantity.toQuantityPower()
-  if u1Q.len != u2Q.len:
-    result = false
-  else:
-    for i in 0 ..< u1Q.len:
-      # get the powers from each QA Array
-      let up1 = u1Q[i]
-      let up2 = u2Q[i]
-      if up1 != up2:
-        return true
+  for i in 0 ..< u1Q.len:
+    # get the powers from each QA Array
+    let up1 = u1Q[i]
+    let up2 = u2Q[i]
+    # only same base quantity if both powers 0, but different
+    if up1 != 0 and up2 != 0 and up1 != up2:
+      return true
 
 proc needConversionToBase*(a, b: UnitProduct): bool =
   ## Returns true, if the given products `a` and `b` contain compound units that
