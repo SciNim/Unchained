@@ -282,30 +282,31 @@ proc simplify*(x: UnitProduct, mergePrefixes = false): UnitProduct =
   # the `value` (product of prefixes & conversions) is *reset* so that this new
   # unit. Therefore do not assign `x.value` to `result.value`.
   result = initUnitProduct()
-  if mergePrefixes:
-    var cTab = initCountTable[DefinedUnit]()
-    # prefixTab stores the prefixes of units we add
-    var prefixTab = initTable[DefinedUnit, SiPrefix]()
-    for u in x.units:
-      if u.unit in prefixTab and prefixTab[u.unit] != u.prefix:
-        # have different prefixes of the same unit, need to merge
-        # to base prefix. This makes `mergePrefixes` lossy.
-        prefixTab[u.unit] = u.unit.basePrefix
-      else:                      # prefix only once so far, keep it
-        prefixTab[u.unit] = u.prefix
-      inc(cTab, u.unit, u.power) # ignore prefix, i.e. merge them all to one
-
-    for unit, power in pairs(cTab):
-      if power != 0: # power 0 implies unit is divided out
-        result.add newUnitInstance($unit, unit, power, prefixTab[unit])
-  else:
-    var cTab = initCountTable[(DefinedUnit, SiPrefix)]()
-    for u in x.units:
-      inc(cTab, (u.unit, u.prefix), u.power) # treat prefixes as distinct
-    for tup, power in pairs(cTab):
-      let (unit, prefix) = tup
-      if power != 0: # power 0 implies unit is divided out
-        result.add newUnitInstance($unit, unit, power, prefix)
+  var units = x.unitsSortedByIds()
+  var idx = 0
+  var power = 0
+  var u: UnitInstance
+  var last: UnitInstance
+  var usedPrefix = siIdentity
+  while idx < units.len:
+    u = units[idx]
+    if idx == 0 or (u.unit == last.unit and u.prefix == last.prefix):
+      power += u.power
+      usedPrefix = u.prefix
+    elif mergePrefixes and (u.unit == last.unit and u.prefix != last.prefix):
+      # use base prefix
+      usedPrefix = u.unit.basePrefix
+      power += u.power
+    else:
+      # add unit
+      if idx > 0 and power != 0:
+        result.add newUnitInstance(last.unit.short, last.unit, power, usedPrefix)
+      power = u.power
+      usedPrefix = u.prefix
+    last = u
+    inc idx
+  if power != 0:
+    result.add newUnitInstance(last.unit.short, last.unit, power, usedPrefix)
 
 proc invert*(x: UnitProduct): UnitProduct =
   ## Inverts the given `UnitProduct`, i.e. it performs a "division".
