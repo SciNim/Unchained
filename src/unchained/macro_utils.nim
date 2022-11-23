@@ -111,21 +111,6 @@ proc getUnitType*(n: NimNode): NimNode =
   else:
     result = n.getTypeInst.getUnitTypeImpl()
 
-proc isUnitLessNumber*(n: NimNode): bool =
-  case n.kind
-  of nnkIdent: result = false # most likely direct unit
-  of nnkAccQuoted:
-    ## TODO: disallow things that are not a number?
-    result = false
-  else:
-    ## NOTE: We cannot check for intLit / floatLit etc, as a `const` variable that
-    ## has a unit will still be treated as a literal!
-    let nTyp = n.getTypeInst
-    if nTyp.kind == nnkSym:
-      ## TODO: improve this check / include other numeric types
-      if nTyp.strVal in ["float", "float64", "int", "int64"]:
-        result = true
-
 proc enumerateTypes*(t: NimNode): NimNode =
   ## Returns a bracket of all types described by the given
   ## "type class" `t`

@@ -17,10 +17,22 @@ type
     siIdentity,
     siDeca, siHecto, siKilo, siMega, siGiga, siTera, siPeta, siExa, siZetta, siYotta, siRonna, siQuetta
 
+from std / unicode import runeAt, Rune
+proc toRunes(ar: static openArray[string]): auto =
+  result = default(array[ar.len, Rune])
+  for i, d in ar:
+    result[i] = d.runeAt(0)
+
 const digits* = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
+const digitsRunes* = digits.toRunes()
 const digitsAndMinus* = ["⁻","⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"]
+const digitsAndMinusRunes* = digitsAndMinus.toRunes()
 const DigitsAscii* = ["0","1","2","3","4","5","6","7","8","9"]
+const DigitsAsciiRunes* = DigitsAscii.toRunes()
 const AsciiChars* = {'*', '^', '-', '0' .. '9'}
+const MinusRune* = "⁻".runeAt(0)
+const AsciiSep* = '*'
+const UnicodeSep* = "•"
 
 const SiPrefixStringsLong* = {
   "Quecto" :   siQuecto,
@@ -84,10 +96,22 @@ const SiPrefixTable* = block:
     tab[val] = key
   tab
 
+const SiPrefixStrTable* = block:
+  var tab = initTable[string, SiPrefix]()
+  for (key, val) in SiPrefixStringsLong:
+    tab[key] = val
+  tab
+
 const SiShortPrefixTable* = block:
   var tab = initTable[SiPrefix, string]()
   for (key, val) in SiPrefixStringsShort:
     tab[val] = key
+  tab
+
+const SiShortPrefixStrTable* = block:
+  var tab = initTable[string, SiPrefix]()
+  for (key, val) in SiPrefixStringsShort:
+    tab[key] = val
   tab
 
 proc `$`*(prefix: SiPrefix): string =
