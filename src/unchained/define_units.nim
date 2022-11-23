@@ -415,19 +415,21 @@ proc `==`*(a, b: UnitProduct): bool =
   ## Since there are multiple representations of the same unit (e.g. `Newton` as
   ## a single UnitInstance or a `UnitProduct` comprising base units up to `Newton`)
   ## we have to flatten each input and then compare for same base units & powers.
-  let aScale = a.toBaseTypeScale()
-  let bScale = b.toBaseTypeScale()
+  # get flattened version of the units
   let aFlat = a.flatten.simplify
   let bFlat = b.flatten.simplify
+  # firt check if same number of flattened units. If not, they are not equal
+  if aFlat.units.len != bFlat.units.len:
+    return false
+  # if yes, also check each unit exactly
   let aFlatSeq = aFlat.units.sorted
   let bFlatSeq = bFlat.units.sorted
-
-  # to really make sure they are equal have to compare the si prefix of each
-  if aFlatSeq.len != bFlatSeq.len:
-    return false
   for idx in 0 ..< aFlatSeq.len:
     if aFlatSeq[idx] != bFlatSeq[idx]:
       return false
+  # finally check the scale to base
+  let aScale = a.toBaseTypeScale()
+  let bScale = b.toBaseTypeScale()
   if aScale != bScale:
     return false
   result = true
