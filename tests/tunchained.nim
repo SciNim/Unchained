@@ -755,6 +755,20 @@ suite "Unchained - practical examples turned tests":
     check typeof(weight) is UnitLess
     check weight =~= (3318.0 * 500.0).UnitLess
 
+  test "Procedure involving keV and prefixed units":
+    defUnit(keV⁻¹•cm⁻²•s⁻¹)
+    proc normalizeValue(x, radius: float, energyRange: keV, backgroundTime: Hour): keV⁻¹•cm⁻²•s⁻¹ =
+      let pixelSizeRatio = 65536 / (1.4 * 1.4).cm²
+      let σ = 5.0
+      let area = -2*π*(σ*σ * exp(-1/2 * radius*radius / (σ*σ)) - (σ*σ))
+      let energyRange = energyRange * 2.0 # we look at (factor 2 for radius)
+      let factor = area / pixelSizeRatio * # area in cm²
+        energyRange *
+        backgroundTime.to(Second)
+      result = x / factor
+    check normalizeValue(5.0, 10.0, 2.keV, 3300.h) == 2.590298517245851e-05.keV⁻¹•cm⁻²•s⁻¹
+    check $normalizeValue(5.0, 10.0, 2.keV, 3300.h) == "2.5903e-05 keV⁻¹•cm⁻²•s⁻¹"
+
 suite "Unchained - imperial units":
   test "Pound":
     block:
