@@ -66,6 +66,13 @@ proc add*(qa: var QuantityPowerArray, qp: QuantityPower) =
   qa.data[qp.quant.id].power += qp.power
 
 proc len*(qa: QuantityPowerArray): int = qa.data.len
+proc lenQuantities*(qa: QuantityPowerArray): int =
+  ## Given the low number of base quantities this is pretty cheap. For systems
+  ## with many more quantities we'd likely want to compute the length whenever we
+  ## `add` to the array.
+  for x in qa.data:
+    if x.power != 0:
+      inc result
 
 proc `[]`*(qa: QuantityPowerArray, idx: int): int = qa.data[idx].power
 
