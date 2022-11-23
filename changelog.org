@@ -23,6 +23,7 @@ doAssert z == 1.m²
 - add caching of user defined units (string representation and
   internal representation) for minor performance improvements and
   keeping the user desired string representation around.
+- rewrite unit parser for significant performance improvements
 - change precedence of units again, so that fundamental compound units
   are preferred over base units. Means we write ~N•m~ instead of
   ~m•N~.
@@ -49,8 +50,10 @@ doAssert z == 1.m²
   
   However, this is actually a lesser problem now, because we generate
   more aliases so the *need* for ~to~ has drastically gone down.
-- minor performance improvements in unit name parsing from string
-  names by avoiding some copies.  
+- simplify dimensional analysis by adding a "fixed size" type
+  ~QuantityPowerArray~ and giving each ~Quantity~ a unique ID
+- add ID fields for units to uniquely identify a unit based on that
+- rewrite ~simplify~ procedure for better performance
 * v0.3.0
 - concepts for each quantity to match different units of same quantity
   in procedure calls!
