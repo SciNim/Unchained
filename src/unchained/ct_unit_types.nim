@@ -261,6 +261,9 @@ proc `[]`*(tab: UnitTable, s: string): DefinedUnit =
   else:
     raise newException(KeyError, "Given unit " & $s & " not known in `UnitTable`.")
 
+proc getShort*(tab: UnitTable, s: string): DefinedUnit =
+  result = tab.units[tab.short[s]]
+
 proc `[]`*(tab: UnitTable, q: CTQuantity): DefinedUnit =
   let idx = tab.quantity[q.getName()]
   result = tab.units[idx]

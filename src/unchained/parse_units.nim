@@ -3,120 +3,82 @@ import std / [macros, strutils, unicode, typetraits, parseutils, math, sequtils,
 # local files
 import core_types, ct_unit_types, macro_utils
 
-proc parseUntil(s: string, chars, errorOn: openArray[string]): int =
-  ## parses until one of the runes in `chars` is found
-  var idx = 0
-  var rune: Rune
-  var oldIdx = idx
-  while idx < s.len:
-    oldIdx = idx
-    fastRuneAt(s, idx, rune)
-    if rune.toUtf8 in chars:
-      return oldIdx
-    elif rune.toUtf8 in errorOn:
-      error("Invalid rune in input string: " & $(rune.toUtf8()) & ". Did you type " &
-        "a non superscript power by accident?")
-  when false:
-    for rune in utf8(s):
-      if rune in chars:
-        return idx
-      inc idx
-  # didn't find it
-  result = -1
+from std / tables import getOrDefault, `[]`
 
 proc parseSiPrefixShort(c: char): SiPrefix =
   ## For the case of short SI prefixes (i.e. single character) return it
-  result = siIdentity # initialize with identity, in case none match
-  for (el, prefix) in SiPrefixStringsShort:
-    if $c == el: return prefix
+  result = SiShortPrefixStrTable.getOrDefault($c, siIdentity) # initialize with identity, in case none match
 
-proc startsWith(s: openArray[char], prefix: string): bool =
-  ## Version of `startsWith` working on `openArray[char]`.
-  if prefix.len > s.len: return false
-  result = true
-  for i, p in prefix:
-    if s[i] != p: return false
+proc parseSiPrefixLong(s: string): SiPrefix =
+  ## For the case of short SI prefixes (i.e. single character) return it
+  result = SiPrefixStrTable.getOrDefault(s, siIdentity) # initialize with identity, in case none match
 
-proc startsAsKnownUnit(tab: UnitTable, s: openArray[char]): bool =
-  ## Checks if the given string stars like a known unit (short or long version)
-  for short in shortNames(tab):
-    if s.startsWith(short): return true
-  for long in longNames(tab):
-    if s.startsWith(long): return true
-
-proc isLongBaseUnit(tab: UnitTable, s: string): bool =
-  for b in longBaseNames(tab):
-    if s.startsWith($b): return true
-
-proc parseSiPrefix(tab: UnitTable, s: var string): SiPrefix =
-  ## Return early if we only have on rune in total or until we reach
-  ## a `⁻` or any of the superscript numbers. Important for things like
-  ## `m`. Only a prefix if there's more than one rune.
-  if s.runeLen == 1 or s.runeAt(1).toUtf8() in digitsAndMinus: return siIdentity
-  result = siIdentity
-  if s.runeAt(0).isUpper:
-    if tab.isLongBaseUnit(s): return siIdentity # if it's Meter, Gram etc.
-    ## try to find Long Si prefix
-    for (el, prefix) in SiPrefixStringsLong:
-      if prefix == siIdentity: continue
-      if s.startsWith(el):
-        s.removePrefix(el)
-        return prefix
-  ## no is upper does not mean it might not short, since some are upper
-  ## else check for short prefix.
-  # Alternative:
-  # - lookup first characer & map to SI prefix
-  # - it *is* that prefix iff what comes after is a valid unit
-  # how to break tie between `T` (= tesla) and `TT` (= Tera Tesla) ?
-  result = parseSiPrefixShort(s[0])
-  if result != siIdentity: # if `result` is siIdentity, `parseSiPrefixShort` failed to
-                           # match any short prefix. Hence we look at a unit
-    if tab.startsAsKnownUnit(s.toOpenArray(1, s.high)):
-      s = s[1 ..< s.len]   # keep result as found prefix, remove it from `s`
-    else:
-      result = siIdentity  # did not find any prefixes, as rest of input is *not* a unit,
-                           # which means full `s` must be a unit.
-
-proc hasNegativeExp(s: var string): bool =
-  var rune: Rune
-  var idx = 0
-  var oldIdx = idx
-  while idx < s.len:
-    oldIdx = idx
-    fastRuneAt(s, idx, rune)
-    if rune.toUtf8() == "⁻":
-      s.delete(oldIdx, idx - 1)
-      return true
-
-proc runeLen(s: string, start, stop: int): int =
-  var i = start
-  while i < stop:
-    i += runeLenAt(s, i)
-    inc result
-
-proc parseExponent(s: var string, negative: bool): int =
-  var buf: string
-  let idxStart = s.parseUntil(digits, errorOn = DigitsAscii)
-  var idx = idxStart
-  if idx > 0:
-    let numDigits = s.runeLen(idx, s.len)
-    var seen = 0
-    while idx < s.len:
-      var buf: Rune
-      fastRuneAt(s, idx, buf)
-      inc seen
-      let val = digits.find(buf.toUtf8()) * 10^(numDigits - seen)
-      result += val
-    result = if negative: -result else: result
-    # remove `idx` onwards from s
-    s.delete(idxStart, s.len)
-  else:
-    # no exponent means `1`
-    result = 1
+func getDigit(digits: openArray[Rune], d: Rune): int =
+  for idx, digit in digits:
+    if digit == d: return idx
 
 proc lookupUnit(tab: UnitTable, s: string): DefinedUnit =
   ## looks up the given predefined unit in our CT tables of known units
   result = tab[s]
+
+proc tryLookupUnit(tab: UnitTable, s: string): Option[DefinedUnit] =
+  ## looks up the given predefined unit in our CT tables of known units
+  if s in tab:
+    result = some(tab[s])
+
+proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
+                       tuple[prefix: SiPrefix, unit: DefinedUnit] =
+  ## Handles parsing of a unit in the range `start -> stop` in `x` and
+  ## returns both the prefix as well as the unit itself.
+  # NOTE: can we avoid the string slice copies? :/
+  result.prefix = siIdentity
+  case stop - start
+  of 0: # invalid
+    doAssert false
+  of 1: # short unit without SI prefix
+    # must be short unit, e.g. `J`
+    result.unit = tab.getShort($x[start])
+  of 2:
+    # short unit with prefix (this means disallow long versions with length
+    # shorter than 3, unless we added a `isUpper` check
+    # or short unit without prefix, e.g. `Bq`
+    #if x[start].isUpper: # possibly check for long unit
+    let unitOpt = tab.tryLookupUnit(x[start ..< stop])
+    if unitOpt.isSome:
+      result.unit = unitOpt.get
+    else:
+      # first char must be short prefix & second a short unit, e.g. `mN`
+      result.prefix = parseSiPrefixShort(x[start])
+      result.unit = tab.getShort($x[stop-1])
+  else:
+    # try any unit
+    var unitOpt = tab.tryLookupUnit(x[start ..< stop])
+    if unitOpt.isSome:
+      result.unit = unitOpt.get
+    else:
+      # try short prefix + short unit, i.e. parsing of unit from 1st char, e.g. `mPa`
+      unitOpt = tab.tryLookupUnit(x[start+1 ..< stop])
+      if unitOpt.isSome:
+        result.unit = unitOpt.get
+        result.prefix = parseSiPrefixShort(x[start]) # in this case prefix must be short
+      else:
+        # must be long + long, e.g. `KiloGram`
+        # must have prefix, thus parse until upper, that defines prefix & unit
+        ## XXX: fix this parse until from second character somehow
+        var prefixStr = newStringOfCap(100)
+        let prefixNum = parseUntil(x, prefixStr, until = {'A' .. 'Z'}, start = start+1) # long names must use ASCII!
+        # look up long prefix
+        result.prefix = parseSiPrefixLong(x[start] & prefixStr)
+        result.unit = tab.lookupUnit(x[start + prefixNum + 1 ..< stop])
+
+template addUnit(): untyped {.dirty.} =
+  ## Dirty template used in both parsing procedures (unicode & ascii)
+  ## performing the actual parsing after we've seen a
+  ## separator as well as after the loop
+  let (prefix, unit) = tab.parsePrefixAndUnit(x, start, stop)
+  exp = if exp == 0: 1 else: exp
+  exp = if negative: -exp: else: exp
+  result.add newUnitInstance("", unit, exp, prefix)
 
 proc parseDefinedUnitUnicode(tab: UnitTable, x: string): UnitProduct =
   ## 1. split by `•`
@@ -134,35 +96,68 @@ proc parseDefinedUnitUnicode(tab: UnitTable, x: string): UnitProduct =
   ## element. Verbose always start capital letters, shorthand depending on SI prefix / unit (N, V, A...)
   result = initUnitProduct()
   if x == "UnitLess": return
-  let xTStrs = if "•" in x: x.split("•")
-               else: x.split("·")
-  for el in xTStrs:
-    var mel = el
-    let prefix = tab.parseSiPrefix(mel)
-    let negative = hasNegativeExp(mel)
-    let exp = parseExponent(mel, negative)
-    let unit = tab.lookupUnit(mel)
-    let ctUnit = newUnitInstance(el, unit, exp, prefix)
-    result.units.add ctUnit
+  const sepRune = UnicodeSep.runeAt(0)
+  var
+    idx = 0
+    rune: Rune
+    exp = 0
+    negative = false
+    start = 0
+    stop = 0
+
+  # Parse by walking full unit front to back, rune by rune
+  while idx < x.len:
+    fastRuneAt(x, idx, rune)
+    case rune
+    of sepRune: # found separator, parse previous unit
+      addUnit()
+      start = idx # new unit starts here (idx now after `sep`)
+      exp = 0     # and reset exp
+      negative = false
+    of MinusRune:
+      negative = true # register as negative and move exponent start to after
+    of digitsRunes:
+      # register more exponents, get current digit and shift existing exponent
+      let digit = digitsRunes.getDigit(rune)
+      exp = exp * 10 + digit
+    else:
+      # accumulate unit name
+      stop = idx
+  addUnit()
 
 proc parseDefinedUnitAscii(tab: UnitTable, x: string): UnitProduct =
   result = initUnitProduct()
-  var idx = 0
-  var buf: string
+  if x == "UnitLess": return
+  var
+    idx = 0
+    c: char
+    exp = 0
+    negative = false
+    start = 0
+    stop = 0
+
+  # Parse by walking full unit front to back, rune by rune
   while idx < x.len:
-    idx += x.parseUntil(buf, until = '*', start = idx)
-    let powIdx = buf.find("^")
-    doAssert powIdx < buf.high, "Invalid unit, ends with `^`: " & $buf
-    let exp = if powIdx > 0: parseInt(buf[powIdx + 1 .. buf.high])
-              else: 1
-    let el = if powIdx > 0: buf[0 ..< powIdx]
-             else: buf
-    var mel = el
-    let prefix = tab.parseSiPrefix(mel)
-    let unit = tab.lookupUnit(mel)
-    let ctUnit = newUnitInstance(el, unit, exp, prefix)
-    result.add ctUnit
+    c = x[idx]
+    case c
+    of AsciiSep: # found separator, parse previous unit
+      addUnit()
+      start = idx+1 # new unit starts here (idx now after `sep`)
+      exp = 0       # and reset exp
+      negative = false
+    of '^': # next char starts an exponent, but nothing to do here
+      discard
+    of '-':
+      negative = true # register as negative and move exponent start to after
+    of {'0' .. '9'}:
+      # register more exponents, get current digit and shift existing exponent
+      let digit = ord(c) - 0x30 # get digit based on character & offset in ASCII
+      exp = exp * 10 + digit
+    else:
+      # accumulate unit name
+      stop = idx+1
     inc idx
+  addUnit()
 
 proc parseDefinedUnit*(tab: UnitTable, s: string): UnitProduct =
   ## TODO: avoid walking over `s` so many times!
@@ -191,6 +186,11 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
   case n.kind
   of nnkIdent:
     result = fromTab(tab, n.strVal)
+  of nnkAccQuoted:
+    var s: string
+    for el in n:
+      s.add el.strVal
+    result = fromTab(tab, s)
   of nnkSym:
     let nTyp = n.getTypeInst
     var nStr: string
@@ -199,7 +199,10 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
     of nnkDistinctTy: nStr = nTyp[1].strVal
     of nnkSym: nStr = nTyp.strVal
     else: error("Invalid node for type : " & nTyp.repr)
-    result = fromTab(tab, nStr)
+    if nStr in ["float", "float64", "int", "int64", "UnitLess"]:
+      result = some(initUnitProduct())
+    else:
+      result = fromTab(tab, nStr)
   of nnkTypeOfExpr:
     result = tab.tryLookupUnitType(n[0])
   else:
@@ -207,12 +210,8 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
       let nTyp = n.getTypeInst
       result = tab.tryLookupUnitType(nTyp)
 
-proc parseDefinedUnit*(tab: UnitTable, x: NimNode): UnitProduct =
+proc parseDefinedUnit*(tab: var UnitTable, x: NimNode): UnitProduct =
   result = initUnitProduct()
-  if x.isUnitLessNumber:
-    #let ctUnit = newUnitLess()
-    #result.add ctUnit
-    return result
   # first check if part of previously user defined units
   let resOpt = tab.tryLookupUnitType(x)
   if resOpt.isSome:
@@ -223,5 +222,7 @@ proc parseDefinedUnit*(tab: UnitTable, x: NimNode): UnitProduct =
     # have to fully parse it
     let xTyp = getUnitType(x)
     var xT = xTyp.strVal
-    result = tab.parseDefinedUnit(xt)
-    ## TODO: add new found unit to `UnitTable` in a separate table?
+    result = tab.parseDefinedUnit(xT)
+
+    # Insert the newly found unit into the table
+    tab.insert(xT, result)
