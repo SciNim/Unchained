@@ -100,14 +100,17 @@ proc getUnitTypeImpl*(n: NimNode): NimNode =
 """)
   else: error("Unsupported : " & $n.typeKind)
 
+proc toStrUnit*(n: NimNode): string =
+  doAssert n.kind == nnkAccQuoted
+  result = newStringOfCap(100)
+  for el in n:
+    result.add el.strVal
+
 proc getUnitType*(n: NimNode): NimNode =
   case n.kind
   of nnkIdent: result = n
   of nnkAccQuoted:
-    var s: string
-    for el in n:
-      s.add el.strVal
-    result = ident(s)
+    result = ident(n.toStrUnit())
   else:
     result = n.getTypeInst.getUnitTypeImpl()
 

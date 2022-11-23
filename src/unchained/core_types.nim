@@ -33,6 +33,9 @@ const AsciiChars* = {'*', '^', '-', '0' .. '9'}
 const MinusRune* = "⁻".runeAt(0)
 const AsciiSep* = '*'
 const UnicodeSep* = "•"
+const AsciiSepRune* = "*".runeAt(0)
+const AsciiPowerRune* = "^".runeAt(0)
+const AsciiMinusRune* = "-".runeAt(0)
 
 const SiPrefixStringsLong* = {
   "Quecto" :   siQuecto,

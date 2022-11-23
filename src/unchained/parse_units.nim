@@ -78,9 +78,9 @@ template addUnit(): untyped {.dirty.} =
   let (prefix, unit) = tab.parsePrefixAndUnit(x, start, stop)
   exp = if exp == 0: 1 else: exp
   exp = if negative: -exp: else: exp
-  result.add newUnitInstance("", unit, exp, prefix)
+  res.add newUnitInstance("", unit, exp, prefix)
 
-proc parseDefinedUnitUnicode(tab: UnitTable, x: string): UnitProduct =
+proc parseDefinedUnitUnicode(tab: UnitTable, x: string): Option[UnitProduct] =
   ## 1. split by `•`
   ## for el in splits
   ##   2. parse possible si prefix
@@ -94,7 +94,9 @@ proc parseDefinedUnitUnicode(tab: UnitTable, x: string): UnitProduct =
   ## c) "meter per second squared" -> "meterPerSecondSquared"
   ## a) and b) can be parsed together by both looking for `m` as well as `Meter` in each
   ## element. Verbose always start capital letters, shorthand depending on SI prefix / unit (N, V, A...)
-  result = initUnitProduct()
+  ##
+  ## It returns an Option to indicate parsing failure if illegal ascii character encountered.
+  var res = initUnitProduct()
   if x == "UnitLess": return
   const sepRune = UnicodeSep.runeAt(0)
   var
@@ -120,13 +122,17 @@ proc parseDefinedUnitUnicode(tab: UnitTable, x: string): UnitProduct =
       # register more exponents, get current digit and shift existing exponent
       let digit = digitsRunes.getDigit(rune)
       exp = exp * 10 + digit
+    of AsciiMinusRune, AsciiPowerRune, AsciiSepRune:
+      # this is an ASCII unit, return None to indicate to reparse with ascii
+      return none(UnitProduct)
     else:
       # accumulate unit name
       stop = idx
   addUnit()
+  result = some(res)
 
 proc parseDefinedUnitAscii(tab: UnitTable, x: string): UnitProduct =
-  result = initUnitProduct()
+  var res = initUnitProduct()
   if x == "UnitLess": return
   var
     idx = 0
@@ -158,19 +164,19 @@ proc parseDefinedUnitAscii(tab: UnitTable, x: string): UnitProduct =
       stop = idx+1
     inc idx
   addUnit()
+  result = res
 
 proc parseDefinedUnit*(tab: UnitTable, s: string): UnitProduct =
-  ## TODO: avoid walking over `s` so many times!
-  if "•" in s or "·" in s or digitsAndMinus.anyIt(it in s):
-    result = tab.parseDefinedUnitUnicode(s)
-  elif "*" in s or s.anyIt(it in AsciiChars):
-    result = tab.parseDefinedUnitAscii(s)
-  # TODO: add verbose mode
-  #elif "Per" in s:
-  #  result = parseDefinedUnitVerbose(x)
+  ## Parses the given string into a product of units.
+  ##
+  ## First attempts to parse the unit as a unicode based unit. If that fails
+  ## falls back to ASCII parsing.
+  let resOpt = tab.parseDefinedUnitUnicode(s)
+  if resOpt.isSome:
+    # succesfully parsed as unicode
+    result = resOpt.get
   else:
-    # else does not matter which proc, because it should be a single unit, e.g. `KiloGram`
-    result = tab.parseDefinedUnitUnicode(s)
+    result = tab.parseDefinedUnitAscii(s)
 
 proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
   ## This first `getUnitType` tries to see if we already know this unit.
@@ -187,10 +193,7 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
   of nnkIdent:
     result = fromTab(tab, n.strVal)
   of nnkAccQuoted:
-    var s: string
-    for el in n:
-      s.add el.strVal
-    result = fromTab(tab, s)
+    result = fromTab(tab, n.toStrUnit())
   of nnkSym:
     let nTyp = n.getTypeInst
     var nStr: string
@@ -221,7 +224,7 @@ proc parseDefinedUnit*(tab: var UnitTable, x: NimNode): UnitProduct =
   else:
     # have to fully parse it
     let xTyp = getUnitType(x)
-    var xT = xTyp.strVal
+    let xT = xTyp.strVal
     result = tab.parseDefinedUnit(xT)
 
     # Insert the newly found unit into the table
