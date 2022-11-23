@@ -9,6 +9,8 @@ type
   ## "derived SI units" which are not what we mean here. We mean units that are non SI
   ## units that are defined by a conversion to an SI unit.
   DefinedUnit* = object
+    id*: int ## unique ID of this defined unit. Allows to do comparisons / hashing based
+             ## on ID only and generate a type similar to `QuantityPowerArray` for units (if needed)
     name*: string
     basePrefix*: SiPrefix ## This prefix defines the possible prefix of the *base unit*, which
                           ## in SI is only relevant for KiloGram
@@ -55,15 +57,17 @@ proc initUnitProduct*(value = 1.0): UnitProduct =
   result = UnitProduct(value: value, units: newSeq[UnitInstance](), init: true)
 
 proc initDefinedUnit*(kind: DefinedUnitType,
-                     name: string,
-                     basePrefix: SiPrefix,
-                     short: string,
-                     quantity: CTQuantity,
-                     autoConvert: bool,
-                     quantityKind: QuantityType,
-                     conversion = initUnitProduct(),
-                     toNaturalUnit = initUnitProduct()): DefinedUnit =
+                      id: int, ## unique ID for each defined unit
+                      name: string,
+                      basePrefix: SiPrefix,
+                      short: string,
+                      quantity: CTQuantity,
+                      autoConvert: bool,
+                      quantityKind: QuantityType,
+                      conversion = initUnitProduct(),
+                      toNaturalUnit = initUnitProduct()): DefinedUnit =
   result = DefinedUnit(kind: kind,
+                       id: id,
                        name: name,
                        basePrefix: basePrefix,
                        short: short,
@@ -132,8 +136,50 @@ proc `$`*(u: UnitProduct): string =
       result.add $unit
   result.add ")"
 
+proc `<`*(a, b: UnitInstance): bool =
+  ## Comparison based on:
+  ## - positive powers before negative powers
+  ## - compound vs. non compound (compound first, i.e. `N•m` instead of `m•N`)
+  ## - underlying unit's ID
+  ## - the unit's power if same unit (higher power first)
+  # 1. check if one is positive power and other negative,
+  # if so return early and ignore actual units (so that
+  # `inch•s⁻¹` remains this order, desipte lower precedence of
+  # `inch` compared to `s`
+  if a.power > 0 and b.power < 0:
+    return true
+  elif b.power > 0 and a.power < 0:
+    return false
+
+  # 2. if one unit is a compound unit, give it precedence over the
+  # other non compound. So that we write `N•m` instead of `m•N`
+  if a.unit.quantity.kind == qtCompound and b.unit.quantity.kind == qtFundamental:
+    return true
+  elif b.unit.quantity.kind == qtCompound and a.unit.quantity.kind == qtFundamental:
+    return false
+
+  # 3. if not returned take unit precedence into account, the unit's ID
+  let aIdx = a.unit.id
+  let bIdx = b.unit.id
+  if aIdx < bIdx:
+    result = true
+  elif aIdx > bIdx:
+    result = false
+  else:
+    ## NOTE: the power seem "inverted". This is because we wish to have units with
+    ## larger powers ``in front`` of units with smaller powers. E.g.
+    ## `Meter•Meter⁻¹` instead of `Meter⁻¹•Meter`
+    ## We cannot sort in descending order, because the actual units in the `UnitKind`
+    ## enum needs to be respected.
+    if a.power > b.power:
+      result = true
+    elif a.power < b.power:
+      result = false
+    else:
+      result = a.prefix < b.prefix
+
 proc `==`*(a, b: DefinedUnit): bool =
-  result = a.name == b.name
+  result = a.id == b.id
 
 proc `==`*(a, b: UnitInstance): bool =
   result = (a.unit == b.unit and a.prefix == b.prefix and a.power == b.power)
@@ -154,16 +200,7 @@ proc toQuantityPower*(u: UnitInstance): QuantityPowerArray =
 
 import std / hashes
 proc hash*(d: DefinedUnit): Hash =
-  result = result !& hash(d.name)
-  result = result !& hash(d.basePrefix)
-  result = result !& hash(d.quantity)
-  result = result !& hash(d.kind)
-  result = !$result
-  # the following not required, as `DefinedUnit` is unique with the above
-  #case d.kind
-  #of utBase: discard
-  #of utDerived:
-  #  result = result !& hash(d.conversion)
+  result = !$ hash(d.id)
 
 proc hash*(u: UnitInstance): Hash =
   # ignore name, as it varies
