@@ -1,4 +1,4 @@
-import std / [tables, macros]
+import std / [tables, macros, algorithm]
 import core_types, quantities
 
 type
@@ -183,6 +183,12 @@ proc `==`*(a, b: DefinedUnit): bool =
 
 proc `==`*(a, b: UnitInstance): bool =
   result = (a.unit == b.unit and a.prefix == b.prefix and a.power == b.power)
+
+proc unitsSortedByIds*(x: UnitProduct): seq[UnitInstance] =
+  ## Returns a sequence of unit instances sorted by the unit ID
+  result = x.units
+  result.sort(cmp = proc(a, b: UnitInstance): int =
+    system.cmp(a.unit.id, b.unit.id))
 
 proc toQuantityPower*(u: UnitInstance): QuantityPowerArray =
   ## Turns the given unit instance into a `QuantityPowerArray` for
