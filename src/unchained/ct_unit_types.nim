@@ -300,6 +300,7 @@ proc `[]`*(tab: UnitTable, s: string): DefinedUnit =
     result = tab.units[tab.long[s]]
   elif s in tab.short:
     result = tab.units[tab.short[s]]
+  # Expanded compound name should become part of the equivalent of user generated table!
   elif s in tab.expandedCompoundName:
     result = tab.units[tab.expandedCompoundName[s]]
   else:

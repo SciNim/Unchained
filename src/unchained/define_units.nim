@@ -92,14 +92,14 @@ proc toNimType*(u: UnitInstance, short = false,
 proc toNimTypeStr*(tab: var UnitTable, x: UnitProduct, short = false,
                    internal: static bool = true): string =
   ## converts `x` to the correct string representation
-  # return early if no units in x
+  # return early if no units in x or if we know the unit's string repr
   if x.units.len == 0: return "UnitLess"
   elif short and x in tab.unitNames: return tab.unitNames[x]
   elif not short and x in tab.unitNamesLong: return tab.unitNamesLong[x]
-  let xSorted = x.units.sorted
 
+  result = newStringOfCap(100)
+  let xSorted = x.units.sorted
   for idx, u in xSorted:
-    #if u.unitKind == ukUnitLess: continue
     var str = toNimType(u, short, internal)
     if idx < xSorted.high:
       when internal or not defined(noUnicode):
@@ -136,6 +136,28 @@ proc toBaseTypeScale*(u: UnitInstance): float =
   result /= u.unit.basePrefix.toFactor()
   result = pow(result, u.power.float)
 
+#[
+Overview of simplification procedures:
+
+- toBaseType:
+  -> converts units with prefixes to base prefixes (mm -> m)
+  -> converts units with conversion relative to SI units to SI (lbs -> kg)
+- flatten:
+  -> converts compound units to the base SI unit equivalents
+  - has multiple options to adjust behavior to avoid conversions in case either
+    has non SI prefix (for `defUnit` as we don't want to flatten things like
+    `mN` to a `kg•...` representation)
+    or to avoid flattening derived units (i.e. what `toBaseType` converts)
+- simplify:
+  -> reduces units by merging same units with different powers
+  - has option to merge or not merge different SI prefixes
+
+All this tells me we need better terminology, as the naming is crap and confusing.
+Probably `toBaseType` and `flatten` could be a single procedure as well.
+]#
+
+
+
 ## TODO: better distinguish between converting to base SI prefixes and
 ## converting non SI units to SI?
 proc toBaseTypeScale*(x: UnitProduct): float =
@@ -152,7 +174,7 @@ proc toBaseTypeScale*(x: UnitProduct): float =
 proc toBaseType*(u: UnitInstance, needConversion: bool): UnitProduct =
   ## Returns a modified instance of this unit that is based on the
   ## base units of the system. E.g. `lbs` will be converted to `kg` assuming
-  ## SI system.
+  ## SI system ``as well as`` removing possible SI prefixes, i.e. `mm` becomes `m`.
   result = initUnitProduct()
   if not needConversion or not u.unit.autoConvert:
     ## If no auto conversion wished, simply assign base prefix (i.e. reset prefix) and add

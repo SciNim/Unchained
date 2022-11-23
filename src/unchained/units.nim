@@ -117,7 +117,7 @@ macro defUnit*(arg: untyped, toExport: bool = false): untyped =
   ##   - the compound is *not* a derived compound, i.e. eV or lbs that requires a
   ##     conversion factor
   let baseTypeCT = argCT.flatten(onlyFlattenSiIdentity = true,
-                               dontFlattenDerived = true).simplify
+                                 dontFlattenDerived = true).simplify
   let baseType = baseTypeCT.toNimType()
   let baseTypeShort = baseTypeCT.toNimType(short = true)
   let distinctQuant = nnkDistinctTy.newTree(bindSym"CompoundQuantity")
