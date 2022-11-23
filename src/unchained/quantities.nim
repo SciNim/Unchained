@@ -10,10 +10,16 @@ type
   ## we can avoid performing string operations the whole time?
   CTBaseQuantity* = object
     name*: string
+    id*: int # ID of the quantity for faster comparison
 
   QuantityPower* = object
     quant*: CTBaseQuantity
     power*: int
+
+  ## A sequence of quantity power objects which always has the length
+  ## of the number of base quantities. Due to its "fixed" length it's named "array".
+  QuantityPowerArray* {.requiresInit.} = object
+    data: seq[QuantityPower]
 
   ## A quantity can either be a base quantity or a compound consisting of multiple
   ## CTBaseQuantities of different powers.
@@ -24,8 +30,8 @@ type
       name*: string # name of the derived quantity (e.g. Force)
       baseSeq*: seq[QuantityPower]
 
-proc `==`*(q1, q2: CTBaseQuantity): bool = q1.name == q2.name
-proc `<`*(q1, q2: CTBaseQuantity): bool = q1.name < q2.name
+proc `==`*(q1, q2: CTBaseQuantity): bool = q1.id == q2.id
+proc `<`*(q1, q2: CTBaseQuantity): bool = q1.id < q2.id
 
 proc `<`*(q1, q2: QuantityPower): bool =
   if q1.quant < q2.quant:
@@ -46,7 +52,22 @@ proc `$`*(q: CTQuantity): string =
   result.add ")"
 
 #const QuantityTab = CacheTable"QuantityTab"
-var QuantityTab* {.compiletime.} = initTable[string, CTQuantity]()
+var QuantityTab* {.compileTime.} = initTable[string, CTQuantity]()
+# maps the `id` field of each CTBaseQuantity to its quantity for faster lookup
+var BaseQuantityTab* {.compileTime.} = initTable[int, CTBaseQuantity]()
+
+proc initQuantityPowerArray*(): QuantityPowerArray =
+  result = QuantityPowerArray(data: newSeq[QuantityPower](BaseQuantityTab.len))
+  for idx, v in BaseQuantityTab:
+    result.data[idx].quant = v
+
+proc add*(qa: var QuantityPowerArray, qp: QuantityPower) =
+  ## Adds the given `quant` to the array
+  qa.data[qp.quant.id].power += qp.power
+
+proc len*(qa: QuantityPowerArray): int = qa.data.len
+
+proc `[]`*(qa: QuantityPowerArray, idx: int): int = qa.data[idx].power
 
 iterator compoundQuantities*(qt: Table[string, CTQuantity]): CTQuantity =
   ## Yields all units that corresond to pure compound quantities (i.e. those
@@ -55,14 +76,48 @@ iterator compoundQuantities*(qt: Table[string, CTQuantity]): CTQuantity =
     if quant.kind == qtCompound:
       yield quant
 
-proc toQuantityPower*(q: CTQuantity): seq[QuantityPower] =
+iterator quantityPowers*(q: CTQuantity): QuantityPower =
+  ## Yields all quantity powers of `q`.
+  case q.kind
+  of qtFundamental: yield QuantityPower(quant: q.b, power: 1)
+  of qtCompound:
+    for b in q.baseSeq:
+      yield b
+
+iterator items*(q: QuantityPowerArray): QuantityPower =
+  ## Yields all quantity powers of `q`.
+  for x in q.data:
+    if x.power != 0:
+      yield x
+
+iterator pairs*(q: QuantityPowerArray): (int, QuantityPower) =
+  ## Yields all quantity powers of `q`.
+  for i, x in q.data:
+    if x.power != 0:
+      yield (i, x)
+
+proc `$`*(qa: QuantityPowerArray): string =
+  result = "(QPArray: ["
+  result.add $qa.data
+  result.add "])"
+
+proc `==`*(a, b: QuantityPowerArray): bool =
+  ## Checks if the two QP arrays are equivalent.
+  result = true
+  for i in 0 ..< a.len:
+    if a[i] != b[i]: return false
+
+proc toQuantityPower*(q: CTQuantity): QuantityPowerArray =
   ## Turns the given quantity into a `seq[QuantityPower]` independent of
   ## the kind of quantity. Useful to perform dimensional analysis.
-  case q.kind
-  of qtFundamental: result.add QuantityPower(quant: q.b, power: 1)
-  of qtCompound:
-    result = q.baseSeq
-    result.sort()
+  result = initQuantityPowerArray()
+  for b in quantityPowers(q):
+    result.add b
+
+proc `*`*(q: QuantityPower, power: int): QuantityPower =
+  ## Multiplies the power of `q` with the given power
+  result = q
+  result.power *= power
 
 import std / hashes
 proc hash*(q: CTQuantity): Hash =
@@ -132,17 +187,22 @@ proc parseBaseQuantities*(quants: NimNode): seq[CTQuantity] =
   doAssert quants.len == 2
   doAssert quants[0].kind == nnkIdent and quants[0].strVal == "Base"
   doAssert quants[1].kind == nnkStmtList
+  var id = 0
   for quant in quants[1]:
     case quant.kind
     of nnkIdent:
       # simple base quantity
-      let qt = CTQuantity(kind: qtFundamental, b: CTBaseQuantity(name: quant.strVal))
+      let base = CTBaseQuantity(name: quant.strVal, id: id)
+      let qt = CTQuantity(kind: qtFundamental, b: base)
       result.add qt
       QuantityTab[qt.b.name] = qt
+      BaseQuantityTab[id] = base
+      inc id
     else:
       error("Invalid node kind " & $quant.kind & " in `Base:` for description of base quantities.")
 
-proc parseDerivedQuantities*(quants: NimNode, baseQuantities: HashSet[CTBaseQuantity]): seq[CTQuantity] =
+
+proc parseDerivedQuantities*(quants: NimNode, baseQuantities: HashSet[string]): seq[CTQuantity] =
   ## Parses the given derived quantities
   ##
   ## Given:
@@ -188,8 +248,11 @@ proc parseDerivedQuantities*(quants: NimNode, baseQuantities: HashSet[CTBaseQuan
           let power = tup[1].intVal.int
           if base notin baseQuantities:
             error("Given base quantitiy `" & $base & "` is unknown! Make sure to define " &
-              "it in the `Base:` block.")
-          qt.baseSeq.add QuantityPower(quant: CTBaseQuantity(name: base), power: power)
+              "it in the `Base:` block. Defines " & $baseQuantities)
+          # look up the existing
+          doAssert base in QuantityTab, "The base quantity " & $base & " does not exist yet!"
+          let baseQuant = QuantityTab[base].b
+          qt.baseSeq.add QuantityPower(quant: baseQuant, power: power)
         else:
           error("Invalid node kind " & $tup.kind & " in dimensional argument to derived quantity " &
             $quant.repr & ".")
@@ -256,7 +319,7 @@ macro declareQuantities*(typs: untyped): untyped =
       # defines derived quantities
       if baseQuantities.len == 0:
         error("`Base:` block to define base quantities must come before `Derived:` block.")
-      derivedQuants = parseDerivedQuantities(typ, baseQuantities.mapIt(it.b).toHashSet())
+      derivedQuants = parseDerivedQuantities(typ, baseQuantities.mapIt(it.b.name).toHashSet())
     else:
       error("Invalid type of quantities: " & $typ.repr)
   result.add genQuantityTypes(baseQuantities, qtFundamental)

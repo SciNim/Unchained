@@ -138,18 +138,19 @@ proc `==`*(a, b: DefinedUnit): bool =
 proc `==`*(a, b: UnitInstance): bool =
   result = (a.unit == b.unit and a.prefix == b.prefix and a.power == b.power)
 
-proc toQuantityPower*(u: UnitInstance): seq[QuantityPower] =
-  ## Turns the given unit instance into a `seq[QuantityPower]` for
+proc toQuantityPower*(u: UnitInstance): QuantityPowerArray =
+  ## Turns the given unit instance into a `QuantityPowerArray` for
   ## dimensional analysis.
   # 1. first convert to a QuantityPower based on the internal
   #    quantity of the unit
-  result = u.unit.quantity.toQuantityPower()
   # 2. correct the powers based on the power of the unit instance, e.g. to:
   #    N² = (kg•m•s⁻²)² = kg²•m²•s⁻⁴
   #     ^--- power of unit instance
   #                ^--- powers part of the unit's quantity
-  for i in 0 ..< result.len:
-    result[i].power *= u.power
+  # handled implicitly by QuantityPowerArray and QP `*` overload
+  result = initQuantityPowerArray()
+  for q in u.unit.quantity.quantityPowers:
+    result.add (q * u.power)
 
 import std / hashes
 proc hash*(d: DefinedUnit): Hash =

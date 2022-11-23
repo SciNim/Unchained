@@ -68,70 +68,18 @@ proc sorted*(u: UnitProduct): UnitProduct =
   result = initUnitProduct(u.value)
   result.units.sort()
 
-proc toQuantityPower(units: UnitProduct): seq[QuantityPower] =
+proc toQuantityPower(units: UnitProduct): QuantityPowerArray =
   ## Convert the given product of units to a `seq[QuantityPower]` such that
   ## that it encodes precisely the dimensionality of the unit.
   ##
-  ## Note: if we had a strictly defined number of dimensions, we could in principle
-  ## allocate a fixed size array where each index corresponds to a specific dimension.
-  ## However, given that we are trying to be flexible in the definition of quantities
-  ## even, this is not really feasible at the moment.
-  ## TODO: It is worth a try though to see if we can refactor this further to have
-  ## the `declareQuantities` macro generate such a thing for us, possibly by generating
-  ## a `BaseQuantityKind` enum, which would allow us to write `array[BaseQuantityKind, int]`?
-  ##
-  ## This
-  ##   var ar: array[QuantityKind, int]
-  ##   for u in unit.units:
-  ##     ar[u.toQuantityKind] = 2
-  ## cannot work in the code here, as the `QuantityKind` enum isn't defined at CT of this
-  ## procedure yet. The declaration would have to happen in a module that is imported
-  ## by this one (i.e. inside `quantities`). But that is very problematic as then the quantities
-  ## are "hard coded".
-  ## Instead at least we could add an `id` to each `CTBaseQuantity` (and `CTQuantity`) such
-  ## that we have an easier time to add / compare etc. quantities.
-
-  # 1. compute the combined QuantityPowers of all units in the product
-  var rawPowers = newSeq[QuantityPower]()
+  ## Each declared Quantity has a fixed ID. A `QuantityPowerArray` is a "fixed size"
+  ## sequence with space for each quantity storing quantity of ID i in index i.
+  # conversion to quantity power is simply done by converting all quantities of
+  # all (possibly compound) units to their QP
+  result = initQuantityPowerArray()
   for u in units.units:
-    rawPowers.add u.toQuantityPower()
-  # 2. simplify them by reducing same dimensions, add them to a CountTable
-  #    with power as table argument
-  var cTab = initCountTable[CTBaseQuantity]()
-  for qp in rawPowers:
-    inc(cTab, qp.quant, qp.power)
-  # 3. compute result by placing back in a seq
-  for (q, p) in pairs(cTab):
-    result.add QuantityPower(quant: q, power: p)
-  result.sort() # sort to make sure we get the same order
-
-  when false:
-    result = initTable[QuantityKind, int]()
-    proc addQuant(res: var Table[QuantityKind, int], bu: BaseUnitKind, power: int) =
-      let quantity = bu.toQuantity
-      if quantity in res:
-        res[quantity] += power
-      else:
-        res[quantity] = power
-      if res[quantity] == 0:
-        res.del(quantity)
-    ## A comment, because at first glance this might seem confusing.
-    ##
-    ## We walk over the CTCompoundUnit and for every unit:
-    ## - if a unit is not a compound unit (is a base unit) we simply add its quantity with the
-    ##   power of the given unit to the table.
-    ## - for compound units we have to be more careful: take the power of the unit (e.g. N² -> power 2)
-    ##   and multiply with power of base units (e.g. Newton -> (kg•m•s⁻²)²). That's why we cannot just use
-    ##   `only` the base units power or `only` the units power.
-    for u in a.units:
-      if not u.unitKind.isCompound:
-        doAssert u.b.power == 1
-        result.addQuant(u.b.baseUnit, u.power)
-      else:
-        for bu in u.bs:
-          result.addQuant(bu.baseUnit, (u.power * bu.power))
-    if result.len == 0:
-      result[qkUnitLess] = 1
+    for qp in u.toQuantityPower():
+      result.add qp
 
 proc commonQuantity*[T: UnitProduct | CTQuantity;
                      U: UnitProduct | CTQuantity](
@@ -446,16 +394,17 @@ proc sameQuantityDifferentUnit(u: UnitInstance, p: UnitProduct): bool =
 
 proc sameBaseQuantitiesDifferentPowers(u1, u2: UnitInstance): bool =
   ## Checks if `u1` and `u2` are units of the same base quantities with different
-  ## powers
-  let u1Q = u1.unit.quantity.toQuantityPower().sorted()
-  let u2Q = u2.unit.quantity.toQuantityPower().sorted()
+  ## powers. This assumes `u1` and `u2` are common quantities!
+  let u1Q = u1.unit.quantity.toQuantityPower()
+  let u2Q = u2.unit.quantity.toQuantityPower()
   if u1Q.len != u2Q.len:
     result = false
   else:
     for i in 0 ..< u1Q.len:
+      # get the powers from each QA Array
       let up1 = u1Q[i]
       let up2 = u2Q[i]
-      if up1.quant == up2.quant and up1.power != up2.power:
+      if up1 != up2:
         return true
 
 proc needConversionToBase*(a, b: UnitProduct): bool =
