@@ -54,6 +54,10 @@ doAssert z == 1.m²
   ~QuantityPowerArray~ and giving each ~Quantity~ a unique ID
 - add ID fields for units to uniquely identify a unit based on that
 - rewrite ~simplify~ procedure for better performance
+- add ~unitOf~, ~quantityOf~ return string representations of the unit /
+  quantity of a given unitful variable.
+- ~toBaseUnits~ performs a conversion of the given unit to a combination
+  of base units. 
 * v0.3.0
 - concepts for each quantity to match different units of same quantity
   in procedure calls!
