@@ -1,6 +1,6 @@
 import std / [macros, sets, sequtils, tables, tables, algorithm]
-
-import macro_utils
+from std / strutils import removeSuffix
+import macro_utils, core_types
 
 type
   QuantityType* = enum
@@ -107,6 +107,18 @@ proc `$`*(qa: QuantityPowerArray): string =
   result = "(QPArray: ["
   result.add $qa.data
   result.add "])"
+
+proc pretty*(qa: QuantityPowerArray): string =
+  for qp in items(qa):
+    let (q, p) = (qp.quant, qp.power)
+    result.add $q
+    if p != 1:
+      if p < 0:
+        result.add UnicodeMinus
+      for digit in getPow10Digits(p):
+        result.add digits[digit]
+    result.add UnicodeSep
+  result.removeSuffix(UnicodeSep)
 
 proc `==`*(a, b: QuantityPowerArray): bool =
   ## Checks if the two QP arrays are equivalent.
