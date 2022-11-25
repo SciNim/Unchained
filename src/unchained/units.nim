@@ -80,6 +80,30 @@ proc prettyImpl*(s: float, typStr: string, precision: int, short: bool): string 
     else:
       result.add &" {typStr}"
 
+macro unitOf*[T: SomeUnit](s: T): untyped =
+  ## A helper to only get the unit name of a type *as a string*.
+  ##
+  ## It does not replace `typeof`, but `typeof` is not very helpful
+  ## if one is interested in the name of a unit type only, because of
+  ## the way the compiler treats aliases. Hence, for string names
+  ## of a unit, use this.
+  ##
+  ## Note: behavior of this may change in the future and may currently
+  ## give slightly different representations than a regular `$` call.
+  let typStr = s.parseDefinedUnit().toNimTypeStr(short = ShortFormat,
+                                                 internal = false)
+  result = newLit typStr
+
+macro quantityOf*[T: SomeUnit](x: T): untyped =
+  ## Returns a string representation of the full quantity of the given
+  ## unit in base quantities.
+  ##
+  ## Very useful for manual understanding / dimensional analysis.
+  let xCT = x.parseDefinedUnit().toQuantityPower()
+  let quantityStr = xCT.pretty()
+  result = newLit quantityStr
+
+
 macro `$`*[T: SomeUnit](s: T): string =
   # `$` is a macro so that we don't lose the alias type information possibly associated
   # to `s`!
@@ -466,6 +490,16 @@ macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
     # parsing as a unit failed, rewrite to get possible CT error or correct result
     result = quote do:
       `y` `x`
+
+macro toBaseUnits*[T: SomeUnit](x: T): untyped =
+  ## Converts the given input unit to the fully flattened base type.
+  ##
+  ## This is mostly a convenient tool if one wishes to quickly check the
+  ## pure base unit representation of a unit.
+  let xCT = x.parseDefinedUnit()
+  let resType = xCT.flatten().toBaseType(true).simplify(mergePrefixes = true).toNimType
+  result = quote do:
+    `x`.toDef(`resType`)
 
 ## Natural unit stuff
 proc toNaturalUnitImpl(t: UnitProduct): UnitProduct

@@ -30,7 +30,7 @@ proc sorted*(u: UnitProduct): UnitProduct =
   result = initUnitProduct(u.value)
   result.units.sort()
 
-proc toQuantityPower(units: UnitProduct): QuantityPowerArray =
+proc toQuantityPower*(units: UnitProduct): QuantityPowerArray =
   ## Convert the given product of units to a `seq[QuantityPower]` such that
   ## that it encodes precisely the dimensionality of the unit.
   ##
