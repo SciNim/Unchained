@@ -95,7 +95,15 @@ proc toNimTypeStr*(tab: var UnitTable, x: UnitProduct, short = false,
   # return early if no units in x or if we know the unit's string repr
   if x.units.len == 0: return "UnitLess"
   elif short and x in tab.unitNames: return tab.unitNames[x]
-  elif not short and x in tab.unitNamesLong: return tab.unitNamesLong[x]
+  elif not short and x in tab.unitNamesLong:
+    ## XXX: I have no idea what the hell is going on here. Somehow our table
+    ## gets corrupted sometimes. The element we retrieve is suddenly a UnitProduct
+    ## with a single element. If that is found, delete it and recreate the string.
+    let name = tab.unitNamesLong[x]
+    if name.strip.len == 0:
+      tab.unitNamesLong.del(x)
+    else:
+      return tab.unitNamesLong[x]
 
   result = newStringOfCap(100)
   let xSorted = x.units.sorted
