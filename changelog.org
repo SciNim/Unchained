@@ -1,3 +1,6 @@
+* v0.3.5
+- fix parsing units possibly returning uninitialized ~UnitProduct~ (in
+  particular when dealing with type aliases of ~UnitLess~)
 * v0.3.4
 - fixes an issue with type aliases where a short name was turned into
   a long name that was no undefined, due to how we simplify the units,
