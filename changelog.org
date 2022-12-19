@@ -1,3 +1,12 @@
+* v0.3.2
+- add ~FloatBytes~ ~intdefine~ variable, which allows to change the
+  underlying float type used at CT using ~-d:FloatBytes=4~.
+  Note: it might be advisable to also change the precision used to
+  compare two units using ~-d:UnitCompareEpsilon=~ and setting it to
+  some smaller value. Default is 8 corresponding to an epsilon of
+  ~1e-8~.
+  Further, using ~float32~ can be problematic if used in combination
+  with very low / very high SI prefixes due to the lower precision available.
 * v0.3.1
 - add new SI prefixes defined in November 2022:
   https://www.bipm.org/documents/20126/77765681/Resolutions-2022.pdf/281f3160-fc56-3e63-dbf7-77b76500990f
