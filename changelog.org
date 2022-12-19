@@ -1,3 +1,11 @@
+* v0.3.3
+- emit long type names in ~to~ after all, due to issue with ~min~ (see
+  #37 and #35). This is not a problem anymore, due to fully aliasing
+  long and short names
+- works around a weird issue related to ~UnitTable~ where looking up a
+  ~UnitProduct~ of a long name can sometimes return empty data. The
+  key is being "replaced" by data that is essentially a ~UnitProduct~
+  with a not initialized ~DefinedUnit~.
 * v0.3.2
 - add ~FloatBytes~ ~intdefine~ variable, which allows to change the
   underlying float type used at CT using ~-d:FloatBytes=4~.
