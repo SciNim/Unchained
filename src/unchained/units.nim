@@ -163,10 +163,17 @@ macro defUnit*(arg: untyped, toExport: bool = false): untyped =
 
   result = newStmtList()
   if resType.strVal != "UnitLess":
+    let argShort = argCT.toNimType(short = true)
+    let argLong = argCT.toNimType(short = false)
     result.add emitType(baseType,      distinctQuant, toExport)
     result.add emitType(baseTypeShort, baseType,      toExport)
     result.add emitType(resType,       baseType,      toExport)
     result.add emitType(resTypeShort,  baseType,      toExport)
+    # emit short version, but sorted by unit order
+    result.add emitType(argShort,      baseType,      toExport)
+    # same as long
+    result.add emitType(argLong,       baseType,      toExport)
+    # emit as user intended
     result.add emitType(arg,           baseType,      toExport)
   else:
     result.add emitType(arg,          resType, toExport)
