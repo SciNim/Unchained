@@ -1,3 +1,16 @@
+* v0.3.4
+- fixes an issue with type aliases where a short name was turned into
+  a long name that was no undefined, due to how we simplify the units,
+  Works around the following:
+  #+begin_src nim
+    defUnit(ft²•ft⁻³)
+    let x = 1.m⁻¹
+    check x.to(ft²•ft⁻³) == 0.3048.ft⁻¹
+    check x.to(ft²•ft⁻³) == 0.3048.ft²•ft⁻³
+  #+end_src
+  now producing problems as we emit the long form of user given types
+  later. Those were not defined, because we only define long versions of
+  the reduced version, i.e. ~Foot⁻¹~.
 * v0.3.3
 - emit long type names in ~to~ after all, due to issue with ~min~ (see
   #37 and #35). This is not a problem anymore, due to fully aliasing
