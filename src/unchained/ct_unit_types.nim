@@ -29,13 +29,13 @@ type
     unit*: DefinedUnit ## The actual underlying unit
     prefix*: SiPrefix # possibly differentiating prefix
     power*: int
-    value*: float
+    value*: FloatType
 
   UnitProduct* = object # a product of multiple (possibly compound) units
-    value*: float # value of this unit poduct
+    value*: FloatType # value of this unit poduct
     units*: seq[UnitInstance]
     init*: bool
-    #siPrefix*: float # as a pure float value
+    #siPrefix*: FloatType # as a pure float value
   UnitTable* = ref object
     # quantity stores the *base unit* referring to a quantity (the key)
     quantity*: Table[string, int]
@@ -89,7 +89,7 @@ proc newUnitInstance*(name: string,
                       u: DefinedUnit,
                       power: int,
                       prefix: SiPrefix,
-                      value: float = 1.0): UnitInstance =
+                      value: FloatType = 1.0): UnitInstance =
   result = UnitInstance(name: name,
                         unit: u,
                         power: power,

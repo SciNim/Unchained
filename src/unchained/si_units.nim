@@ -240,7 +240,7 @@ generateSiPrefixedUnits:
 
 ## Converters to help make Radian and Steradian more convenient. Will be
 ## generated in the future from the `declareUnit` macro.
-converter toRawFloat*(x: Radian): float = x.float
-converter toRawFloat*(x: Steradian): float = x.float
-converter toRadian*(x: float): Radian = x.Radian
-converter toSteradian*(x: float): Steradian = x.Steradian
+converter toRawFloat*(x: Radian): FloatType = x.FloatType
+converter toRawFloat*(x: Steradian): FloatType = x.FloatType
+converter toRadian*(x: FloatType): Radian = x.Radian
+converter toSteradian*(x: FloatType): Steradian = x.Steradian

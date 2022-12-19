@@ -2,6 +2,7 @@ import math, macros, options, sets, tables, strutils, unicode, typetraits, strfo
 
 ## This file is the main user facing API
 import core_types, ct_unit_types, macro_utils, define_units, quantities
+export FloatType
 
 const ShortFormat {.booldefine.} = true
 
@@ -41,19 +42,20 @@ proc sanitizeInput(n: NimNode): NimNode =
 
 ## General user facing API
 
-## This is a *forced* conversion of a unit to a float. It simply removes any unit from
-## the type. Currently just `x.float`. Might change in the future.
-proc toFloat*[T: SomeUnit](x: T): float = x.float
+## This is a *forced* conversion of a unit to a FloatType. It simply removes any unit from
+## the type. Currently just `x.FloatType`. Might change in the future.
+proc toFloat*[T: SomeUnit](x: T): FloatType = x.FloatType
 
-## auto conversion of `UnitLess` to `float` is possible so that e.g. `sin(5.kg / 10.kg)` works as expected!
-converter toRawFloat*(x: UnitLess): float = x.float
+## auto conversion of `UnitLess` to `FloatType` is possible so that e.g. `sin(5.kg / 10.kg)` works as expected!
+converter toRawFloat*(x: UnitLess): FloatType = x.FloatType
 converter toUnitLess*(x: SomeNumber): UnitLess = x.UnitLess
 converter toUnitLess*(x: float64): UnitLess = x.UnitLess
+converter toUnitLess*(x: float32): UnitLess = x.UnitLess
 
 import hashes
 proc hash*[T: SomeUnit](x: T): Hash =
   result = result !& hash($typeof(T))
-  result = result !& hash(x.float)
+  result = result !& hash(x.FloatType)
   result = !$result
 
 ## Pretty printing of units
@@ -66,7 +68,7 @@ macro unitName(t: typed): untyped =
   let typ = t.parseDefinedUnit()
   result = newLit typ.pretty(short = false)
 
-proc prettyImpl*(s: float, typStr: string, precision: int, short: bool): string =
+proc prettyImpl*(s: FloatType, typStr: string, precision: int, short: bool): string =
   result = s.formatFloat(precision = precision)
   result.trimZeros()
   if not short:
@@ -110,14 +112,14 @@ macro `$`*[T: SomeUnit](s: T): string =
   let typStr = s.parseDefinedUnit().toNimTypeStr(short = ShortFormat,
                                                  internal = false)
   result = quote do:
-    prettyImpl(`s`.float, `typStr`, precision = -1, short = ShortFormat)
+    prettyImpl(`s`.FloatType, `typStr`, precision = -1, short = ShortFormat)
 
 macro pretty*[T: SomeUnit](s: T, precision: int, short: bool): untyped =
   ## Equivalent to `$`, but allows to change precision and switch to long format.
   let typStr = s.parseDefinedUnit().toNimTypeStr(short = ShortFormat,
                                                  internal = false)
   result = quote do:
-    prettyImpl(`s`.float, `typStr`, precision = `precision`, short = `short`)
+    prettyImpl(`s`.FloatType, `typStr`, precision = `precision`, short = `short`)
 
 macro defUnit*(arg: untyped, toExport: bool = false): untyped =
   ## Defines the given unit `arg` the scope. If `toExport` is `true` and the call happens
@@ -181,7 +183,7 @@ macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
   if xCT == yCT:
     let almostEq = bindSym("almostEqual")
     result = quote do:
-      `almostEq`(`x`.float, `y`.float)
+      `almostEq`(`x`.FloatType, `y`.FloatType)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
@@ -189,7 +191,7 @@ macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
     # compare scaled to base type units
     let almostEq = bindSym("almostEqual")
     result = quote do:
-      `almostEq`(`x`.float * `xScale`, `y`.float * `yScale`)
+      `almostEq`(`x`.FloatType * `xScale`, `y`.FloatType * `yScale`)
   else:
     error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
@@ -198,14 +200,14 @@ macro `<`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
   var yCT = parseDefinedUnit(y)
   if xCT == yCT:
     result = quote do:
-      (`x`.float < `y`.float)
+      (`x`.FloatType < `y`.FloatType)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
     # compare scaled to base type units
     result = quote do:
-      (`x`.float * `xScale` < `y`.float * `yScale`)
+      (`x`.FloatType * `xScale` < `y`.FloatType * `yScale`)
   else:
     error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
@@ -214,14 +216,14 @@ macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped
   var yCT = parseDefinedUnit(y)
   if xCT == yCT:
     result = quote do:
-      (`x`.float <= `y`.float)
+      (`x`.FloatType <= `y`.FloatType)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
     # compare scaled to base type units
     result = quote do:
-      (`x`.float * `xScale` <= `y`.float * `yScale`)
+      (`x`.FloatType * `xScale` <= `y`.FloatType * `yScale`)
   else:
     error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
@@ -235,7 +237,7 @@ macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let resType = xCT.toNimType() # same type, just use `xCT`
     result = quote do:
       defUnit(`resType`)
-      `resType`(`xr`.float + `yr`.float)
+      `resType`(`xr`.FloatType + `yr`.FloatType)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
     var xScale = xCT.toBaseTypeScale()
@@ -250,7 +252,7 @@ macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let resType = xCT.toNimType()
     result = quote do:
       defUnit(`resType`)
-      `resType`(`xr`.float * `xScale` + `yr`.float * `yScale`)
+      `resType`(`xr`.FloatType * `xScale` + `yr`.FloatType * `yScale`)
   else:
     error("Different quantities cannot be added! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
@@ -265,7 +267,7 @@ macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let resType = xCT.toNimType() # same type, just use `xCT`
     result = quote do:
       defUnit(`resType`)
-      `resType`(`xr`.float - `yr`.float)
+      `resType`(`xr`.FloatType - `yr`.FloatType)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
     var xScale = xCT.toBaseTypeScale()
@@ -281,11 +283,11 @@ macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let resType = xCT.toNimType()
     result = quote do:
       defUnit(`resType`)
-      `resType`(`xr`.float * `xScale` - `yr`.float * `yScale`)
+      `resType`(`xr`.FloatType * `xScale` - `yr`.FloatType * `yScale`)
   else:
     error("Different quantities cannot be subtracted! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
 
-proc `-`*[T: SomeUnit](x: T): T = (-(x.float)).T
+proc `-`*[T: SomeUnit](x: T): T = (-(x.FloatType)).T
 
 proc `+=`*[T: SomeUnit](x: var T, y: T) =
   x = x + y
@@ -314,7 +316,7 @@ macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let resType = xCT.simplify(mergePrefixes = true).toNimType()
     result = quote do:
       defUnit(`resType`)
-      `resType`(`xr`.float * `yr`.float)
+      `resType`(`xr`.FloatType * `yr`.FloatType)
   else:
     # check if these units need a conversion
     let needConversion = needConversionToBase(xCT, yCT)
@@ -335,14 +337,14 @@ macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       let scale = scaleOriginal / scaleConv
       result = quote do:
         defUnit(`resType`)
-        `resType`(`xr`.float * `yr`.float * `scale`)
+        `resType`(`xr`.FloatType * `yr`.FloatType * `scale`)
     else:
       result = quote do:
         defUnit(`resType`)
-        `resType`(`xr`.float * `yr`.float)
+        `resType`(`xr`.FloatType * `yr`.FloatType)
 
-#template `*`*[T: SomeUnit; U: SomeNumber](x: T; y: U{lit}): T = (x.float * y.float).T
-#template `*`*[T: SomeUnit; U: SomeNumber](x: U{lit}; y: T): T = (x.float * y.float).T
+#template `*`*[T: SomeUnit; U: SomeNumber](x: T; y: U{lit}): T = (x.FloatType * y.FloatType).T
+#template `*`*[T: SomeUnit; U: SomeNumber](x: U{lit}; y: T): T = (x.FloatType * y.FloatType).T
 
 macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseDefinedUnit(x)
@@ -352,7 +354,7 @@ macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
   if xCT == yCT:
     # excactly the same type, result is simply unitless
     result = quote do:
-      UnitLess(`xr`.float / `yr`.float)
+      UnitLess(`xr`.FloatType / `yr`.FloatType)
   else:
     # add inverted `yCT` (power -> -power) to xCT. Equates a division after simplification
     # determine if conversion needed
@@ -374,11 +376,11 @@ macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       let scale = scaleOriginal / scaleConv
       result = quote do:
         defUnit(`resType`)
-        `resType`(`xr`.float / `yr`.float * `scale`)
+        `resType`(`xr`.FloatType / `yr`.FloatType * `scale`)
     else:
       result = quote do:
         defUnit(`resType`)
-        `resType`(`xr`.float / `yr`.float)
+        `resType`(`xr`.FloatType / `yr`.FloatType)
 
 macro sqrt*[T: SomeUnit](t: T): untyped =
   ## Implements the `sqrt` of a given unitful value.
@@ -397,11 +399,11 @@ macro sqrt*[T: SomeUnit](t: T): untyped =
   let tr = t.sanitizeInput()
   result = quote do:
     defUnit(`resType`)
-    `resType`(sqrt(`tr`.float))
+    `resType`(sqrt(`tr`.FloatType))
 
-proc abs*[T: SomeUnit](t: T): T = (abs(t.float)).T
+proc abs*[T: SomeUnit](t: T): T = (abs(t.FloatType)).T
 
-macro determineScale(x: typedesc, y: typedesc): float =
+macro determineScale(x: typedesc, y: typedesc): FloatType =
   ## x and y `have` to be of the same quantity
   # determine which SI prefix ``in total``
   # for that:
@@ -433,7 +435,7 @@ macro to*[T: SomeUnit; U: SomeUnit](x: T; to: typedesc[U]): U =
     let scale = xCT.toBaseTypeScale() / yCT.toBaseTypeScale()
     let resType = yCT.toNimType(short = true)
     result = quote do:
-      `resType`(`x`.float * `scale`)
+      `resType`(`x`.FloatType * `scale`)
   else:
     error("Cannot convert " & $T & " to " & $U & " as they represent different " &
       "quantities!")
@@ -485,7 +487,7 @@ macro `.`*[T: SomeUnit|SomeNumber](x: T; y: untyped): untyped =
     result = quote do:
       when not declared(`resType`):
         defUnit(`resType`)
-      `resType`(`xr`.float)
+      `resType`(`xr`.FloatType)
   else:
     # parsing as a unit failed, rewrite to get possible CT error or correct result
     result = quote do:
@@ -523,13 +525,13 @@ proc toNaturalUnitImpl(t: UnitInstance): UnitProduct =
         doAssert u.prefix == siIdentity
         # adjust power of natural units based on input unit
         factor *= result.value
-        #result.value = pow(result.value * u.prefix.toFactor(), u.power.float)
+        #result.value = pow(result.value * u.prefix.toFactor(), u.power.FloatType)
         uPower = u.power
         u.power *= t.power
       # Note: we do *not* multiply in the power of the natural unit, as this is
       # only related to the dimension of the resulting unit, but our conversions are
       # for the correct dimension already
-      result.value = pow(factor / t.prefix.toFactor(), t.power.float)
+      result.value = pow(factor / t.prefix.toFactor(), t.power.FloatType)
       # now invert the value, as we want it as multiplicative scaling and our conversion
       # factors are given for division
       result.value = 1.0 / result.value
@@ -559,4 +561,4 @@ macro toNaturalUnit*[T: SomeUnit](t: T): untyped =
   let resType = typ.simplify().toNimType()
   result = quote do:
     defUnit(`resType`)
-    `resType`(`t`.float * `scale`)
+    `resType`(`t`.FloatType * `scale`)

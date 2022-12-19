@@ -188,6 +188,8 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
       result = some(tab.getUserDefined(nStr))
     elif nStr in tab:
       result = some(tab[nStr].toUnitInstance(assignPrefix = false).toUnitProduct())
+    elif nStr in ["FloatType", "float32", "float", "float64", "int", "int64", "UnitLess"]:
+      result = some(initUnitProduct())
 
   case n.kind
   of nnkIdent:
@@ -202,7 +204,7 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
     of nnkDistinctTy: nStr = nTyp[1].strVal
     of nnkSym: nStr = nTyp.strVal
     else: error("Invalid node for type : " & nTyp.repr)
-    if nStr in ["float", "float64", "int", "int64", "UnitLess"]:
+    if nStr in ["FloatType", "float32", "float", "float64", "int", "int64", "UnitLess"]:
       result = some(initUnitProduct())
     else:
       result = fromTab(tab, nStr)

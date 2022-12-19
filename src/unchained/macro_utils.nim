@@ -78,6 +78,7 @@ proc getUnitTypeImpl*(n: NimNode): NimNode =
   of ntyDistinct: result = n.resolveTypeFromDistinct()
   of ntyTypeDesc: result = n.resolveTypeFromTypeDesc()
   of ntyGenericInst: result = n.resolveTypeFromGenericInst()
+  of ntyFloat32, ntyFloat64, ntyFloat: result = n
   of ntyUserTypeClass:
     ## NOTE: Attempting to resolve a type from such an implicit generic doesn't
     ## work properly. See tests/tResolveImplicitQuantity.nim
