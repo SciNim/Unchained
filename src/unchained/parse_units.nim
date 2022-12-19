@@ -97,7 +97,7 @@ proc parseDefinedUnitUnicode(tab: UnitTable, x: string): Option[UnitProduct] =
   ##
   ## It returns an Option to indicate parsing failure if illegal ascii character encountered.
   var res = initUnitProduct()
-  if x == "UnitLess": return
+  if x == "UnitLess": return some(res) # UnitLess is a valid product (empty)
   const sepRune = UnicodeSep.runeAt(0)
   var
     idx = 0
@@ -133,7 +133,7 @@ proc parseDefinedUnitUnicode(tab: UnitTable, x: string): Option[UnitProduct] =
 
 proc parseDefinedUnitAscii(tab: UnitTable, x: string): UnitProduct =
   var res = initUnitProduct()
-  if x == "UnitLess": return
+  if x == "UnitLess": return res # UnitLess is a valid product (empty)
   var
     idx = 0
     c: char

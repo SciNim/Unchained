@@ -1001,6 +1001,10 @@ suite "Unchained - Bug issues":
     check x.to(ft²•ft⁻³) == 0.3048.ft⁻¹
     check x.to(ft²•ft⁻³) == 0.3048.ft²•ft⁻³
 
+  test "Type aliases for UnitLess":
+    type Foo = UnitLess
+    check 1.Foo * 1.Foo == 1.UnitLess
+
 suite "Utils":
   test "Power w/ static integer exponents for floats":
     let x = 5
