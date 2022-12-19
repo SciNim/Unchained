@@ -963,6 +963,31 @@ suite "Unchained - Bug issues":
     check Joule is Energy
     check Newton is Force
 
+  test "Weird behavior of `min` due to overload with `system.min`":
+    # snippets by Arkanoid, slightly modified by me
+    block:
+      check 60.Second.to(Minute) =~= 1.Minute
+      ## The following doesn't work. Compiler says "ambiguous identifier, please clarify"
+      # check 60.s.to(min) =~= 1.min
+    block:
+      type
+        Foo[TTime, TLength] = object
+          time: TTime
+          length: TLength
+
+        ## Note: have to use `Minute` here too, using `min` also gives ambiguous ident error
+        FooImperial = Foo[Minute, ft]
+        FooInternational = Foo[Minute, m]
+
+      func convertUnitsPairs[T1](x: T1, T2: typedesc): T2 {.inline.}  =
+        for xname, xf in fieldPairs(x):
+          for rname, rf in fieldPairs(result):
+            when xname == rname:
+              rf = xf.to(type(rf))
+      let fooImperial = FooImperial(time: 5.min, length: 42.ft)
+      ## the following should compile without an error
+      let fooInternational = fooImperial.convertUnitsPairs(FooInternational)
+
 suite "Utils":
   test "Power w/ static integer exponents for floats":
     let x = 5
@@ -1073,7 +1098,7 @@ suite "Quantity concepts":
     else:
       check true
 
-suite "Unchaine - math with typedescs to define units":
+suite "Unchained - math with typedescs to define units":
   test "Pure typedesc math defines units":
     block:
       let x = kg + kg
