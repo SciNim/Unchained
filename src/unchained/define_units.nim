@@ -123,7 +123,7 @@ proc toNimType*(x: UnitProduct, short = false): NimNode =
   let name = x.toNimTypeStr(short)
   result = if name.len == 0: ident("UnitLess") else: ident(name)
 
-proc toBaseTypeScale*(u: UnitInstance): float =
+proc toBaseTypeScale*(u: UnitInstance): FloatType =
   result = u.prefix.toFactor()
   result *= u.value
   ## XXX: multiply the `conversion` factor possibly if unit is not a base unit
@@ -134,7 +134,7 @@ proc toBaseTypeScale*(u: UnitInstance): float =
     result *= u.unit.conversion.value
   # divide out any possible base prefixes (e.g. for kilo gram)
   result /= u.unit.basePrefix.toFactor()
-  result = pow(result, u.power.float)
+  result = pow(result, u.power.FloatType)
 
 #[
 Overview of simplification procedures:
@@ -160,7 +160,7 @@ Probably `toBaseType` and `flatten` could be a single procedure as well.
 
 ## TODO: better distinguish between converting to base SI prefixes and
 ## converting non SI units to SI?
-proc toBaseTypeScale*(x: UnitProduct): float =
+proc toBaseTypeScale*(x: UnitProduct): FloatType =
   ## returns the scale required to turn `x` to its base type, i.e.
   ## turn all units that are not already to its base form. This
   ## includes converting non base prefix units to their base prefixes
@@ -199,7 +199,7 @@ proc toBaseType*(u: UnitInstance, needConversion: bool): UnitProduct =
         mbu.power *= u.power
         result.units.add mbu
       # now add possible further prefixes / powers of the input
-      result.value *= pow(u.prefix.toFactor(), u.power.float) # XXX: * u.value ? we don't use `value` atm
+      result.value *= pow(u.prefix.toFactor(), u.power.FloatType) # XXX: * u.value ? we don't use `value` atm
 
 proc toBaseType*(x: UnitProduct, needConversion: bool): UnitProduct =
   ## converts `x` to a unit representing the base type.
@@ -255,7 +255,7 @@ proc flatten*(units: UnitProduct, needConversion = true,
        noFlattenIdentity or
        noFlattenDerived:
       #var mu = unitInst
-      #factor *= pow(prefix.toFactor(), power.float)
+      #factor *= pow(prefix.toFactor(), power.FloatType)
       #mu.prefix = mu.unit.basePrefix
       result.add unitInst
     else:
@@ -272,7 +272,7 @@ proc flatten*(units: UnitProduct, needConversion = true,
         ## concept `SomeUnit`? No! If `Meter•Second⁻¹` is demanded we need that and
         ## not allow `CentiMeter•Second⁻¹`?
         # conversion factor is SI prefix to the unit's power
-        factor *= pow(prefix.toFactor, power.float)
+        factor *= pow(prefix.toFactor, power.FloatType)
         for b in unit.quantity.baseSeq:
           # convert given `QuantityPower` to a base unit
           var u = b.toUnitInstance()
@@ -433,7 +433,7 @@ proc parseConversion(n: NimNode): UnitProduct = ## DefinedUnitValue !
   let dotEx = n[0]
   result = parseDefinedUnit(dotEx[1].strVal)
   case dotEx[0].kind
-  of nnkIntLit: result.value = float(dotEx[0].intVal)
+  of nnkIntLit: result.value = FloatType(dotEx[0].intVal)
   of nnkFloatLit: result.value = dotEx[0].floatVal
   else: error("Invalid node for unit conversion definition " & $dotEx.repr & ".")
 

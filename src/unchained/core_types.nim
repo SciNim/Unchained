@@ -3,8 +3,19 @@
 ## of them.
 import std / tables
 
+const FloatBytes* {.intdefine.} = 8
+
+when FloatBytes == 8:
+  type
+    FloatType* = float
+elif FloatBytes == 4:
+  type
+    FloatType* = float32
+else:
+  {.error: "Unsupported size for the underlying float type: " & $FloatBytes & " bytes.".}
+
 type
-  Unit* = distinct float
+  Unit* = distinct FloatType
 
   Quantity* = distinct Unit
   CompoundQuantity* = distinct Quantity
@@ -121,7 +132,7 @@ const SiShortPrefixStrTable* = block:
 proc `$`*(prefix: SiPrefix): string =
   result = SiPrefixTable[prefix]
 
-proc toFactor*(prefix: SiPrefix): float =
+proc toFactor*(prefix: SiPrefix): FloatType =
   ## note: can't compute value reasonably, due to hecto, centi, deci and deca
   case prefix
   of siQuecto:   result = 1e-30

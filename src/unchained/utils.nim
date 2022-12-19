@@ -1,4 +1,5 @@
 import std / [macros]
+from core_types import FloatType
 
 macro `^`*(x: typed, num: static int): untyped =
   ## general purpose power using `^` for integers, which works for any
@@ -12,7 +13,7 @@ macro `^`*(x: typed, num: static int): untyped =
   elif num == 1:
     result = x
   elif num == -1:
-    ## Assume that the type supports addition by a float!
+    ## Assume that the type supports addition by a FloatType!
     result = quote do:
       1.0 / `x`
   else:
@@ -30,7 +31,7 @@ macro `^`*(x: typed, num: static int): untyped =
 
     # invert if num is negative
     if num < -1:
-      ## Assume that the type supports addition by a float!
+      ## Assume that the type supports addition by a FloatType!
       result = quote do:
         1.0 / (`result`)
 
@@ -38,7 +39,7 @@ macro `^`*(x: typed, num: static int): untyped =
 ## Number of digits to use as epsilon for unit comparison in `almostEqual`
 const UnitCompareEpsilon {.intdefine.} = 8
 import std / fenv
-proc almostEqual*(a, b: float, epsilon = 10^(-UnitCompareEpsilon)): bool =
+proc almostEqual*(a, b: FloatType, epsilon = 10^(-UnitCompareEpsilon)): bool =
   ## Comparison of two floats, taken from `datamancer` implementation. Only used
   ## internally to compare two units.
   # taken from
@@ -49,10 +50,10 @@ proc almostEqual*(a, b: float, epsilon = 10^(-UnitCompareEpsilon)): bool =
     diff = abs(a - b)
   if a == b: # shortcut, handles infinities
     result = true
-  elif a == 0 or b == 0 or (absA + absB) < minimumPositiveValue(float64):
+  elif a == 0 or b == 0 or (absA + absB) < minimumPositiveValue(FloatType):
     # a or b is zero or both are extremely close to it
     # relative error is less meaningful here
-    result = diff < (epsilon * minimumPositiveValue(float64))
+    result = diff < (epsilon * minimumPositiveValue(FloatType))
   else:
     # use relative error
-    result = diff / min(absA + absB, maximumPositiveValue(float64)) < epsilon
+    result = diff / min(absA + absB, maximumPositiveValue(FloatType)) < epsilon
