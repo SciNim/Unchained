@@ -426,14 +426,14 @@ macro to*[T: SomeUnit; U: SomeUnit](x: T; to: typedesc[U]): U =
   let xCT = x.parseDefinedUnit()
   let yCT = to.parseDefinedUnit()
   if xCT == yCT:
-    let resType = yCT.toNimType(short = true)
+    let resType = yCT.toNimType()
     result = quote do:
       `resType`(`x`)
   elif commonQuantity(xCT, yCT):
     # perform conversion
     ## thus determine scaling factor due to different SI prefixes
     let scale = xCT.toBaseTypeScale() / yCT.toBaseTypeScale()
-    let resType = yCT.toNimType(short = true)
+    let resType = yCT.toNimType()
     result = quote do:
       `resType`(`x`.FloatType * `scale`)
   else:
