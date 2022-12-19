@@ -670,6 +670,11 @@ suite "Unchained - isAUnit concept checking":
     check not isAUnit(string)
     check not isAUnit(seq[string])
 
+    defUnit(m•J)
+    check isAUnit(m•J) # as user intended
+    check isAUnit(Joule•Meter) # long form of correct order
+    check isAUnit(J•m) # short form of correct order
+
 suite "Unchained - syntax in accented quotes":
   test "Basic units in accented quotes":
     check 5.`Meter*Second^-1` == 5.m•s⁻¹
@@ -987,6 +992,14 @@ suite "Unchained - Bug issues":
       let fooImperial = FooImperial(time: 5.min, length: 42.ft)
       ## the following should compile without an error
       let fooInternational = fooImperial.convertUnitsPairs(FooInternational)
+
+  test "Confusion of long and short units":
+    # this needs to generate not only `ft²•ft⁻³`, but also the long form
+    # as we now emit `Foot²•Foot⁻³` in some cases. So the type must be known.
+    defUnit(ft²•ft⁻³)
+    let x = 1.m⁻¹
+    check x.to(ft²•ft⁻³) == 0.3048.ft⁻¹
+    check x.to(ft²•ft⁻³) == 0.3048.ft²•ft⁻³
 
 suite "Utils":
   test "Power w/ static integer exponents for floats":
