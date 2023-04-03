@@ -129,6 +129,11 @@ declareUnits:
       quantity: MagneticFieldStrength
       conversion: 1e-4.T # non SI defined by having a conversion
 
+    Torr:
+      short: torr
+      quantity: Pressure
+      conversion: 133.322368421.Pa # 101325.0 / 760.0 <-> (1 atm / 760 Torr)
+
     # given that we have base units & derived base units defined, we can now just
     # dump everything together. Everything that is referenced before, can now be
     # used to define new units.
