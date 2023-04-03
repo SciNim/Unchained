@@ -1,3 +1,4 @@
+import std / strutils
 import cligen/argcvt
 import unchained
 proc argParse*[T: SomeUnit](dst: var T, dfl: T,
@@ -5,12 +6,12 @@ proc argParse*[T: SomeUnit](dst: var T, dfl: T,
   try:
     let aStr = a.val
     var tmp: T
-    let unitName = unitOf(tmp)
+    let unitName = "." & unitOf(tmp)
     if aStr.endsWith(unitName):
       proc removeSuffix(s, p: string): string =
         result = s
         result.removeSuffix(p)
-      dst = aStr.removeSuffix(unitName).strip.parseFloat.T
+      dst = aStr.removeSuffix(unitName).parseFloat.T
     else:
       dst = aStr.strip.parseFloat.T
     result = true
