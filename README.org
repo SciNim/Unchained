@@ -297,3 +297,29 @@ km/h     : 12 km•h⁻¹
 mph      : 7.2 mi•h⁻¹
 m/s      : 3.2 m•s⁻¹
 :end:
+which outputs:
+#+begin_src
+1K       :  0 h  5 min 20 s
+1 mile   :  0 h  8 min 34 s
+5K       :  0 h 26 min 38 s
+10K      :  0 h 53 min 16 s
+Half     :  1 h 52 min 22 s
+Marathon :  3 h 44 min 44 s
+50K      :  4 h 26 min 18 s
+100K     :  8 h 52 min 36 s
+100 mile : 14 h 17 min  9 s
+----------------------------------------
+1K       :  0 h  4 min 48 s
+1 mile   :  0 h  7 min 43 s
+5K       :  0 h 24 min  0 s
+10K      :  0 h 48 min  0 s
+Half     :  1 h 41 min 16 s
+Marathon :  3 h 22 min 32 s
+50K      :  4 h  0 min  0 s
+100K     :  8 h  0 min  0 s
+100 mile : 12 h 52 min 29 s
+----------------------------------------
+km/h     : 12 km•h⁻¹
+mph      : 7.2 mi•h⁻¹
+m/s      : 3.2 m•s⁻¹
+#+end_src
