@@ -297,8 +297,9 @@ km/h     : 12 km•h⁻¹
 mph      : 7.2 mi•h⁻¹
 m/s      : 3.2 m•s⁻¹
 :end:
+
 which outputs:
-#+begin_src
+#+begin_src sh
 1K       :  0 h  5 min 20 s
 1 mile   :  0 h  8 min 34 s
 5K       :  0 h 26 min 38 s
