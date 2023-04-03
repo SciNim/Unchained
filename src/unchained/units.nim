@@ -68,8 +68,9 @@ macro unitName(t: typed): untyped =
   let typ = t.parseDefinedUnit()
   result = newLit typ.pretty(short = false)
 
-proc prettyImpl*(s: FloatType, typStr: string, precision: int, short: bool): string =
-  result = s.formatFloat(precision = precision)
+proc prettyImpl*(s: FloatType, typStr: string, precision: int, short: bool,
+                 format: FloatFormatMode): string =
+  result = s.formatFloat(format = format, precision = precision)
   result.trimZeros()
   if not short:
     when not defined(noUnicode):
@@ -112,14 +113,14 @@ macro `$`*[T: SomeUnit](s: T): string =
   let typStr = s.parseDefinedUnit().toNimTypeStr(short = ShortFormat,
                                                  internal = false)
   result = quote do:
-    prettyImpl(`s`.FloatType, `typStr`, precision = -1, short = ShortFormat)
+    prettyImpl(`s`.FloatType, `typStr`, precision = -1, short = ShortFormat, format = ffDefault)
 
-macro pretty*[T: SomeUnit](s: T, precision: int, short: bool): untyped =
+macro pretty*[T: SomeUnit](s: T, precision: int, short: bool, format = ffDefault): untyped =
   ## Equivalent to `$`, but allows to change precision and switch to long format.
   let typStr = s.parseDefinedUnit().toNimTypeStr(short = ShortFormat,
                                                  internal = false)
   result = quote do:
-    prettyImpl(`s`.FloatType, `typStr`, precision = `precision`, short = `short`)
+    prettyImpl(`s`.FloatType, `typStr`, precision = `precision`, short = `short`, format = `format`)
 
 macro defUnit*(arg: untyped, toExport: bool = false): untyped =
   ## Defines the given unit `arg` the scope. If `toExport` is `true` and the call happens
