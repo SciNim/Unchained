@@ -28,7 +28,8 @@ type
     name*: string # the part of the nim node that was parsed into this
     unit*: DefinedUnit ## The actual underlying unit
     prefix*: SiPrefix # possibly differentiating prefix
-    power*: int
+    power*: int ## XXX: we could make the power a `Rational` and that way support `sqrt` and things in a
+                ## ~ reasonable way without having to rely on float hacks.
     value*: FloatType
 
   UnitProduct* = object # a product of multiple (possibly compound) units
