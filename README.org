@@ -211,4 +211,89 @@ errors due to unit mismatches by using this lib! Tada!
 
 *Hint*: The unit =Chain= does not exist in this library...
 
+** Units and ~cligen~
 
+~cligen~ is arguably the most powerful and at the same time convenient
+to use command line argument parser in Nim land (and likely across
+languages...; plus a lot of other things!).
+
+For that reason it is a common desire to combine ~Unchained~ units as
+an command line argument to a program that uses ~cligen~ to parse the
+arguments. Thanks to ~cligen's~ extensive options to expand its
+features, we now provide a simple submodule you can import in order to
+support ~Unchained~ units in your program. Here's a short example
+useful for the runners among you, a simple script to convert a given
+speed (in mph, km/h or m/s) to a time per minute / per mile / 5K / 10K
+/ ... distance or vice versa:
+#+begin_src nim :tangle examples/speed_tool.nim
+import unchained, math, strutils
+defUnit(mi•h⁻¹)
+defUnit(km•h⁻¹)
+defUnit(m•s⁻¹)
+proc timeStr[T: Time](t: T): string =
+  let (h, mr) = splitDecimal(t.to(Hour).float)
+  let (m, s)  = splitDecimal(mr.Hour.to(Minute).float)
+  result =
+    align(pretty(h.Hour, 0, true, ffDecimal), 6, ' ') &
+    " " & align(pretty(m.Minute, 0, true, ffDecimal), 8, ' ') &
+    " " & align(pretty(s.Minute.to(Second), 0, true, ffDecimal), 6, ' ')
+template print(d, x) = echo "$#: $#" % [alignLeft(d, 9), align(x, 10)]
+proc echoTimes[V: Velocity](v: V) =
+  print("1K",       timeStr 1.0 / (v / 1.km))
+  print("1 mile",   timeStr 1.0 / (v / 1.Mile))
+  print("5K",       timeStr 1.0 / (v / 5.km))
+  print("10K",      timeStr 1.0 / (v / 10.km))
+  print("Half",     timeStr 1.0 / (v / (42.195.km / 2.0)))
+  print("Marathon", timeStr 1.0 / (v / 42.195.km))
+  print("50K",      timeStr 1.0 / (v / 50.km))
+  print("100K",     timeStr 1.0 / (v / 100.km))   # maybe a bit aspirational at the same pace, huh?
+  print("100 mile", timeStr 1.0 / (v / 100.Mile)) # let's hope it's not Leadville
+proc mph(v: mi•h⁻¹) = echoTimes(v)
+proc kmh(v: km•h⁻¹) = echoTimes(v)
+proc mps(v:  m•s⁻¹) = echoTimes(v)
+proc speed(d: km, hour = 0.0.h, min = 0.0.min, sec = 0.0.s) =
+  let t = hour + min + sec
+  print("km/h", pretty((d / t).to(km•h⁻¹), 2, true))
+  print("mph",  pretty((d / t).to(mi•h⁻¹), 2, true))
+  print("m/s",  pretty((d / t).to( m•s⁻¹), 2, true))
+when isMainModule:
+  import unchained / cligenParseUnits # just import this and then you can use `unchained` units as parameters!
+  import cligen
+  dispatchMulti([mph], [kmh], [mps], [speed])
+#+end_src
+
+#+begin_src sh :results drawer
+nim c examples/speed_tool
+examples/speed_tool mph -v 7.0 # without unit, assumed is m•h⁻¹
+echo "----------------------------------------"
+examples/speed_tool kmh -v 12.5.km•h⁻¹ # with explicit unit
+echo "----------------------------------------"
+examples/speed_tool speed -d 11.24.km --min 58 --sec 4
+#+end_src
+
+#+RESULTS:
+:results:
+1K       :  0 h  5 min 20 s
+1 mile   :  0 h  8 min 34 s
+5K       :  0 h 26 min 38 s
+10K      :  0 h 53 min 16 s
+Half     :  1 h 52 min 22 s
+Marathon :  3 h 44 min 44 s
+50K      :  4 h 26 min 18 s
+100K     :  8 h 52 min 36 s
+100 mile : 14 h 17 min  9 s
+----------------------------------------
+1K       :  0 h  4 min 48 s
+1 mile   :  0 h  7 min 43 s
+5K       :  0 h 24 min  0 s
+10K      :  0 h 48 min  0 s
+Half     :  1 h 41 min 16 s
+Marathon :  3 h 22 min 32 s
+50K      :  4 h  0 min  0 s
+100K     :  8 h  0 min  0 s
+100 mile : 12 h 52 min 29 s
+----------------------------------------
+km/h     : 12 km•h⁻¹
+mph      : 7.2 mi•h⁻¹
+m/s      : 3.2 m•s⁻¹
+:end:
