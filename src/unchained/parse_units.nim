@@ -5,7 +5,7 @@ import core_types, ct_unit_types, macro_utils
 
 from std / tables import getOrDefault, `[]`
 
-proc parseSiPrefixShort(c: char): SiPrefix =
+proc parseSiPrefixShort(c: Rune): SiPrefix =
   ## For the case of short SI prefixes (i.e. single character) return it
   result = SiShortPrefixStrTable.getOrDefault($c, siIdentity) # initialize with identity, in case none match
 
@@ -32,7 +32,7 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
   ## returns both the prefix as well as the unit itself.
   # NOTE: can we avoid the string slice copies? :/
   result.prefix = siIdentity
-  case stop - start
+  case x[start ..< stop].runeLen # stop - start
   of 0: # invalid
     doAssert false
   of 1: # short unit without SI prefix
@@ -48,7 +48,7 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
       result.unit = unitOpt.get
     else:
       # first char must be short prefix & second a short unit, e.g. `mN`
-      result.prefix = parseSiPrefixShort(x[start])
+      result.prefix = parseSiPrefixShort(x.runeAt(start))
       result.unit = tab.getShort($x[stop-1])
   else:
     # try any unit
@@ -60,7 +60,7 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
       unitOpt = tab.tryLookupUnit(x[start+1 ..< stop])
       if unitOpt.isSome:
         result.unit = unitOpt.get
-        result.prefix = parseSiPrefixShort(x[start]) # in this case prefix must be short
+        result.prefix = parseSiPrefixShort(x.runeAt(start)) # in this case prefix must be short
       else:
         # must be long + long, e.g. `KiloGram`
         # must have prefix, thus parse until upper, that defines prefix & unit
