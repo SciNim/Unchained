@@ -1,3 +1,7 @@
+* v0.3.6
+- add ~Torr~ as a unit of pressure
+- fixes a regression when parsing units with unicode runes (μ)
+- add submodule to help with parsing units in ~cligen~ program arguments    
 * v0.3.5
 - fix parsing units possibly returning uninitialized ~UnitProduct~ (in
   particular when dealing with type aliases of ~UnitLess~)
