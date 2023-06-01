@@ -77,7 +77,7 @@ template addUnit(): untyped {.dirty.} =
   ## separator as well as after the loop
   let (prefix, unit) = tab.parsePrefixAndUnit(x, start, stop)
   exp = if exp == 0: 1 else: exp
-  exp = if negative: -exp: else: exp
+  exp = if negative: -exp else: exp
   res.add newUnitInstance("", unit, exp, prefix)
 
 proc parseDefinedUnitUnicode(tab: UnitTable, x: string): Option[UnitProduct] =
