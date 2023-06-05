@@ -40,6 +40,7 @@ iterator getPow10Digits*(x: int): int =
   for el in digits.reversed:
     yield el
 
+proc getUnitTypeImpl*(n: NimNode): NimNode
 proc resolveTypeFromAlias(n: NimNode): NimNode =
   case n.kind
   of nnkSym:
@@ -54,9 +55,7 @@ proc resolveTypeFromAlias(n: NimNode): NimNode =
       else:
         result = typ[2]
   else:
-    let typ = n.getTypeImpl
-    doAssert typ.kind == nnkDistinctTy, " no, was " & $typ.treerepr
-    result = typ[0]
+    result = n.getTypeInst.getUnitTypeImpl()
 
 proc resolveTypeFromDistinct(n: NimNode): NimNode =
   let typ = n.getImpl
