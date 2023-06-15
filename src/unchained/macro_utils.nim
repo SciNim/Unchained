@@ -46,8 +46,11 @@ proc resolveTypeFromAlias(n: NimNode): NimNode =
   of nnkSym:
     let typ = n.getImpl
     doAssert typ.kind == nnkTypeDef, " no, was " & $typ.treerepr
-    if typ[2].typeKind == ntyAlias:
+    case typ[2].typeKind
+    of ntyAlias:
       result = typ[2].resolveTypeFromAlias()
+    of ntyDistinct: # can be result of a `mapIt` call (i.e. type via `typeof(block...)`
+      result = typ[2].getTypeInst.getUnitTypeImpl()
     else:
       case typ[2].kind
       of nnkInfix: # this is a type class A = B | C | D, ... return input
