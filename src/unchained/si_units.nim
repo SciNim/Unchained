@@ -134,6 +134,11 @@ declareUnits:
       quantity: Pressure
       conversion: 133.322368421.Pa # 101325.0 / 760.0 <-> (1 atm / 760 Torr)
 
+    Erg:
+      short: erg
+      quantity: Energy
+      conversion: 1e-7.J
+
     # given that we have base units & derived base units defined, we can now just
     # dump everything together. Everything that is referenced before, can now be
     # used to define new units.
