@@ -1,5 +1,5 @@
 import unchained
-import unittest
+import std / [unittest, sequtils]
 
 template fails(x: untyped): untyped =
   when compiles(x):
@@ -773,6 +773,53 @@ suite "Unchained - practical examples turned tests":
       result = x / factor
     check normalizeValue(5.0, 10.0, 2.keV, 3300.h) == 2.590298517245851e-05.keV⁻¹•cm⁻²•s⁻¹
     check $normalizeValue(5.0, 10.0, 2.keV, 3300.h) == "2.5903e-05 keV⁻¹•cm⁻²•s⁻¹"
+
+  test "seq + mapIt type conversion":
+    const lMirror = 225.mm
+    # Applying types via mapIt
+    let
+      allThickness = @[0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2,
+                       0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2].mapIt(it.mm)
+      # the radii of the shells
+      allR1 = @[63.006, 65.606, 68.305, 71.105, 74.011, 77.027, 80.157,
+                83.405, 86.775, 90.272, 93.902, 97.668, 101.576, 105.632].mapIt(it.mm)
+      allXsep = @[4.171, 4.140, 4.221, 4.190, 4.228, 4.245, 4.288, 4.284,
+                  4.306, 4.324, 4.373, 4.387, 4.403, 4.481].mapIt(it.mm)
+      # the angles of the mirror shells coresponding to the radii above
+      allAngles = @[0.579, 0.603, 0.628, 0.654, 0.680, 0.708, 0.737, 0.767,
+                    0.798, 0.830, 0.863, 0.898, 0.933, 0.970].mapIt(it.Degree)
+    ## before the following things caused issues:
+    for j in 0 ..< allR1.len:
+      let r1 = allR1[j]
+      let beta = allAngles[j].to(Radian) ## <- this was broken
+      let xSep = allXsep[j]
+      let r2 = r1 - lMirror * sin(beta)  ## <- as was any math
+      let r3 = r2 - 0.5 * xSep * tan(beta)
+      let r4 = r3 - 0.5 * xSep * tan(3.0 * beta)
+      let r5 = r4 - lMirror * sin(3.0 * beta)
+      echo r3
+    ## because the type couldn't be deduced from the `typeof(block...)` part of the
+    ## `mapIt` template
+
+  test "Limit example w/ typed background seq":
+    # Note: everything outside the part triggering the old bug
+    # is removed to avoid extra deps
+    const totalTime = 100.0.h # 100 of "tracking time"
+    const areaBore = π * (2.15 * 2.15).cm²
+    const chipArea = 5.mm * 5.mm # assume all flux is focused into an area of 5x5 mm²
+                                 # on the detector. Relevant area for background!
+    defUnit(keV⁻¹)
+    defUnit(keV⁻¹•cm⁻²•s⁻¹)
+
+    ## Constants defining the channels and background info
+    const
+      Background = @[0.5e-5, 2.5e-5, 4.5e-5, 4.0e-5, 1.0e-5, 0.75e-5, 0.8e-5, 3e-5, 3.5e-5, 2.0e-5]
+        .mapIt(it.keV⁻¹•cm⁻²•s⁻¹) # convert to a rate
+
+    proc background(E: keV): keV⁻¹ =
+      let idx = 0 # dummy for test
+      result = (Background[idx] * totalTime * chipArea).to(keV⁻¹)
+    check type(background(1.keV) ) is keV⁻¹
 
 suite "Unchained - imperial units":
   test "Pound":
