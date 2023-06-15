@@ -1,3 +1,9 @@
+* v0.3.7
+- add the unit ~Erg~ commonly used in astronomy
+- improve type extraction for element access from sequences with types
+  & in particular sequences whose types have been defined by a ~mapIt~
+  call
+- fix extra colon in unit parsing (PR #41)
 * v0.3.6
 - add ~Torr~ as a unit of pressure
 - fixes a regression when parsing units with unicode runes (μ)
