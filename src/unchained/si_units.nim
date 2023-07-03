@@ -139,6 +139,21 @@ declareUnits:
       quantity: Energy
       conversion: 1e-7.J
 
+    AstronomicalUnit:
+      short: AU
+      quantity: Length
+      conversion: 149_597_870_700.0.m # by definition since 2012
+
+    LightYear:
+      short: ly
+      quantity: Length
+      conversion: 9_460_730_472_580_800.0.m # 365.25 * 86400 * c_0
+
+    Parsec:
+      short: parsec
+      quantity: Length
+      conversion: 30856775814913673.0.m # 1 AU * 180° * 60 * 60 / π
+
     # given that we have base units & derived base units defined, we can now just
     # dump everything together. Everything that is referenced before, can now be
     # used to define new units.
@@ -160,6 +175,15 @@ declareUnits:
       short: °
       quantity: Angle
       conversion: 0.0174532925199.rad # PI / 180.0
+    ArcMinute:
+      short: arcmin
+      quantity: Angle
+      conversion: 0.000290888.rad # 1.° / 60.0 in Radian
+    ArcSecond:
+      short: arcsec
+      quantity: Angle
+      conversion: 0.0000048481368111.rad # 1.° / (60 * 60) in Radian
+
     Minute:
       short: min
       quantity: Time
