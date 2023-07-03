@@ -1,3 +1,19 @@
+* v0.3.8
+- add some more astronomical units:
+  - ~AstronomicalUnit~, ~AU~
+  - ~LightYear~, ~ly~
+  - ~Parsec~, ~parsec~ (not ~pc~ due to pico coulomb)
+- add degree related units:
+  - ~ArcMinute~, ~arcmin~
+  - ~ArcSecond~, ~arcsec~
+- *BREAKING*: Change definition of 1 year from 365 days to 365.25 days
+  (1 Julian year), matching definition of a light year. Otherwise they
+  would disagree if computed "by hand" using our units.  More precise,
+  but of course highly dependent on your calendar / definitions
+  -> For these time units it would probably be best to have different sets of units
+  / unit systems, i.e. GregorianYear etc.
+  Anyone dealing with time units should be aware that these things are
+  tricky and best be dealt with _given their specific application_!
 * v0.3.7
 - add the unit ~Erg~ commonly used in astronomy
 - improve type extraction for element access from sequences with types
