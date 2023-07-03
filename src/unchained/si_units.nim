@@ -199,7 +199,7 @@ declareUnits:
     Year:
       short: yr
       quantity: Time
-      conversion: 31536000.s # 365.0 * 86400.0, could also use ~365.25...
+      conversion: 31557600.s # 365.25 * 86400.0 (Julian year) (to match definition of lightyear)
 
     # Imperial
     Pound:
