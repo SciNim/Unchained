@@ -50,9 +50,10 @@ type
                                                   ## unit product. string is the name of the
                                                   ## unit as produced in `defUnit` for `resType`
                                                   ## The value is the user given type / generated type.
-    unitNames*: Table[UnitProduct, string] ## Maps all units that have been converted to strings
-                                           ## to their names.
-    unitNamesLong*: Table[UnitProduct, string] ## Equivalent to `unitNames` for long names.
+    ## Note: attempting to cache the unit names is 50% slower than just regenerating them!
+    #unitNames*: Table[UnitProduct, string] ## Maps all units that have been converted to strings
+    #                                       ## to their names.
+    #unitNamesLong*: Table[UnitProduct, string] ## Equivalent to `unitNames` for long names.
 
 proc initUnitProduct*(value = 1.0): UnitProduct =
   result = UnitProduct(value: value, units: newSeq[UnitInstance](), init: true)

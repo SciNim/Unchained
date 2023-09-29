@@ -14,6 +14,7 @@ type
 ## defined in the `declareUnit` call and is later used to access type information.
 var UnitTab* {.compileTime.} = newUnitTable()
 
+
 proc parseDefinedUnit*(x: string): UnitProduct =
   ## Overload that wraps the local `UnitTab` and hands it for parsing
   result = UnitTab.parseDefinedUnit(x)
@@ -94,17 +95,6 @@ proc toNimTypeStr*(tab: var UnitTable, x: UnitProduct, short = false,
   ## converts `x` to the correct string representation
   # return early if no units in x or if we know the unit's string repr
   if x.units.len == 0: return "UnitLess"
-  elif short and x in tab.unitNames: return tab.unitNames[x]
-  elif not short and x in tab.unitNamesLong:
-    ## XXX: I have no idea what the hell is going on here. Somehow our table
-    ## gets corrupted sometimes. The element we retrieve is suddenly a UnitProduct
-    ## with a single element. If that is found, delete it and recreate the string.
-    let name = tab.unitNamesLong[x]
-    if name.strip.len == 0:
-      tab.unitNamesLong.del(x)
-    else:
-      return tab.unitNamesLong[x]
-
   result = newStringOfCap(100)
   let xSorted = x.units.sorted
   for idx, u in xSorted:
@@ -115,10 +105,6 @@ proc toNimTypeStr*(tab: var UnitTable, x: UnitProduct, short = false,
       else:
         str.add "*"
     result.add str
-  if short and x notin tab.unitNames:
-    tab.unitNames[x] = result
-  elif not short and x notin tab.unitNamesLong:
-    tab.unitNamesLong[x] = result
 
 proc toNimTypeStr*(x: UnitProduct, short = false,
                    internal: static bool = true): string =
