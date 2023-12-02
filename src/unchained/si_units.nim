@@ -125,7 +125,7 @@ declareUnits:
 
     # Non SI units
     Gauss:
-      short: G
+      short: gauss
       quantity: MagneticFieldStrength
       conversion: 1e-4.T # non SI defined by having a conversion
 
