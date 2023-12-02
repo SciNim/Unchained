@@ -184,6 +184,12 @@ declareUnits:
       quantity: Angle
       conversion: 0.0000048481368111.rad # 1.° / (60 * 60) in Radian
 
+    # Area commonly used for cross sections in atomic / particle physics
+    Barn:
+      short: barn # `b` is too ambiguous with prefixes
+      quantity: Area
+      conversion: 1e-28.m²
+
     Minute:
       short: min
       quantity: Time
@@ -271,6 +277,8 @@ generateSiPrefixedUnits:
   (sr, Steradian)
   (T, Tesla) exclude [f] # fT would be ambiguous with `ft` (foot)
   (Bq, Becquerel)
+  (gauss, Gauss)
+  (barn, Barn)
 
 ## Converters to help make Radian and Steradian more convenient. Will be
 ## generated in the future from the `declareUnit` macro.
