@@ -201,7 +201,7 @@ macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
     result = quote do:
       `almostEq`(`x`.FloatType * `xScale`, `y`.FloatType * `yScale`)
   else:
-    error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
+    error("Different quantities cannot be compared! Quantity 1: " & pretty(xCT) & ", Quantity 2: " & pretty(yCT))
 
 macro `<`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseDefinedUnit(x)
@@ -217,7 +217,7 @@ macro `<`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     result = quote do:
       (`x`.FloatType * `xScale` < `y`.FloatType * `yScale`)
   else:
-    error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
+    error("Different quantities cannot be compared! Quantity 1: " & pretty(xCT) & ", Quantity 2: " & pretty(yCT))
 
 macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseDefinedUnit(x)
@@ -233,7 +233,7 @@ macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped
     result = quote do:
       (`x`.FloatType * `xScale` <= `y`.FloatType * `yScale`)
   else:
-    error("Different quantities cannot be compared! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
+    error("Different quantities cannot be compared! Quantity 1: " & pretty(xCT) & ", Quantity 2: " & pretty(yCT))
 
 macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseDefinedUnit(x)
@@ -262,7 +262,7 @@ macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       defUnit(`resType`)
       `resType`(`xr`.FloatType * `xScale` + `yr`.FloatType * `yScale`)
   else:
-    error("Different quantities cannot be added! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
+    error("Different quantities cannot be added! Quantity 1: " & pretty(xCT) & ", Quantity 2: " & pretty(yCT))
 
 macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   var xCT = parseDefinedUnit(x)
@@ -293,7 +293,7 @@ macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       defUnit(`resType`)
       `resType`(`xr`.FloatType * `xScale` - `yr`.FloatType * `yScale`)
   else:
-    error("Different quantities cannot be subtracted! Quantity 1: " & (x.getTypeInst).repr & ", Quantity 2: " & (y.getTypeInst).repr)
+    error("Different quantities cannot be subtracted! Quantity 1: " & pretty(xCT) & ", Quantity 2: " & pretty(yCT))
 
 proc `-`*[T: SomeUnit](x: T): T = (-(x.FloatType)).T
 
@@ -445,7 +445,7 @@ macro to*[T: SomeUnit; U: SomeUnit](x: T; to: typedesc[U]): U =
     result = quote do:
       `resType`(`x`.FloatType * `scale`)
   else:
-    error("Cannot convert " & $T & " to " & $U & " as they represent different " &
+    error("Cannot convert " & pretty(xCT) & " to " & pretty(yCT) & " as they represent different " &
       "quantities!")
 
 macro toDef*[T: SomeUnit](x: T, to: untyped): untyped =
