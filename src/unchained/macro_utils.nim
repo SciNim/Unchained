@@ -64,6 +64,7 @@ proc resolveTypeFromDistinct(n: NimNode): NimNode =
   let typ = n.getImpl
   doAssert typ.kind == nnkTypeDef
   result = typ[0]
+  if result.kind == nnkPostfix: result = result[1]
 
 proc resolveTypeFromTypeDesc(n: NimNode): NimNode =
   let typ = n.getType
