@@ -139,6 +139,15 @@ proc `*`*(q: QuantityPower, power: int): QuantityPower =
   result.power *= power
 
 import std / hashes
+proc hash*(q: CTBaseQuantity): Hash =
+  result = result !& hash(q.name)
+  result = !$result
+
+proc hash*(qp: QuantityPower): Hash =
+  result = result !& hash(qp.quant)
+  result = result !& hash(qp.power)
+  result = !$result
+
 proc hash*(q: CTQuantity): Hash =
   result = result !& hash(q.kind)
   case q.kind
@@ -261,7 +270,7 @@ proc parseDerivedQuantities*(quants: NimNode, baseQuantities: HashSet[string]): 
       var qt = CTQuantity(kind: qtCompound, name: quant[0].strVal)
       for tup in quant[1][0]:
         case tup.kind
-        of nnkTupleConstr:
+        of nnkTupleConstr, nnkPar:
           doAssert tup[0].kind == nnkIdent and tup[1].kind == nnkIntLit
           let base = tup[0].strVal
           let power = tup[1].intVal.int
