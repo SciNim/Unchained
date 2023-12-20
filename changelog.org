@@ -1,3 +1,5 @@
+* v0.3.10
+- fix for ~nnkPostfix~ nodes in macro logic
 * v0.3.9
 - do not cache names of units anymore. Improves performance by 50% on
   files with many units (i.e. ~tests/tunchained.nim~)!
