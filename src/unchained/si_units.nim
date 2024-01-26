@@ -248,6 +248,9 @@ declareUnits:
   # definition of the conversions to natural units for all base units
   # takes place here, because at definition of the base units the `eV` unit
   # is not defined yet.
+  # Lorentz-Heaviside convention, c = ε_0 = hbar = k_B = 1, but explicitly
+  # no mass (electron or proton) is set to 1, nor do we swallow any factors
+  # of 4π!
   NaturalUnits:
     Gram: 1.7826627e-33.eV # relative to g and not kg!
     Meter: 1.9732705e-7.eV⁻¹
