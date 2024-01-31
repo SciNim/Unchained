@@ -1,3 +1,10 @@
+* v0.4.0
+- add unit of ~Barn~
+- BREAKING: rename short form of Gauss to ~gauss~. Single capital ~G~
+  is too brittle combined with Giga prefix
+- improve printed unit names in error messages
+- add hbar as a constant
+- add note about natural unit convention used      
 * v0.3.10
 - fix for ~nnkPostfix~ nodes in macro logic
 * v0.3.9
