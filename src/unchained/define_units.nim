@@ -720,9 +720,11 @@ macro isAUnit*(x: typed): untyped =
   ## `getUnitTypeImpl` & making use of CT tables (possibly of objects?)
   let x = x.resolveAlias()
   case x.kind
-  of nnkSym, nnkDistinctTy:
+  of nnkSym, nnkDistinctTy, nnkPostfix:
     let typ = x
-    var xT = if typ.kind == nnkDistinctTy: typ[0] else: typ
+    var xT = if typ.kind == nnkDistinctTy: typ[0]
+             elif typ.kind == nnkPostfix: typ[1]
+             else: typ
     while xT.strVal notin quantityList():
       xT = xT.getTypeImpl
       case xT.kind
