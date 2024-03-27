@@ -50,6 +50,8 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
       # first char must be short prefix & second a short unit, e.g. `mN`
       result.prefix = parseSiPrefixShort(x.runeAt(start))
       result.unit = tab.getShort($x[stop-1])
+      if result.prefix == siIdentity:
+        error("The prefix `" & $x.runeAt(start) & "` of the unit `" & x & "` is not a valid prefix!")
   else:
     # try any unit
     var unitOpt = tab.tryLookupUnit(x[start ..< stop])
@@ -61,6 +63,8 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
       if unitOpt.isSome:
         result.unit = unitOpt.get
         result.prefix = parseSiPrefixShort(x.runeAt(start)) # in this case prefix must be short
+        if result.prefix == siIdentity:
+          error("The prefix `" & $x.runeAt(start) & "` of the unit `" & x & "` is not a valid prefix!")
       else:
         # must be long + long, e.g. `KiloGram`
         # must have prefix, thus parse until upper, that defines prefix & unit
@@ -70,6 +74,8 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
         # look up long prefix
         result.prefix = parseSiPrefixLong(x[start] & prefixStr)
         result.unit = tab.lookupUnit(x[start + prefixNum + 1 ..< stop])
+        if result.prefix == siIdentity:
+          error("The prefix `" & $x[start] & prefixStr & "` of the unit `" & x & "` is not a valid prefix!")
 
 template addUnit(): untyped {.dirty.} =
   ## Dirty template used in both parsing procedures (unicode & ascii)
