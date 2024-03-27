@@ -1162,6 +1162,18 @@ suite "Quantity concepts":
     else:
       check true
 
+  test "Verify invalid prefixes are not allowed":
+    ## Ref: issue #48
+    let val = 100.Foot
+    when compiles(val.toMeter()):
+      check false
+    when compiles(val.toKiloGram()):
+      check false
+    when compiles(val.foobarMeter()):
+      check false
+    when compiles(val.tMeter()):
+      check false
+
 suite "Unchained - math with typedescs to define units":
   test "Pure typedesc math defines units":
     block:
@@ -1224,6 +1236,8 @@ suite "Unchained - math with typedescs to define units":
     block:
       let x = 1.kg * 1.m^2 * s^(-1)
       check x == 1.kg•m²•s⁻¹
+
+
 
 #converter to_eV(x: GeV): eV =
 #  echo "toEv!"
