@@ -1,0 +1,3 @@
+nimTitle	utils	utils.html	module src/unchained/utils		0
+nim	`^`	utils.html#^.m,typed,staticint	macro `^`(x: typed; num: static int): untyped		4
+nim	almostEqual	utils.html#almostEqual,FloatType,FloatType	proc almostEqual(a, b: FloatType; epsilon = 10 ^ -8): bool		42

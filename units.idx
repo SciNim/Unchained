@@ -1,0 +1,34 @@
+nimTitle	units	units.html	module src/unchained/units		0
+nim	SomeUnit	units.html#SomeUnit	type SomeUnit		14
+nim	toFloat	units.html#toFloat,T	proc toFloat[T: SomeUnit](x: T): FloatType		47
+nim	toRawFloat	units.html#toRawFloat.c,UnitLess	converter toRawFloat(x: UnitLess): FloatType		50
+nim	toUnitLess	units.html#toUnitLess.c,SomeNumber	converter toUnitLess(x: SomeNumber): UnitLess		51
+nim	toUnitLess	units.html#toUnitLess.c,float64	converter toUnitLess(x: float64): UnitLess		52
+nim	toUnitLess	units.html#toUnitLess.c,float32	converter toUnitLess(x: float32): UnitLess		53
+nim	hash	units.html#hash,T	proc hash[T: SomeUnit](x: T): Hash		56
+nim	prettyImpl	units.html#prettyImpl,FloatType,string,int,bool,FloatFormatMode	proc prettyImpl(s: FloatType; typStr: string; precision: int; short: bool;\n           format: FloatFormatMode): string		71
+nim	unitOf	units.html#unitOf.m,T	macro unitOf[T: SomeUnit](s: T): untyped		86
+nim	quantityOf	units.html#quantityOf.m,T	macro quantityOf[T: SomeUnit](x: T): untyped		100
+nim	`$`	units.html#$.m,T	macro `$`[T: SomeUnit](s: T): string		110
+nim	pretty	units.html#pretty.m,T,int,bool	macro pretty[T: SomeUnit](s: T; precision: int; short: bool; format = ffDefault): untyped		118
+nim	defUnit	units.html#defUnit.m,untyped,bool	macro defUnit(arg: untyped; toExport: bool = false): untyped		125
+nim	`==`	units.html#==.m,T,U	macro `==`[T: SomeUnit; U: SomeUnit](x: T; y: U): bool		188
+nim	`<`	units.html#<.m,T,U	macro `<`[T: SomeUnit | SomeNumber; U: SomeUnit | SomeNumber](x: T; y: U): untyped		206
+nim	`<=`	units.html#<=.m,T,U	macro `<=`[T: SomeUnit | SomeNumber; U: SomeUnit | SomeNumber](x: T; y: U): untyped		222
+nim	`+`	units.html#+.m,T,U	macro `+`[T: SomeUnit | SomeNumber; U: SomeUnit | SomeNumber](x: T; y: U): untyped		238
+nim	`-`	units.html#-.m,T,U	macro `-`[T: SomeUnit | SomeNumber; U: SomeUnit | SomeNumber](x: T; y: U): untyped		267
+nim	`-`	units.html#-,T	proc `-`[T: SomeUnit](x: T): T		298
+nim	`+=`	units.html#+=,T,T	proc `+=`[T: SomeUnit](x: var T; y: T)		300
+nim	`-=`	units.html#-=,T,T	proc `-=`[T: SomeUnit](x: var T; y: T)		303
+nim	`*=`	units.html#*=,T,UnitLess	proc `*=`[T: SomeUnit](x: var T; y: UnitLess)		306
+nim	`/=`	units.html#/=,T,UnitLess	proc `/=`[T: SomeUnit](x: var T; y: UnitLess)		309
+nim	`*`	units.html#*.m,T,U	macro `*`[T: SomeUnit | SomeNumber; U: SomeUnit | SomeNumber](x: T; y: U): untyped		312
+nim	`/`	units.html#/.m,T,U	macro `/`[T: SomeUnit | SomeNumber; U: SomeUnit | SomeNumber](x: T; y: U): untyped		357
+nim	sqrt	units.html#sqrt.m,T	macro sqrt[T: SomeUnit](t: T): untyped		393
+nim	abs	units.html#abs,T	proc abs[T: SomeUnit](t: T): T		412
+nim	to	units.html#to.m,T,typedesc[U]	macro to[T: SomeUnit; U: SomeUnit](x: T; to: typedesc[U]): U		430
+nim	toDef	units.html#toDef.m,T,untyped	macro toDef[T: SomeUnit](x: T; to: untyped): untyped		451
+nim	`.`	units.html#..m,T,untyped	macro `.`[T: SomeUnit | SomeNumber](x: T; y: untyped): untyped		477
+nim	toBaseUnits	units.html#toBaseUnits.m,T	macro toBaseUnits[T: SomeUnit](x: T): untyped		504
+nim	toNaturalUnit	units.html#toNaturalUnit.m,T	macro toNaturalUnit[T: SomeUnit](t: T): untyped		563
+nimgrp	tounitless	units.html#toUnitLess-converters-all	converter		51
