@@ -1,3 +1,7 @@
+* v0.4.1
+- fix issue #48 where the unit parsing logic accepted invalid SI
+  prefixes and thus code like ~foo.toMeter~ was valid (and looked like
+  sensible code)
 * v0.4.0
 - add unit of ~Barn~
 - BREAKING: rename short form of Gauss to ~gauss~. Single capital ~G~
