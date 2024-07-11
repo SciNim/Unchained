@@ -431,19 +431,38 @@ macro to*[T: SomeUnit; U: SomeUnit](x: T; to: typedesc[U]): U =
   ## Converts the given unit `x` to the desired target unit `to`. The
   ## units must represent the same quantities, otherwise a CT error is
   ## thrown.
+  ##
+  ## Note: The reason this is not a procedure of the type:
+  ##
+  ## ```nim
+  ##   proc to*[T: SomeUnit; U: SomeUnit](x: T; to: typedesc[U]): U =
+  ##     ## Converts the given unit `x` to the desired target unit `to`. The
+  ##     ## units must represent the same quantities, otherwise a CT error is
+  ##     ## thrown.
+  ##     when T is U:
+  ##       result = U(x)
+  ##     elif commonQuantity(T, U):
+  ##       result = U(x.FloatType * determineScale(T, U))
+  ##     else:
+  ##       {.error: "Cannot convert " & T & " to " & U & " as they represent different " &
+  ##        "quantities!".}
+  ## ```
+  ##
+  ## is that unfortunately the type passed as `U` is not guaranteed to be exactly
+  ## the alias given by the user. However, if the user writes
+  ## `x.to(N•m)`
+  ## we want the type to be exactly `N•m` and not `J`, even though they are aliases.
   let xCT = x.parseDefinedUnit()
   let yCT = to.parseDefinedUnit()
   if xCT == yCT:
-    let resType = yCT.toNimType()
     result = quote do:
-      `resType`(`x`)
+      `to`(`x`)
   elif commonQuantity(xCT, yCT):
     # perform conversion
     ## thus determine scaling factor due to different SI prefixes
     let scale = xCT.toBaseTypeScale() / yCT.toBaseTypeScale()
-    let resType = yCT.toNimType()
     result = quote do:
-      `resType`(`x`.FloatType * `scale`)
+      `to`(`x`.FloatType * `scale`)
   else:
     error("Cannot convert " & pretty(xCT) & " to " & pretty(yCT) & " as they represent different " &
       "quantities!")
