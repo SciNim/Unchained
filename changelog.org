@@ -1,3 +1,7 @@
+* v0.4.2
+- minor fix to ~to~ such that we use exactly the type as given by the
+  user, instead of ~yCT.toNimType()~. This is to guarantee the
+  property ~x.to(T) is T~ always holds.
 * v0.4.1
 - fix issue #48 where the unit parsing logic accepted invalid SI
   prefixes and thus code like ~foo.toMeter~ was valid (and looked like
