@@ -154,6 +154,11 @@ declareUnits:
       quantity: Length
       conversion: 30856775814913673.0.m # 1 AU * 180° * 60 * 60 / π
 
+    Dalton: # unified atomic mass, m_u = 1/12 m(¹²C) = 1 Da.
+      short: Da
+      quantity: Mass
+      conversion: 1.66053906892e-27.kg # 1.66053906892(52)×10−27
+
     # given that we have base units & derived base units defined, we can now just
     # dump everything together. Everything that is referenced before, can now be
     # used to define new units.
