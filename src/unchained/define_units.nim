@@ -101,7 +101,7 @@ proc toNimTypeStr*(tab: var UnitTable, x: UnitProduct, short = false,
     var str = toNimType(u, short, internal)
     if idx < xSorted.high:
       when internal or not defined(noUnicode):
-        str.add "•"
+        str.add UnicodeSep
       else:
         str.add "*"
     result.add str
