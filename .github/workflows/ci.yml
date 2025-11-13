@@ -23,7 +23,7 @@ jobs:
       matrix:
         nim:
           - '1.6.x'
-          - '2.0.x'
+          - '2.2.x'
           - 'devel'
         os:
           - ubuntu-latest
