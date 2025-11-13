@@ -1,3 +1,6 @@
+* v0.4.4
+- allow to adjust ~UnicodeSep~ at compile time via ~-d:UnicodeSep=·~
+  for example. 
 * v0.4.3
 - add ~Dalton~ as a unit
 - add some more explanations for predefined constants  
