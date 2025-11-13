@@ -167,11 +167,10 @@ block:
   let p = speed * m_e # result will be in `eV`
   doAssert p.to(keV) == 51.099874.keV
 
-## If there is demand the following kind of syntax may be implemented in the future
-when false:
-  # units using english language (using accented quotes)
-  let a = 10.`meter per second squared`
-  let b = 5.`kilogram meter per second squared`
+## Alternatively, use accented quotes and the following syntax:
+block:
+  let a = 10.`m*s^-2`
+  let b = 5.`kg*m*s^-2`
   check typeof(a) is Meter•Second⁻²
   check typeof(b) is Newton
   check a == 10.m•s⁻²
@@ -210,6 +209,31 @@ You shall be unchained from the shackles of dealing with painful
 errors due to unit mismatches by using this lib! Tada!
 
 *Hint*: The unit =Chain= does not exist in this library...
+
+** These units are hard to write!
+
+Kind of. I type on [[https://neo-layout.org]] and so it's easy for me.
+
+However, all you really need are:
+- the unicode separator (default is •, actually a bullet point, but I
+  already started using it before I realized that)
+- superscript minus, ⁻  
+- superscript numbers ¹²³⁴⁵⁶⁷⁸⁹, though ¹²³ are surely the most used.
+
+The former can be customized by any other unicode separator, if you
+compile with ~-d:UnicodeSep=·~ for example.
+
+Alternatively, write your units using accented quotes,
+#+begin_src nim
+let G_Newton = 6.6743e-11.`N*m^2*kg^-2`
+#+end_src
+for example. Note that this does *not* allow you to write actual unit
+names in function arguments or return types.
+
+See the tests in [[tests/tunchained.nim]] from "Quantity concepts" (or the
+next section) on how to write functions that use concepts based on
+quantities to simplify the arguments (if you don't need a specific
+unit as input).
 
 ** Units and ~cligen~
 
