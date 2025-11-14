@@ -1057,6 +1057,18 @@ suite "Unchained - Bug issues":
     let x = 5.Ω•m⁻¹
     check typeof(x) is Ω•m⁻¹
 
+  test "Range types work":
+    block IntRange:
+      let x: range[0 .. 10] = 5
+      let y = 123.kg
+      check typeof(x * y) is kg
+      check typeof(y / x) is kg
+    block FloatRange:
+      let x: range[0.0 .. 1.0] = 0.5
+      let y = 123.kg
+      check typeof(x * y) is kg
+      check typeof(y / x) is kg
+
 suite "Utils":
   test "Power w/ static integer exponents for floats":
     let x = 5
