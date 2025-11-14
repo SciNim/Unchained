@@ -37,7 +37,7 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
     doAssert false
   of 1: # short unit without SI prefix
     # must be short unit, e.g. `J`
-    result.unit = tab.getShort($x[start])
+    result.unit = tab.getShort($x.runeAt(start))
   of 2:
     # short unit with prefix (this means disallow long versions with length
     # shorter than 3, unless we added a `isUpper` check
