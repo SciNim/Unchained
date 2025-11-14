@@ -1052,6 +1052,11 @@ suite "Unchained - Bug issues":
     type Foo = UnitLess
     check 1.Foo * 1.Foo == 1.UnitLess
 
+  test "Define units with runes":
+    defUnit(Ω•m⁻¹)
+    let x = 5.Ω•m⁻¹
+    check typeof(x) is Ω•m⁻¹
+
 suite "Utils":
   test "Power w/ static integer exponents for floats":
     let x = 5
