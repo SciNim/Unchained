@@ -71,11 +71,15 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
         ## XXX: fix this parse until from second character somehow
         var prefixStr = newStringOfCap(100)
         let prefixNum = parseUntil(x, prefixStr, until = {'A' .. 'Z'}, start = start+1) # long names must use ASCII!
-        # look up long prefix
-        result.prefix = parseSiPrefixLong(x[start] & prefixStr)
-        result.unit = tab.lookupUnit(x[start + prefixNum + 1 ..< stop])
-        if result.prefix == siIdentity:
-          error("The prefix `" & $x[start] & prefixStr & "` of the unit `" & x & "` is not a valid prefix!")
+        if prefixNum == (stop - start - 1): # "all prefix" i.e. no prefix, i.e. `Foobar` instead of `KiloFoobar`
+          # no `+ 1` as we need to include the first capital letter
+          result.unit = tab.lookupUnit(x[start ..< stop])
+        else: # there is an actual prefix
+          # look up long prefix
+          result.prefix = parseSiPrefixLong(x[start] & prefixStr)
+          result.unit = tab.lookupUnit(x[start + prefixNum + 1 ..< stop])
+          if result.prefix == siIdentity:
+            error("The prefix `" & $x[start] & prefixStr & "` of the unit `" & x & "` is not a valid prefix!")
 
 template addUnit(): untyped {.dirty.} =
   ## Dirty template used in both parsing procedures (unicode & ascii)
