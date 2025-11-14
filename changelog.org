@@ -1,3 +1,10 @@
+* v0.4.5
+- fix parsing of long unit names that are not in the unit table,
+  i.e. ~let x = 5.Foobar~, which would previously print the following
+  terrible error message:
+  #+begin_src
+  Error: unhandled exception: Given unit  not known in `UnitTable`. [KeyError]
+  #+end_src
 * v0.4.4
 - allow to adjust ~UnicodeSep~ at compile time via ~-d:UnicodeSep=·~
   for example. 
