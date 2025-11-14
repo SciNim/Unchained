@@ -1,3 +1,6 @@
+* v0.4.6
+- fix parsing of single runes, i.e. when doing ~defUnit(Ω•m⁻¹)~ the
+  parser would try to parse the Ω as a single ~char~ and not a unicode rune
 * v0.4.5
 - fix parsing of long unit names that are not in the unit table,
   i.e. ~let x = 5.Foobar~, which would previously print the following
