@@ -193,13 +193,16 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
   ## In that case, we can just return it instead of parsing it again.
   ## This is especially useful for predefined aliases like `N = Newton = KiloGram•Meter•Second⁻²`
   ## as we otherwise fully resolve it to the long format.
+  proc inSupportedBaseType(s: string): bool =
+    result = s in ["FloatType", "float32", "float", "float64", "int", "int64", "UnitLess"]
+
   proc fromTab(tab: UnitTable, nStr: string): Option[UnitProduct] =
-    if tab.isUserDefined(nStr):
+    if inSupportedBaseType(nStr):
+      result = some(initUnitProduct())
+    elif tab.isUserDefined(nStr):
       result = some(tab.getUserDefined(nStr))
     elif nStr in tab:
       result = some(tab[nStr].toUnitInstance(assignPrefix = false).toUnitProduct())
-    elif nStr in ["FloatType", "float32", "float", "float64", "int", "int64", "UnitLess"]:
-      result = some(initUnitProduct())
 
   case n.kind
   of nnkIdent:
@@ -210,14 +213,33 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
     let nTyp = n.getTypeInst
     var nStr: string
     case nTyp.kind
-    of nnkBracketExpr: nStr = nTyp[1].strVal
+    of nnkBracketExpr:
+      case nTyp.len
+      of 1: nStr = nTyp[1].strVal
+      of 2: # might be a range type, e.g.:
+        # BracketExpr
+        #   Sym "range"
+        #   Infix
+        #     Ident ".."
+        #     FloatLit 0.0
+        #     FloatLit 1.0
+        # or a `nnkBracketExpr[typedesc, foo]`
+        if nTyp[0].kind in [nnkSym, nnkIdent] and nTyp[0].strVal == "range":
+          # check if range is in supported types
+          let rangeTyp = nTyp[1][1].getType
+          nStr = rangeTyp.repr
+        elif nTyp[0].kind in [nnkSym, nnkIdent] and nTyp[0].strVal.normalize == "typedesc":
+          doAssert nTyp[1].kind in [nnkSym, nnkIdent], "Typedesc argument is not a symbol: " & $nTyp.treerepr
+          nStr = nTyp[1].strVal
+        else:
+          error("Unexpected type: " & $nTyp.treerepr & " for input: " & $n.treerepr)
+      else:
+        error("Unexpected type: " & $nTyp.treerepr & " for input: " & $n.treerepr)
     of nnkDistinctTy: nStr = nTyp[1].strVal
     of nnkSym: nStr = nTyp.strVal
     else: error("Invalid node for type : " & nTyp.repr)
-    if nStr in ["FloatType", "float32", "float", "float64", "int", "int64", "UnitLess"]:
-      result = some(initUnitProduct())
-    else:
-      result = fromTab(tab, nStr)
+
+    result = fromTab(tab, nStr)
   of nnkTypeOfExpr:
     result = tab.tryLookupUnitType(n[0])
   else:

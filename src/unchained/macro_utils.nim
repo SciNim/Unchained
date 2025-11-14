@@ -75,6 +75,21 @@ proc resolveTypeFromGenericInst(n: NimNode): NimNode =
   # simply leave as is
   result = n
 
+proc resolveFromRange*(n: NimNode): NimNode =
+  ## Resolves the underlying type of a `range[T]`.
+  ##
+  ## In the end we call `getType.repr` on the literal (or constant) that defines
+  ## the lower range:
+  ## BracketExpr
+  ##   Sym "range"
+  ##   Infix
+  ##     Ident ".."
+  ##     FloatLit 0.0
+  ##     FloatLit 1.0
+  let typ = n.getTypeInst
+  doAssert typ[0].repr == "range", "ntyRange is not a range type? " & $typ.treerepr
+  result = typ[1][1].getType
+
 proc getUnitTypeImpl*(n: NimNode): NimNode =
   case n.typeKind
   of ntyAlias: result = n.resolveTypeFromAlias()
@@ -82,6 +97,7 @@ proc getUnitTypeImpl*(n: NimNode): NimNode =
   of ntyTypeDesc: result = n.resolveTypeFromTypeDesc()
   of ntyGenericInst: result = n.resolveTypeFromGenericInst()
   of ntyFloat32, ntyFloat64, ntyFloat: result = n
+  of ntyRange: result = n.resolveFromRange()
   of ntyUserTypeClass:
     ## NOTE: Attempting to resolve a type from such an implicit generic doesn't
     ## work properly. See tests/tResolveImplicitQuantity.nim
