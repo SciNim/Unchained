@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.4.7"
+version       = "0.4.8"
 author        = "Vindaar"
 description   = "Fully type safe, compile time only units library"
 license       = "MIT"
