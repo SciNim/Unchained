@@ -395,7 +395,12 @@ macro sqrt*[T: SomeUnit](t: T): untyped =
   ##
   ## Fails if the given unit is not a perfect square (i.e. each compound of the full
   ## unit's power is a multiple of 2).
-  let typ = t.parseDefinedUnit()
+  ##
+  ## NOTE: If the given input is a perfect square of a set of SI base units, but the
+  ## input itself is given as a combination of derived units, we'll convert to the
+  ## SI base units and take the sqrt of that.
+  ## E.g. W·Ω⁻¹ = A² and thus `sqrt(1.W·Ω⁻¹)` will return `1.A`.
+  let typ = t.parseDefinedUnit().flatten().simplify()
 
   var mType = typ
   for u in mitems(mType.units):
