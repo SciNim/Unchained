@@ -477,6 +477,11 @@ suite "Unchained - Conversion between units":
     # "default", as it is defined first!
     check $typeof(foo0()) == "Joule"
 
+  test "Simplify to SI base units converts correctly":
+    let x = 1.kJ
+    check typeof(x.simplify()) is kg•m²•s⁻²
+    check x.simplify() == 1000.kg•m²•s⁻²
+
 suite "Unchained - CT errors":
   test "Error on regular digit as exponent":
     doAssert fails(10.kg•m⁻2) # invalid `2` instead of `²`
