@@ -265,7 +265,7 @@ proc contains*(tab: UnitTable, u: string): bool =
 proc isUserDefined*(tab: UnitTable, u: string): bool =
   result = u in tab.userDefinedUnits
 
-proc insert*(tab: var UnitTable, u: DefinedUnit, hasConversion: bool,
+proc insert*(tab: UnitTable, u: DefinedUnit, hasConversion: bool,
              compoundName = "") =
   ## Inserts the given `u` into the `UnitTable`. The correct sub field will be filled
   ## based on `isLong`
@@ -292,7 +292,7 @@ proc insert*(tab: var UnitTable, u: DefinedUnit, hasConversion: bool,
   tab.short[u.short] = idx
   tab.units.add u
 
-proc insert*(tab: var UnitTable, unit: string, asUnit: UnitProduct) =
+proc insert*(tab: UnitTable, unit: string, asUnit: UnitProduct) =
   ## Insert the given user defined unit `unit`
   if unit != "UnitLess" and unit notin tab and unit notin tab.userDefinedUnits:
     tab.userDefinedUnits[unit] = asUnit

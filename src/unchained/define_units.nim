@@ -90,7 +90,7 @@ proc toNimType*(u: UnitInstance, short = false,
       else:
         result.add DigitsAscii[digit]
 
-proc toNimTypeStr*(tab: var UnitTable, x: UnitProduct, short = false,
+proc toNimTypeStr*(tab: UnitTable, x: UnitProduct, short = false,
                    internal: static bool = true): string =
   ## converts `x` to the correct string representation
   # return early if no units in x or if we know the unit's string repr
@@ -445,7 +445,7 @@ proc assertOption(n: NimNode): bool =
     n[0].kind == nnkIdent and
     n[1].kind == nnkStmtList
 
-proc parseUnit(tab: var UnitTable, id: int, n: NimNode): DefinedUnit =
+proc parseUnit(tab: UnitTable, id: int, n: NimNode): DefinedUnit =
   ## Parses:
   ##
   ##  Call
@@ -494,7 +494,7 @@ proc parseUnit(tab: var UnitTable, id: int, n: NimNode): DefinedUnit =
   else:
     tab.insert(result, hasConversion)
 
-proc parseUnits(tab: var UnitTable, id: var int, n: NimNode): DefinedUnits =
+proc parseUnits(tab: UnitTable, id: var int, n: NimNode): DefinedUnits =
   ## Handles parsing the given base units or derived units
   ##
   ##    StmtList
@@ -511,7 +511,7 @@ proc parseUnits(tab: var UnitTable, id: var int, n: NimNode): DefinedUnits =
     result.add tab.parseUnit(id, unit)
     inc id
 
-proc addNaturalUnitConversions(tab: var UnitTable, n: NimNode) =
+proc addNaturalUnitConversions(tab: UnitTable, n: NimNode) =
   ## Parses the following tree and adjusts the `toNaturalUnit` conversion
   ## field for the referenced units.
   ## Call
@@ -544,7 +544,7 @@ proc addNaturalUnitConversions(tab: var UnitTable, n: NimNode) =
     definedUnit.toNaturalUnit = conv
     tab.units[idx] = definedUnit
 
-proc parseCall(tab: var UnitTable, id: var int, c: NimNode): DefinedUnits =
+proc parseCall(tab: UnitTable, id: var int, c: NimNode): DefinedUnits =
   ## Handles dispatching based on base units / derived ident
   ##
   ##  Call

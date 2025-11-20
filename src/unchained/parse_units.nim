@@ -253,7 +253,7 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
       let nTyp = n.getTypeInst
       result = tab.tryLookupUnitType(nTyp)
 
-proc parseDefinedUnit*(tab: var UnitTable, x: NimNode): UnitProduct =
+proc parseDefinedUnit*(tab: UnitTable, x: NimNode): UnitProduct =
   result = initUnitProduct()
   # first check if part of previously user defined units
   let resOpt = tab.tryLookupUnitType(x)
