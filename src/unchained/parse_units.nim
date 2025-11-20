@@ -5,6 +5,12 @@ import core_types, ct_unit_types, macro_utils
 
 from std / tables import getOrDefault, `[]`
 
+template errorMsg(msg: string): untyped =
+  when nimvm:
+    error(msg)
+  else:
+    raise newException(ValueError, msg)
+
 proc parseSiPrefixShort(c: Rune): SiPrefix =
   ## For the case of short SI prefixes (i.e. single character) return it
   result = SiShortPrefixStrTable.getOrDefault($c, siIdentity) # initialize with identity, in case none match
@@ -51,7 +57,7 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
       result.prefix = parseSiPrefixShort(x.runeAt(start))
       result.unit = tab.getShort($x[stop-1])
       if result.prefix == siIdentity:
-        error("The prefix `" & $x.runeAt(start) & "` of the unit `" & x & "` is not a valid prefix!")
+        errorMsg("The prefix `" & $x.runeAt(start) & "` of the unit `" & x & "` is not a valid prefix!")
   else:
     # try any unit
     var unitOpt = tab.tryLookupUnit(x[start ..< stop])
@@ -64,7 +70,7 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
         result.unit = unitOpt.get
         result.prefix = parseSiPrefixShort(x.runeAt(start)) # in this case prefix must be short
         if result.prefix == siIdentity:
-          error("The prefix `" & $x.runeAt(start) & "` of the unit `" & x & "` is not a valid prefix!")
+          errorMsg("The prefix `" & $x.runeAt(start) & "` of the unit `" & x & "` is not a valid prefix!")
       else:
         # must be long + long, e.g. `KiloGram`
         # must have prefix, thus parse until upper, that defines prefix & unit
@@ -79,7 +85,7 @@ proc parsePrefixAndUnit(tab: UnitTable, x: string, start, stop: int):
           result.prefix = parseSiPrefixLong(x[start] & prefixStr)
           result.unit = tab.lookupUnit(x[start + prefixNum + 1 ..< stop])
           if result.prefix == siIdentity:
-            error("The prefix `" & $x[start] & prefixStr & "` of the unit `" & x & "` is not a valid prefix!")
+            errorMsg("The prefix `" & $x[start] & prefixStr & "` of the unit `" & x & "` is not a valid prefix!")
 
 template addUnit(): untyped {.dirty.} =
   ## Dirty template used in both parsing procedures (unicode & ascii)
@@ -232,12 +238,12 @@ proc tryLookupUnitType*(tab: UnitTable, n: NimNode): Option[UnitProduct] =
           doAssert nTyp[1].kind in [nnkSym, nnkIdent], "Typedesc argument is not a symbol: " & $nTyp.treerepr
           nStr = nTyp[1].strVal
         else:
-          error("Unexpected type: " & $nTyp.treerepr & " for input: " & $n.treerepr)
+          errorMsg("Unexpected type: " & $nTyp.treerepr & " for input: " & $n.treerepr)
       else:
-        error("Unexpected type: " & $nTyp.treerepr & " for input: " & $n.treerepr)
+        errorMsg("Unexpected type: " & $nTyp.treerepr & " for input: " & $n.treerepr)
     of nnkDistinctTy: nStr = nTyp[1].strVal
     of nnkSym: nStr = nTyp.strVal
-    else: error("Invalid node for type : " & nTyp.repr)
+    else: errorMsg("Invalid node for type : " & nTyp.repr)
 
     result = fromTab(tab, nStr)
   of nnkTypeOfExpr:
