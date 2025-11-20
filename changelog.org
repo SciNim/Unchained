@@ -1,3 +1,8 @@
+* v0.4.8
+- fixes ~sqrt~ such that it works correctly when something is a
+  perfect square in *SI base units* and not just if the compound unit
+  itself is a perfect square
+- add ~simplify~ which converts the input into the compound of base SI units  
 * v0.4.7
 - support ~range[T]~ types. Previously caused error when determining
   associated "unit"
