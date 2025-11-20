@@ -594,3 +594,13 @@ macro toNaturalUnit*[T: SomeUnit](t: T): untyped =
   result = quote do:
     defUnit(`resType`)
     `resType`(`t`.FloatType * `scale`)
+
+macro simplify*[T: SomeUnit](t: T): untyped =
+  ## Returns the simplest form in SI base units of the given input.
+  var typ = t.parseDefinedUnit()
+  let resType = typ.flatten().simplify()
+  let scale = typ.toBaseTypeScale() / resType.toBaseTypeScale()
+  let resTypeNim = resType.toNimType()
+  result = quote do:
+    defUnit(`resTypeNim`)
+    `resTypeNim`(`t`.FloatType * `scale`)
