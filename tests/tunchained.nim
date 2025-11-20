@@ -481,6 +481,7 @@ suite "Unchained - Conversion between units":
     let x = 1.kJ
     check typeof(x.simplify()) is kg•m²•s⁻²
     check x.simplify() == 1000.kg•m²•s⁻²
+    check x.toBaseUnits() == 1000.kg•m²•s⁻²
 
 suite "Unchained - CT errors":
   test "Error on regular digit as exponent":
