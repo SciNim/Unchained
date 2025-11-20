@@ -1069,6 +1069,13 @@ suite "Unchained - Bug issues":
       check typeof(x * y) is kg
       check typeof(y / x) is kg
 
+  test "sqrt works on products of compound units, which don't appear to be a perfect square (but are)":
+    let x = 1.W
+    let y = 1.Ω⁻¹
+    check typeof(x * y) is A²
+    check typeof(sqrt(x * y)) is A
+    check sqrt(x * y) == 1.A
+
 suite "Utils":
   test "Power w/ static integer exponents for floats":
     let x = 5
