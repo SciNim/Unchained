@@ -13,7 +13,7 @@ const
   e* = 1.602176634e-19.C
   ## Mass of an electron.
   m_e* = 9.1093837015e-31.kg
-  m_e_c2* = 0.510998928.MeV
+  m_e_c2* = 0.510998950.MeV
   ## Mass of a muon.
   m_μ* = 1.883531627e-28.kg # 105.6583755e3 # MeV / c²
   m_μ_eV* = 105.6583755e6.eV # / c²
