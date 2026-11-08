@@ -199,6 +199,35 @@ const SiShortPrefixStrTable* = block:
 proc `$`*(prefix: SiPrefix): string =
   result = SiPrefixTable[prefix]
 
+proc toExponent*(prefix: SiPrefix): int =
+  ## the prefix as a power of ten
+  case prefix
+  of siQuecto:   -30
+  of siRonto:    -27
+  of siYocto:    -24
+  of siZepto:    -21
+  of siAtto:     -18
+  of siFemto:    -15
+  of siPico:     -12
+  of siNano:     -9
+  of siMicro:    -6
+  of siMilli:    -3
+  of siCenti:    -2
+  of siDeci:     -1
+  of siIdentity: 0
+  of siDeca:     1
+  of siHecto:    2
+  of siKilo:     3
+  of siMega:     6
+  of siGiga:     9
+  of siTera:     12
+  of siPeta:     15
+  of siExa:      18
+  of siZetta:    21
+  of siYotta:    24
+  of siRonna:    27
+  of siQuetta:   30
+
 proc toFactor*(prefix: SiPrefix): FloatType =
   ## note: can't compute value reasonably, due to hecto, centi, deci and deca
   case prefix

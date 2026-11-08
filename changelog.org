@@ -11,6 +11,10 @@
 - fix: ~*~ and ~/~ multiplied by a factor slightly off 1 when units
   cancel, e.g. ~1.eV⁻¹ * 1.cm²•eV~ was ~1.0000000000000002 cm²~: the
   conversion factor is now computed after merging equal units
+- conversions by powers of ten are exact: SI prefixes (and conversions
+  that are powers of ten, like gauss → T) are kept as decimal exponents,
+  so e.g. ~1.m•ps⁻¹.to(μm•ns⁻¹)~ is ~1e9~ (was ~1000000000.0000001~) and
+  ~1.cm³.to(m³)~ is ~1e-6~ (was ~1.0000000000000002e-6~)
 * v0.4.8
 - fixes ~sqrt~ such that it works correctly when something is a
   perfect square in *SI base units* and not just if the compound unit

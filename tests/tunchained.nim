@@ -1390,3 +1390,12 @@ suite "Unchained - rational powers":
     check typeof(x) is CentiMeter²
     check x.float == 6.0 # exactly: no factor from eV⁻¹•eV
     check (bb / 2.0.eV).float == 1.5
+
+suite "Unchained - exact conversions by powers of ten":
+  test "SI prefixes convert by the double nearest to the power of ten":
+    defUnit(m•ps⁻¹); defUnit(μm•ns⁻¹); defUnit(cm•s⁻¹); defUnit(m³)
+    check 1.0.m•ps⁻¹.to(μm•ns⁻¹).float == 1e9
+    check 1.0.μm•ns⁻¹.to(cm•s⁻¹).float == 1e5
+    check 1.0.cm³.to(m³).float == 1e-6
+    check 1.0.kGauss.to(T).float == 0.1
+    check (1.0.m + 1.0.μm).float == 1.000001

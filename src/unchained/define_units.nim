@@ -107,18 +107,54 @@ proc toNimType*(x: UnitProduct, short = false): NimNode =
   let name = x.toNimTypeStr(short)
   result = if name.len == 0: ident("UnitLess") else: ident(name)
 
-proc toBaseTypeScale*(u: UnitInstance): FloatType =
-  result = u.prefix.toFactor()
-  result *= u.value
-  ## XXX: multiply the `conversion` factor possibly if unit is not a base unit
+type
+  Scale* = object
+    ## A conversion factor `factor · 10^exp10`. SI prefixes (and conversions
+    ## that are powers of ten, like `1 gauss = 1e-4 T`) only change `exp10`,
+    ## so that a factor like m/ps → µm/ns comes out as the double nearest to
+    ## 1e9, not as a product of rounded powers of ten.
+    factor*: FloatType
+    exp10*: Power
+
+proc initScale*(factor: FloatType = 1.0, exp10: Power = 0): Scale =
+  Scale(factor: factor, exp10: exp10)
+
+proc `*`*(a, b: Scale): Scale = Scale(factor: a.factor * b.factor, exp10: a.exp10 + b.exp10)
+proc `/`*(a, b: Scale): Scale = Scale(factor: a.factor / b.factor, exp10: a.exp10 - b.exp10)
+
+proc pow10(n: int): FloatType =
+  ## the double nearest to 10^n
+  parseFloat("1e" & $n)
+
+proc toFloat*(s: Scale): FloatType =
+  if s.exp10 == 0: s.factor
+  elif s.exp10.isInteger:
+    if s.factor == 1.0: pow10(s.exp10.num)
+    else: s.factor * pow10(s.exp10.num)
+  else: s.factor * pow(10.0, s.exp10.toFloat)
+
+proc toScale(x: FloatType): Scale =
+  ## `x` as a scale; an exact power of ten goes into the exponent
+  if x > 0.0:
+    let n = round(log10(x)).int
+    if pow10(n) == x: return initScale(1.0, n)
+  initScale(x)
+
+proc `^`(s: Scale, p: Power): Scale =
+  result.exp10 = s.exp10 * p
+  result.factor = if s.factor == 1.0 or p == 1: s.factor else: pow(s.factor, p.toFloat)
+
+proc toBaseScale*(u: UnitInstance): Scale =
+  result = initScale(1.0, u.prefix.toExponent - u.unit.basePrefix.toExponent)
+  result = result * toScale(u.value)
   case u.unit.kind
   of utBase: discard
   of utDerived:
     # multiply with conversion factor
-    result *= u.unit.conversion.value
-  # divide out any possible base prefixes (e.g. for kilo gram)
-  result /= u.unit.basePrefix.toFactor()
-  result = pow(result, u.power.toFloat)
+    result = result * toScale(u.unit.conversion.value)
+  result = result ^ u.power
+
+proc toBaseTypeScale*(u: UnitInstance): FloatType = u.toBaseScale.toFloat
 
 #[
 Overview of simplification procedures:
@@ -144,16 +180,22 @@ Probably `toBaseType` and `flatten` could be a single procedure as well.
 
 ## TODO: better distinguish between converting to base SI prefixes and
 ## converting non SI units to SI?
-proc toBaseTypeScale*(x: UnitProduct): FloatType =
+proc toBaseScale*(x: UnitProduct): Scale =
   ## returns the scale required to turn `x` to its base type, i.e.
   ## turn all units that are not already to its base form. This
   ## includes converting non base prefix units to their base prefixes
   ## *as well as* converting derived units (e.g. lbs, inch, ...) to
   ## their base unit counterparts.
   # XXX: ideally we could make sure `siPrefix` is init'd to 1.0
-  result = if x.value != 0.0: x.value else: 1.0 # global SI prefix as a factor
+  result = toScale(if x.value != 0.0: x.value else: 1.0) # global SI prefix as a factor
   for u in x.units:
-    result *= toBaseTypeScale(u)
+    result = result * toBaseScale(u)
+
+proc toBaseTypeScale*(x: UnitProduct): FloatType = x.toBaseScale.toFloat
+
+proc scaleRatio*(x, y: UnitProduct): FloatType =
+  ## `x.toBaseTypeScale / y.toBaseTypeScale`, but exact for powers of ten
+  (x.toBaseScale / y.toBaseScale).toFloat
 
 proc toBaseType*(u: UnitInstance, needConversion: bool): UnitProduct =
   ## Returns a modified instance of this unit that is based on the

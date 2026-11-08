@@ -209,13 +209,12 @@ macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
       `almostEq`(`x`.FloatType, `y`.FloatType)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
-    let xScale = xCT.toBaseTypeScale()
-    let yScale = yCT.toBaseTypeScale()
-    implicitScale("==", x, y, xCT, yCT, xScale / yScale)
-    # compare scaled to base type units
+    let scale = scaleRatio(xCT, yCT)
+    implicitScale("==", x, y, xCT, yCT, scale)
+    # compare in the units of y
     let almostEq = bindSym("almostEqual")
     result = quote do:
-      `almostEq`(`x`.FloatType * `xScale`, `y`.FloatType * `yScale`)
+      `almostEq`(`x`.FloatType * `scale`, `y`.FloatType)
   else:
     error("Different quantities cannot be compared! Quantity 1: " & pretty(xCT) & ", Quantity 2: " & pretty(yCT))
 
@@ -227,12 +226,11 @@ macro `<`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       (`x`.FloatType < `y`.FloatType)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
-    let xScale = xCT.toBaseTypeScale()
-    let yScale = yCT.toBaseTypeScale()
-    implicitScale("<", x, y, xCT, yCT, xScale / yScale)
-    # compare scaled to base type units
+    let scale = scaleRatio(xCT, yCT)
+    implicitScale("<", x, y, xCT, yCT, scale)
+    # compare in the units of y
     result = quote do:
-      (`x`.FloatType * `xScale` < `y`.FloatType * `yScale`)
+      (`x`.FloatType * `scale` < `y`.FloatType)
   else:
     error("Different quantities cannot be compared! Quantity 1: " & pretty(xCT) & ", Quantity 2: " & pretty(yCT))
 
@@ -244,12 +242,11 @@ macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped
       (`x`.FloatType <= `y`.FloatType)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
-    let xScale = xCT.toBaseTypeScale()
-    let yScale = yCT.toBaseTypeScale()
-    implicitScale("<=", x, y, xCT, yCT, xScale / yScale)
-    # compare scaled to base type units
+    let scale = scaleRatio(xCT, yCT)
+    implicitScale("<=", x, y, xCT, yCT, scale)
+    # compare in the units of y
     result = quote do:
-      (`x`.FloatType * `xScale` <= `y`.FloatType * `yScale`)
+      (`x`.FloatType * `scale` <= `y`.FloatType)
   else:
     error("Different quantities cannot be compared! Quantity 1: " & pretty(xCT) & ", Quantity 2: " & pretty(yCT))
 
@@ -266,14 +263,14 @@ macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       `resType`(`xr`.FloatType + `yr`.FloatType)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
-    var xScale = xCT.toBaseTypeScale()
-    var yScale = yCT.toBaseTypeScale()
+    let xOrig = xCT.toBaseScale()
+    let yOrig = yCT.toBaseScale()
     # check if conversion (flattening) of a unit is needed
     let needConversion = needConversionToBase(xCT, yCT)
     xCT = xCT.toBaseType(needConversion).simplify()
     yCT = yCT.toBaseType(needConversion).simplify()
-    xScale /= xCT.toBaseTypeScale()
-    yScale /= yCT.toBaseTypeScale()
+    let xScale = (xOrig / xCT.toBaseScale()).toFloat
+    let yScale = (yOrig / yCT.toBaseScale()).toFloat
     doAssert xCT == yCT, "Conversion to base types failed!"
     implicitScale("+", x, y, parseDefinedUnit(x), parseDefinedUnit(y), xScale / yScale)
     let resType = xCT.toNimType()
@@ -297,14 +294,14 @@ macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       `resType`(`xr`.FloatType - `yr`.FloatType)
   elif xCT.commonQuantity(yCT):
     # is there a scale difference between the two types?
-    var xScale = xCT.toBaseTypeScale()
-    var yScale = yCT.toBaseTypeScale()
+    let xOrig = xCT.toBaseScale()
+    let yOrig = yCT.toBaseScale()
     # now convert x, y to base types
     let needConversion = needConversionToBase(xCT, yCT)
     xCT = xCT.toBaseType(needConversion).simplify()
     yCT = yCT.toBaseType(needConversion).simplify()
-    xScale /= xCT.toBaseTypeScale()
-    yScale /= yCT.toBaseTypeScale()
+    let xScale = (xOrig / xCT.toBaseScale()).toFloat
+    let yScale = (yOrig / yCT.toBaseScale()).toFloat
 
     doAssert xCT == yCT, "Conversion to base types failed!"
     implicitScale("-", x, y, parseDefinedUnit(x), parseDefinedUnit(y), xScale / yScale)
@@ -329,12 +326,13 @@ proc `*=`*[T: SomeUnit](x: var T, y: UnitLess) =
 proc `/=`*[T: SomeUnit](x: var T, y: UnitLess) =
   x = x / y
 
-proc scaleOfSimplified(x: UnitProduct): FloatType =
+proc scaleOfSimplified(x: UnitProduct): Scale =
   ## `toBaseTypeScale` of `x` after merging equal units, so that the factors
   ## of units that cancel are not multiplied in (they need not cancel in
   ## floating point)
-  let value = if x.value != 0.0: x.value else: 1.0
-  result = value * x.simplify().toBaseTypeScale()
+  var y = x.simplify()
+  y.value = x.value
+  result = y.toBaseScale()
 
 macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   ## TODO: can we extract the actual mathy part from x, y instead of using the
@@ -367,10 +365,9 @@ macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     else:
       resTypeCT = xCT.simplify(mergePrefixes = true)
     # determine scale of resulting units
-    let scaleConv = resTypeCT.toBaseTypeScale() ## WRONG: must not *always* call conversion
+    let scale = (scaleOriginal / resTypeCT.toBaseScale()).toFloat
     let resType = resTypeCT.toNimType()
-    if scaleOriginal != scaleConv:
-      let scale = scaleOriginal / scaleConv
+    if scale != 1.0:
       implicitScale("*", x, y, parseDefinedUnit(x), yCT, scale)
       result = quote do:
         defUnit(`resType`)
@@ -407,10 +404,9 @@ macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
       resTypeCT = xCT.toBaseType(needConversion).simplify(mergePrefixes = true)
     else:
       resTypeCT = xCT.simplify(mergePrefixes = true)
-    let scaleConv = resTypeCT.toBaseTypeScale()
+    let scale = (scaleOriginal / resTypeCT.toBaseScale()).toFloat
     let resType = resTypeCT.toNimType()
-    if scaleOriginal != scaleConv:
-      let scale = scaleOriginal / scaleConv
+    if scale != 1.0:
       implicitScale("/", x, y, parseDefinedUnit(x), yCT, scale)
       result = quote do:
         defUnit(`resType`)
@@ -438,7 +434,7 @@ macro sqrt*[T: SomeUnit](t: T): untyped =
     let flat = typ.flatten().simplify()
     if flat.allEven:
       mType = flat
-      scale = typ.toBaseTypeScale() / flat.toBaseTypeScale()
+      scale = scaleRatio(typ, flat)
   for u in mitems(mType.units):
     u.power = u.power / 2
   let resType = mType.toNimType()
@@ -466,9 +462,7 @@ macro determineScale(x: typedesc, y: typedesc): FloatType =
   # - multiply `scale` by `factor`
   let xCT = x.parseDefinedUnit()
   let yCT = y.parseDefinedUnit()
-  let xScale = xCT.toBaseTypeScale()
-  let yScale = yCT.toBaseTypeScale()
-  result = newLit(xScale / yScale)
+  result = newLit(scaleRatio(xCT, yCT))
 
 macro to*[T: SomeUnit; U: SomeUnit](x: T; to: typedesc[U]): U =
   ## Converts the given unit `x` to the desired target unit `to`. The
@@ -503,7 +497,7 @@ macro to*[T: SomeUnit; U: SomeUnit](x: T; to: typedesc[U]): U =
   elif commonQuantity(xCT, yCT):
     # perform conversion
     ## thus determine scaling factor due to different SI prefixes
-    let scale = xCT.toBaseTypeScale() / yCT.toBaseTypeScale()
+    let scale = scaleRatio(xCT, yCT)
     result = quote do:
       `to`(`x`.FloatType * `scale`)
   else:
