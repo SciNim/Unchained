@@ -184,6 +184,21 @@ macro defUnit*(arg: untyped, toExport: bool = false): untyped =
   insert(arg.toStrLit.strVal, argCT)
 
 ## TODO: we should really combine these macros somewhat?
+const unchainedImplicitScale* {.strdefine.} = "allow"
+  ## What to do when an operation converts one of its operands: `allow`,
+  ## `warn` (a compile-time warning at the operation) or `error`. E.g.
+  ## `1.cm + 1.m` and `1.V•cm⁻¹ * 1.m` multiply by a factor the code does
+  ## not show; `-d:unchainedImplicitScale=warn` lists every such place.
+static: doAssert unchainedImplicitScale in ["allow", "warn", "error"],
+  "-d:unchainedImplicitScale must be allow, warn or error"
+
+proc implicitScale(op: string, x, y: NimNode, xCT, yCT: UnitProduct, scale: FloatType) =
+  when unchainedImplicitScale != "allow":
+    let msg = "Unchained: `" & op & "` of " & pretty(xCT) & " and " & pretty(yCT) &
+      " converts by a factor " & $scale & ": " & x.repr & " " & op & " " & y.repr
+    when unchainedImplicitScale == "warn": warning(msg, x)
+    else: error(msg, x)
+
 from utils import almostEqual
 macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
   var xCT = parseDefinedUnit(x)
@@ -196,6 +211,7 @@ macro `==`*[T: SomeUnit; U: SomeUnit](x: T, y: U): bool =
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
+    implicitScale("==", x, y, xCT, yCT, xScale / yScale)
     # compare scaled to base type units
     let almostEq = bindSym("almostEqual")
     result = quote do:
@@ -213,6 +229,7 @@ macro `<`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
+    implicitScale("<", x, y, xCT, yCT, xScale / yScale)
     # compare scaled to base type units
     result = quote do:
       (`x`.FloatType * `xScale` < `y`.FloatType * `yScale`)
@@ -229,6 +246,7 @@ macro `<=`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped
     # is there a scale difference between the two types?
     let xScale = xCT.toBaseTypeScale()
     let yScale = yCT.toBaseTypeScale()
+    implicitScale("<=", x, y, xCT, yCT, xScale / yScale)
     # compare scaled to base type units
     result = quote do:
       (`x`.FloatType * `xScale` <= `y`.FloatType * `yScale`)
@@ -257,6 +275,7 @@ macro `+`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     xScale /= xCT.toBaseTypeScale()
     yScale /= yCT.toBaseTypeScale()
     doAssert xCT == yCT, "Conversion to base types failed!"
+    implicitScale("+", x, y, parseDefinedUnit(x), parseDefinedUnit(y), xScale / yScale)
     let resType = xCT.toNimType()
     result = quote do:
       defUnit(`resType`)
@@ -288,6 +307,7 @@ macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     yScale /= yCT.toBaseTypeScale()
 
     doAssert xCT == yCT, "Conversion to base types failed!"
+    implicitScale("-", x, y, parseDefinedUnit(x), parseDefinedUnit(y), xScale / yScale)
     let resType = xCT.toNimType()
     result = quote do:
       defUnit(`resType`)
@@ -343,6 +363,7 @@ macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let resType = resTypeCT.toNimType()
     if scaleOriginal != scaleConv:
       let scale = scaleOriginal / scaleConv
+      implicitScale("*", x, y, parseDefinedUnit(x), yCT, scale)
       result = quote do:
         defUnit(`resType`)
         `resType`(`xr`.FloatType * `yr`.FloatType * `scale`)
@@ -382,6 +403,7 @@ macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     let resType = resTypeCT.toNimType()
     if scaleOriginal != scaleConv:
       let scale = scaleOriginal / scaleConv
+      implicitScale("/", x, y, parseDefinedUnit(x), yCT, scale)
       result = quote do:
         defUnit(`resType`)
         `resType`(`xr`.FloatType / `yr`.FloatType * `scale`)
