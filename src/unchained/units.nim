@@ -391,28 +391,36 @@ macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
         `resType`(`xr`.FloatType / `yr`.FloatType)
 
 macro sqrt*[T: SomeUnit](t: T): untyped =
-  ## Implements the `sqrt` of a given unitful value.
+  ## Implements the `sqrt` of a given unitful value: every power is halved,
+  ## e.g. `sqrt(1.m²)` is `1.m` and `sqrt(1.eV)` is `1.eV¹ᐟ²`.
   ##
-  ## Fails if the given unit is not a perfect square (i.e. each compound of the full
-  ## unit's power is a multiple of 2).
-  ##
-  ## NOTE: If the given input is a perfect square of a set of SI base units, but the
-  ## input itself is given as a combination of derived units, we'll convert to the
-  ## SI base units and take the sqrt of that.
-  ## E.g. W·Ω⁻¹ = A² and thus `sqrt(1.W·Ω⁻¹)` will return `1.A`.
-  let typ = t.parseDefinedUnit().flatten().simplify()
-
+  ## If not every power of the input is even, but every power of it in SI
+  ## base units is, the result is in base units, e.g. W·Ω⁻¹ = A² and thus
+  ## `sqrt(1.W·Ω⁻¹)` will return `1.A`.
+  proc allEven(u: UnitProduct): bool =
+    result = true
+    for x in u.units:
+      if not (x.power / 2).isInteger: return false
+  let typ = t.parseDefinedUnit()
   var mType = typ
+  var scale = 1.0
+  if not typ.allEven:
+    let flat = typ.flatten().simplify()
+    if flat.allEven:
+      mType = flat
+      scale = typ.toBaseTypeScale() / flat.toBaseTypeScale()
   for u in mitems(mType.units):
-    if u.power mod 2 == 0: # can be divided
-      u.power = u.power div 2
-    else:
-      error("Cannot take the `sqrt` of input unit " & $(typ.toNimType()) & " as it's not a perfect square!")
+    u.power = u.power / 2
   let resType = mType.toNimType()
   let tr = t.sanitizeInput()
-  result = quote do:
-    defUnit(`resType`)
-    `resType`(sqrt(`tr`.FloatType))
+  if scale == 1.0:
+    result = quote do:
+      defUnit(`resType`)
+      `resType`(sqrt(`tr`.FloatType))
+  else:
+    result = quote do:
+      defUnit(`resType`)
+      `resType`(sqrt(`tr`.FloatType * `scale`))
 
 proc abs*[T: SomeUnit](t: T): T = (abs(t.FloatType)).T
 
@@ -555,7 +563,7 @@ proc toNaturalUnitImpl(t: UnitInstance): UnitProduct =
       # first modify `value` based on power and prefix of natural unit conversion,
       # i.e. apply the right dimension
       var factor = 1.0
-      var uPower = 1
+      var uPower: Power = 1
       for u in mitems(result.units):
         doAssert u.prefix == siIdentity
         # adjust power of natural units based on input unit
@@ -566,7 +574,7 @@ proc toNaturalUnitImpl(t: UnitInstance): UnitProduct =
       # Note: we do *not* multiply in the power of the natural unit, as this is
       # only related to the dimension of the resulting unit, but our conversions are
       # for the correct dimension already
-      result.value = pow(factor / t.prefix.toFactor(), t.power.FloatType)
+      result.value = pow(factor / t.prefix.toFactor(), t.power.toFloat)
       # now invert the value, as we want it as multiplicative scaling and our conversion
       # factors are given for division
       result.value = 1.0 / result.value

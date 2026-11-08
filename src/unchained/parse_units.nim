@@ -92,9 +92,12 @@ template addUnit(): untyped {.dirty.} =
   ## performing the actual parsing after we've seen a
   ## separator as well as after the loop
   let (prefix, unit) = tab.parsePrefixAndUnit(x, start, stop)
-  exp = if exp == 0: 1 else: exp
-  exp = if negative: -exp else: exp
-  res.add newUnitInstance("", unit, exp, prefix)
+  var power: Power =
+    if num > 0: initRational(num, exp) # `ᐟ` seen: `exp` is the denominator
+    elif exp == 0: 1
+    else: exp
+  if negative: power = -power
+  res.add newUnitInstance("", unit, power, prefix)
 
 proc parseDefinedUnitUnicode(tab: UnitTable, x: string): Option[UnitProduct] =
   ## 1. split by `•`
@@ -119,6 +122,7 @@ proc parseDefinedUnitUnicode(tab: UnitTable, x: string): Option[UnitProduct] =
     idx = 0
     rune: Rune
     exp = 0
+    num = 0 # numerator of a fractional power
     negative = false
     start = 0
     stop = 0
@@ -131,9 +135,13 @@ proc parseDefinedUnitUnicode(tab: UnitTable, x: string): Option[UnitProduct] =
       addUnit()
       start = idx # new unit starts here (idx now after `sep`)
       exp = 0     # and reset exp
+      num = 0
       negative = false
     of MinusRune:
       negative = true # register as negative and move exponent start to after
+    of SolidusRune:
+      num = exp # the digits so far are the numerator
+      exp = 0
     of digitsRunes:
       # register more exponents, get current digit and shift existing exponent
       let digit = digitsRunes.getDigit(rune)
@@ -154,6 +162,7 @@ proc parseDefinedUnitAscii(tab: UnitTable, x: string): UnitProduct =
     idx = 0
     c: char
     exp = 0
+    num = 0 # numerator of a fractional power
     negative = false
     start = 0
     stop = 0
@@ -166,7 +175,11 @@ proc parseDefinedUnitAscii(tab: UnitTable, x: string): UnitProduct =
       addUnit()
       start = idx+1 # new unit starts here (idx now after `sep`)
       exp = 0       # and reset exp
+      num = 0
       negative = false
+    of AsciiSolidus:
+      num = exp # the digits so far are the numerator
+      exp = 0
     of '^': # next char starts an exponent, but nothing to do here
       discard
     of '-':

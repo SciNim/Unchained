@@ -445,8 +445,8 @@ suite "Unchained - Units and procedures":
     check 1.GeV.E_to_γ() =~= 10.46446502980806.UnitLess
     check 1.GeV.E_to_γ =~= 10.46446502980806.UnitLess
     check 9.mol•mol⁻¹ == 9.UnitLess
-    ## the following would work if `sqrt` was lifted to units of course!
-    check fails(9.eV.sqrt)
+    ## `sqrt` of any unit is a unit (rational powers), but `ln` needs a `UnitLess`
+    check typeof(9.eV.sqrt) is eV¹ᐟ²
     check fails(9.eV.sqrt.ln.sqrt)
 
 suite "Unchained - Conversion between units":
@@ -1354,3 +1354,32 @@ suite "Unchained - math with typedescs to define units":
 #  let b = 200.eV
 #  check typeof(a / b) is UnitLess # `UnitLess` is
 #  check a / b == 50_000.Unitless
+
+suite "Unchained - rational powers":
+  test "sqrt of units that are not perfect squares":
+    let e = 9.eV
+    check typeof(sqrt(e)) is eV¹ᐟ²
+    check sqrt(e) == 3.eV¹ᐟ²
+    check typeof(sqrt(4.m)) is Meter¹ᐟ²
+    check typeof(sqrt(4.m⁻¹)) is Meter⁻¹ᐟ²
+    # perfect squares are unchanged
+    check typeof(sqrt(4.m²)) is Meter
+    check sqrt(4.m²) == 2.m
+    check typeof(sqrt(4.W•Ω⁻¹)) is Ampere
+  test "products and quotients of rational powers":
+    defUnit(m•s⁻¹•eV⁻¹ᐟ²)
+    let vfac = 2.0.m•s⁻¹•eV⁻¹ᐟ²
+    let v = vfac * sqrt(9.eV)
+    check typeof(v) is Meter•Second⁻¹
+    check v == 6.m•s⁻¹
+    let r = sqrt(9.eV) * sqrt(4.eV)
+    check typeof(r) is ElectronVolt
+    check r == 6.eV
+    check typeof(sqrt(9.eV) / 1.eV) is ElectronVolt⁻¹ᐟ²
+    check typeof(sqrt(1.eV) * sqrt(1.eV) * sqrt(1.eV)) is ElectronVolt³ᐟ²
+  test "parsing and printing rational powers":
+    check $3.eV¹ᐟ² == "3 eV¹ᐟ²"
+    check $3.m⁻³ᐟ² == "3 m⁻³ᐟ²"
+    check 3.m⁻³ᐟ² * 1.m² == 3.m¹ᐟ²
+    defUnit(m¹ᐟ²)
+    check 1.cm¹ᐟ².to(m¹ᐟ²) =~= 0.1.m¹ᐟ²

@@ -48,6 +48,73 @@ const UnicodeSep* {.strdefine.} = "•"
 const AsciiSepRune* = "*".runeAt(0)
 const AsciiPowerRune* = "^".runeAt(0)
 const AsciiMinusRune* = "-".runeAt(0)
+const UnicodeSolidus* = "ᐟ" ## separates numerator and denominator of a fractional power, `m¹ᐟ²`
+const SolidusRune* = UnicodeSolidus.runeAt(0)
+const AsciiSolidus* = '/'   ## the same in ASCII, `m^1/2`
+
+import std / rationals
+export rationals
+
+type
+  Power* = Rational[int]
+    ## The power of a unit or quantity. Rational so that the square root of
+    ## any unit is a unit, e.g. `sqrt(1.eV)` is `1.eV¹ᐟ²`.
+
+# Almost every power is an integer: these skip the `gcd` of `std/rationals`.
+converter toPower*(x: int): Power = Power(num: x, den: 1)
+
+proc `+`*(a, b: Power): Power =
+  if a.den == 1 and b.den == 1: Power(num: a.num + b.num, den: 1)
+  else: rationals.`+`(a, b)
+proc `-`*(a, b: Power): Power =
+  if a.den == 1 and b.den == 1: Power(num: a.num - b.num, den: 1)
+  else: rationals.`-`(a, b)
+proc `-`*(a: Power): Power = Power(num: -a.num, den: a.den)
+proc `*`*(a, b: Power): Power =
+  if a.den == 1 and b.den == 1: Power(num: a.num * b.num, den: 1)
+  else: rationals.`*`(a, b)
+proc `+=`*(a: var Power, b: Power) = a = a + b
+proc `-=`*(a: var Power, b: Power) = a = a - b
+proc `*=`*(a: var Power, b: Power) = a = a * b
+proc `==`*(a, b: Power): bool =
+  ## powers are always reduced
+  a.num == b.num and a.den == b.den
+proc `<`*(a, b: Power): bool =
+  if a.den == 1 and b.den == 1: a.num < b.num
+  else: rationals.`<`(a, b)
+proc `<=`*(a, b: Power): bool = not (b < a)
+
+proc `==`*(a: Power, b: int): bool = a.den == 1 and a.num == b
+proc `<`*(a: Power, b: int): bool = a < toPower(b)
+proc `<`*(a: int, b: Power): bool = toPower(a) < b
+proc `<=`*(a: Power, b: int): bool = a <= toPower(b)
+proc `<=`*(a: int, b: Power): bool = toPower(a) <= b
+proc `*`*(a: Power, b: int): Power = a * toPower(b)
+
+import std / hashes
+proc hash*(p: Power): Hash = !$(hash(p.num) !& hash(p.den))
+
+proc isInteger*(p: Power): bool = p.den == 1
+
+proc superscript(x: int): string =
+  ## digits of `abs(x)` as superscripts
+  for c in $abs(x): result.add digits[ord(c) - ord('0')]
+
+proc powerSuffix*(p: Power, unicode: bool): string =
+  ## The power as written after a unit: nothing for 1, `⁻¹`, `²`, `¹ᐟ²`,
+  ## `⁻³ᐟ²` (ASCII: `^-1`, `^2`, `^1/2`, `^-3/2`).
+  if p == 1: return
+  if unicode:
+    if p < 0: result.add UnicodeMinus
+    result.add superscript(p.num)
+    if not p.isInteger:
+      result.add UnicodeSolidus & superscript(p.den)
+  else:
+    result.add "^"
+    if p < 0: result.add "-"
+    result.add $abs(p.num)
+    if not p.isInteger:
+      result.add AsciiSolidus & $p.den
 
 const SiPrefixStringsLong* = {
   "Quecto" :   siQuecto,

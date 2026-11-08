@@ -76,19 +76,9 @@ proc toNimType*(u: UnitInstance, short = false,
   else:
     result.add u.unit.short
   when internal or not defined(noUnicode):
-    if u.power < 0:
-      result.add "⁻"
+    result.add powerSuffix(u.power, unicode = true)
   else:
-    if u.power < 0:
-      result.add "^-"
-    elif u.power > 1:
-      result.add "^"
-  if u.power > 1 or u.power < 0:
-    for digit in getPow10Digits(u.power):
-      when internal or not defined(noUnicode):
-        result.add digits[digit]
-      else:
-        result.add DigitsAscii[digit]
+    result.add powerSuffix(u.power, unicode = false)
 
 proc toNimTypeStr*(tab: UnitTable, x: UnitProduct, short = false,
                    internal: static bool = true): string =
@@ -128,7 +118,7 @@ proc toBaseTypeScale*(u: UnitInstance): FloatType =
     result *= u.unit.conversion.value
   # divide out any possible base prefixes (e.g. for kilo gram)
   result /= u.unit.basePrefix.toFactor()
-  result = pow(result, u.power.FloatType)
+  result = pow(result, u.power.toFloat)
 
 #[
 Overview of simplification procedures:
@@ -193,7 +183,7 @@ proc toBaseType*(u: UnitInstance, needConversion: bool): UnitProduct =
         mbu.power *= u.power
         result.units.add mbu
       # now add possible further prefixes / powers of the input
-      result.value *= pow(u.prefix.toFactor(), u.power.FloatType) # XXX: * u.value ? we don't use `value` atm
+      result.value *= pow(u.prefix.toFactor(), u.power.toFloat) # XXX: * u.value ? we don't use `value` atm
 
 proc toBaseType*(x: UnitProduct, needConversion: bool): UnitProduct =
   ## converts `x` to a unit representing the base type.
@@ -266,7 +256,7 @@ proc flatten*(units: UnitProduct, needConversion = true,
         ## concept `SomeUnit`? No! If `Meter•Second⁻¹` is demanded we need that and
         ## not allow `CentiMeter•Second⁻¹`?
         # conversion factor is SI prefix to the unit's power
-        factor *= pow(prefix.toFactor, power.FloatType)
+        factor *= pow(prefix.toFactor, power.toFloat)
         for b in unit.quantity.baseSeq:
           # convert given `QuantityPower` to a base unit
           var u = b.toUnitInstance()
@@ -300,7 +290,7 @@ proc simplify*(x: UnitProduct, mergePrefixes = false): UnitProduct =
   result = initUnitProduct()
   var units = x.unitsSortedByIds()
   var idx = 0
-  var power = 0
+  var power: Power = 0
   var u: UnitInstance
   var last: UnitInstance
   var usedPrefix = siIdentity

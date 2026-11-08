@@ -14,7 +14,7 @@ type
 
   QuantityPower* = object
     quant*: CTBaseQuantity
-    power*: int
+    power*: Power
 
   ## A sequence of quantity power objects which always has the length
   ## of the number of base quantities. Due to its "fixed" length it's named "array".
@@ -60,6 +60,7 @@ proc initQuantityPowerArray*(): QuantityPowerArray =
   result = QuantityPowerArray(data: newSeq[QuantityPower](BaseQuantityTab.len))
   for idx, v in BaseQuantityTab:
     result.data[idx].quant = v
+    result.data[idx].power = 0 # (a default `Rational` is 0/0)
 
 proc add*(qa: var QuantityPowerArray, qp: QuantityPower) =
   ## Adds the given `quant` to the array
@@ -74,7 +75,7 @@ proc lenQuantities*(qa: QuantityPowerArray): int =
     if x.power != 0:
       inc result
 
-proc `[]`*(qa: QuantityPowerArray, idx: int): int = qa.data[idx].power
+proc `[]`*(qa: QuantityPowerArray, idx: int): Power = qa.data[idx].power
 
 iterator compoundQuantities*(qt: Table[string, CTQuantity]): CTQuantity =
   ## Yields all units that corresond to pure compound quantities (i.e. those
@@ -112,11 +113,7 @@ proc pretty*(qa: QuantityPowerArray): string =
   for qp in items(qa):
     let (q, p) = (qp.quant, qp.power)
     result.add $q
-    if p != 1:
-      if p < 0:
-        result.add UnicodeMinus
-      for digit in getPow10Digits(p):
-        result.add digits[digit]
+    result.add powerSuffix(p, unicode = true)
     result.add UnicodeSep
   result.removeSuffix(UnicodeSep)
 
@@ -133,7 +130,7 @@ proc toQuantityPower*(q: CTQuantity): QuantityPowerArray =
   for b in quantityPowers(q):
     result.add b
 
-proc `*`*(q: QuantityPower, power: int): QuantityPower =
+proc `*`*(q: QuantityPower, power: Power): QuantityPower =
   ## Multiplies the power of `q` with the given power
   result = q
   result.power *= power
@@ -170,7 +167,7 @@ proc getName*(q: CTQuantity, typeName: bool = false): string =
 
 proc reduce(s: seq[QuantityPower]): seq[QuantityPower] =
   ## Reduces possible duplicate units with different powers.
-  var tab = initTable[string, int]()
+  var tab = initTable[string, Power]()
   for q in s:
     let name = q.quant.name
     if name in tab:

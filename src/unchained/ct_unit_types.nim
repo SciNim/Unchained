@@ -28,8 +28,7 @@ type
     name*: string # the part of the nim node that was parsed into this
     unit*: DefinedUnit ## The actual underlying unit
     prefix*: SiPrefix # possibly differentiating prefix
-    power*: int ## XXX: we could make the power a `Rational` and that way support `sqrt` and things in a
-                ## ~ reasonable way without having to rely on float hacks.
+    power*: Power ## rational, so that `sqrt` of any unit is a unit
     value*: FloatType
 
   UnitProduct* = object # a product of multiple (possibly compound) units
@@ -89,7 +88,7 @@ proc len*(u: UnitProduct): int = u.units.len
 
 proc newUnitInstance*(name: string,
                       u: DefinedUnit,
-                      power: int,
+                      power: Power,
                       prefix: SiPrefix,
                       value: FloatType = 1.0): UnitInstance =
   result = UnitInstance(name: name,
