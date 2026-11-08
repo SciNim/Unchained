@@ -1399,3 +1399,20 @@ suite "Unchained - exact conversions by powers of ten":
     check 1.0.cm³.to(m³).float == 1e-6
     check 1.0.kGauss.to(T).float == 0.1
     check (1.0.m + 1.0.μm).float == 1.000001
+
+suite "Unchained - units with the same quantity in different prefixes":
+  test "a unit is not an alias of its prefix-merged form of another scale":
+    defUnit(μm•cm⁻²)
+    defUnit(m⁻¹)
+    check not (μm•cm⁻² is m⁻¹)
+    let x = 418.0.μm•cm⁻²
+    check x.to(m⁻¹).float =~= 4.18
+    check not compiles((let y: μm•cm⁻² = 1.0.m⁻¹))
+  test "times or by a number, the unit stays":
+    defUnit(μm•cm⁻¹ᐟ²)
+    let x = 418.0.μm•cm⁻¹ᐟ²
+    check typeof(x * 0.1) is MicroMeter•CentiMeter⁻¹ᐟ²
+    check (x * 0.1).float == 418.0 * 0.1
+    check (2.0 * x).float == 836.0
+    check (x / 2.0).float == 209.0
+    check typeof(2.0 * 3.m) is Meter

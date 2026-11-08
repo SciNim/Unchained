@@ -15,6 +15,13 @@
   that are powers of ten, like gauss → T) are kept as decimal exponents,
   so e.g. ~1.m•ps⁻¹.to(μm•ns⁻¹)~ is ~1e9~ (was ~1000000000.0000001~) and
   ~1.cm³.to(m³)~ is ~1e-6~ (was ~1.0000000000000002e-6~)
+- fix: a unit that names one quantity with two SI prefixes was the same
+  type as its prefix-merged form, although the scales differ: after
+  ~defUnit(μm•cm⁻²)~, ~μm•cm⁻²~ and ~m⁻¹~ were one type, so a value in ~m⁻¹~
+  passed as ~μm•cm⁻²~ unconverted (off by 100). The merged form is now an
+  alias only if its scale is the same
+- a unit times or by a number keeps its unit (~418.μm•cm⁻¹ᐟ² * 0.1~ is
+  ~41.8 μm•cm⁻¹ᐟ²~; it was converted to SI base units)
 * v0.4.8
 - fixes ~sqrt~ such that it works correctly when something is a
   perfect square in *SI base units* and not just if the compound unit

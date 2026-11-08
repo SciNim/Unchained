@@ -168,8 +168,11 @@ macro defUnit*(arg: untyped, toExport: bool = false): untyped =
     let argLong = argCT.toNimType(short = false)
     result.add emitType(baseType,      distinctQuant, toExport)
     result.add emitType(baseTypeShort, baseType,      toExport)
-    result.add emitType(resType,       baseType,      toExport)
-    result.add emitType(resTypeShort,  baseType,      toExport)
+    if scaleRatio(argCT, resTypeCT) == 1.0:
+      # the simplified unit is the same one (not if merging prefixes changed
+      # its scale, e.g. `μm•cm⁻²` is not `m⁻¹`, which is a unit of its own)
+      result.add emitType(resType,       baseType,      toExport)
+      result.add emitType(resTypeShort,  baseType,      toExport)
     # emit short version, but sorted by unit order
     result.add emitType(argShort,      baseType,      toExport)
     # same as long
@@ -344,7 +347,13 @@ macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
   let yr = y.sanitizeInput()
 
   # add `yCT` to xCT. Equates a product after simplification
-  if xCT == yCT:
+  if yCT.units.len == 0 or xCT.units.len == 0:
+    # times a number: the unit stays as it is
+    let resType = (if yCT.units.len == 0: xCT else: yCT).toNimType()
+    result = quote do:
+      defUnit(`resType`)
+      `resType`(`xr`.FloatType * `yr`.FloatType)
+  elif xCT == yCT:
     # excactly the same type, just multiply numbers and square unit
     xCT.add yCT
     let resType = xCT.simplify(mergePrefixes = true).toNimType()
@@ -390,6 +399,12 @@ macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     # excactly the same type, result is simply unitless
     result = quote do:
       UnitLess(`xr`.FloatType / `yr`.FloatType)
+  elif yCT.units.len == 0 and xCT.units.len > 0:
+    # by a number: the unit stays as it is
+    let resType = xCT.toNimType()
+    result = quote do:
+      defUnit(`resType`)
+      `resType`(`xr`.FloatType / `yr`.FloatType)
   else:
     # add inverted `yCT` (power -> -power) to xCT. Equates a division after simplification
     # determine if conversion needed
