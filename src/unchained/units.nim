@@ -44,13 +44,13 @@ proc sanitizeInput(n: NimNode): NimNode =
 
 ## This is a *forced* conversion of a unit to a FloatType. It simply removes any unit from
 ## the type. Currently just `x.FloatType`. Might change in the future.
-proc toFloat*[T: SomeUnit](x: T): FloatType = x.FloatType
+proc toFloat*[T: SomeUnit](x: T): FloatType {.inline.} = x.FloatType
 
 ## auto conversion of `UnitLess` to `FloatType` is possible so that e.g. `sin(5.kg / 10.kg)` works as expected!
-converter toRawFloat*(x: UnitLess): FloatType = x.FloatType
-converter toUnitLess*(x: SomeNumber): UnitLess = x.UnitLess
-converter toUnitLess*(x: float64): UnitLess = x.UnitLess
-converter toUnitLess*(x: float32): UnitLess = x.UnitLess
+converter toRawFloat*(x: UnitLess): FloatType {.inline.} = x.FloatType
+converter toUnitLess*(x: SomeNumber): UnitLess {.inline.} = x.UnitLess
+converter toUnitLess*(x: float64): UnitLess {.inline.} = x.UnitLess
+converter toUnitLess*(x: float32): UnitLess {.inline.} = x.UnitLess
 
 import hashes
 proc hash*[T: SomeUnit](x: T): Hash =
@@ -194,6 +194,7 @@ static: doAssert unchainedImplicitScale in ["allow", "warn", "error"],
 
 proc implicitScale(op: string, x, y: NimNode, xCT, yCT: UnitProduct, scale: FloatType) =
   when unchainedImplicitScale != "allow":
+    if scale == 1.0: return # e.g. the same units in another order
     let msg = "Unchained: `" & op & "` of " & pretty(xCT) & " and " & pretty(yCT) &
       " converts by a factor " & $scale & ": " & x.repr & " " & op & " " & y.repr
     when unchainedImplicitScale == "warn": warning(msg, x)
@@ -312,18 +313,18 @@ macro `-`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
   else:
     error("Different quantities cannot be subtracted! Quantity 1: " & pretty(xCT) & ", Quantity 2: " & pretty(yCT))
 
-proc `-`*[T: SomeUnit](x: T): T = (-(x.FloatType)).T
+proc `-`*[T: SomeUnit](x: T): T {.inline.} = (-(x.FloatType)).T
 
-proc `+=`*[T: SomeUnit](x: var T, y: T) =
+proc `+=`*[T: SomeUnit](x: var T, y: T) {.inline.} =
   x = x + y
 
-proc `-=`*[T: SomeUnit](x: var T, y: T) =
+proc `-=`*[T: SomeUnit](x: var T, y: T) {.inline.} =
   x = x - y
 
-proc `*=`*[T: SomeUnit](x: var T, y: UnitLess) =
+proc `*=`*[T: SomeUnit](x: var T, y: UnitLess) {.inline.} =
   x = x * y
 
-proc `/=`*[T: SomeUnit](x: var T, y: UnitLess) =
+proc `/=`*[T: SomeUnit](x: var T, y: UnitLess) {.inline.} =
   x = x / y
 
 proc scaleOfSimplified(x: UnitProduct): Scale =
@@ -448,7 +449,7 @@ macro sqrt*[T: SomeUnit](t: T): untyped =
       defUnit(`resType`)
       `resType`(sqrt(`tr`.FloatType * `scale`))
 
-proc abs*[T: SomeUnit](t: T): T = (abs(t.FloatType)).T
+proc abs*[T: SomeUnit](t: T): T {.inline.} = (abs(t.FloatType)).T
 
 macro determineScale(x: typedesc, y: typedesc): FloatType =
   ## x and y `have` to be of the same quantity
