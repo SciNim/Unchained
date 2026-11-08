@@ -1383,3 +1383,10 @@ suite "Unchained - rational powers":
     check 3.m⁻³ᐟ² * 1.m² == 3.m¹ᐟ²
     defUnit(m¹ᐟ²)
     check 1.cm¹ᐟ².to(m¹ᐟ²) =~= 0.1.m¹ᐟ²
+  test "cancelling units add no conversion factor":
+    defUnit(cm²•eV)
+    let bb = 3.0.cm²•eV
+    let x = 2.0.eV⁻¹ * bb
+    check typeof(x) is CentiMeter²
+    check x.float == 6.0 # exactly: no factor from eV⁻¹•eV
+    check (bb / 2.0.eV).float == 1.5

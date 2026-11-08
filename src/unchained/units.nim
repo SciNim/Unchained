@@ -329,6 +329,13 @@ proc `*=`*[T: SomeUnit](x: var T, y: UnitLess) =
 proc `/=`*[T: SomeUnit](x: var T, y: UnitLess) =
   x = x / y
 
+proc scaleOfSimplified(x: UnitProduct): FloatType =
+  ## `toBaseTypeScale` of `x` after merging equal units, so that the factors
+  ## of units that cancel are not multiplied in (they need not cancel in
+  ## floating point)
+  let value = if x.value != 0.0: x.value else: 1.0
+  result = value * x.simplify().toBaseTypeScale()
+
 macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped =
   ## TODO: can we extract the actual mathy part from x, y instead of using the
   ## whole expression? And then reinsert that after our change
@@ -349,8 +356,9 @@ macro `*`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     # check if these units need a conversion
     let needConversion = needConversionToBase(xCT, yCT)
     xCT.add yCT
-    # define scale before modifying units
-    let scaleOriginal = xCT.toBaseTypeScale()
+    # define scale before modifying units (of the simplified product, so that
+    # e.g. the factors of `eV⁻¹` and `eV` cancel exactly)
+    let scaleOriginal = xCT.scaleOfSimplified()
     # and flatten if needed
     xCT = xCT.flatten(needConversion)
     var resTypeCT: UnitProduct
@@ -391,7 +399,7 @@ macro `/`*[T: SomeUnit|SomeNumber; U: SomeUnit|SomeNumber](x: T; y: U): untyped 
     # perform the "division"
     xCT.add yCT.invert()
     # and determine scale of resulting unit, before flattening / simplification
-    let scaleOriginal = xCT.toBaseTypeScale()
+    let scaleOriginal = xCT.scaleOfSimplified()
 
     xCT = xCT.flatten(needConversion)
     var resTypeCT: UnitProduct

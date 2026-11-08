@@ -8,6 +8,9 @@
 - ~-d:unchainedImplicitScale=warn~ (or ~error~) reports every ~+~, ~-~,
   ~*~, ~/~, ~<~, ~<=~, ~==~ that converts an operand by a factor that is
   not visible in the code, e.g. ~1.cm + 1.m~ or ~1.V•cm⁻¹ * 1.m~
+- fix: ~*~ and ~/~ multiplied by a factor slightly off 1 when units
+  cancel, e.g. ~1.eV⁻¹ * 1.cm²•eV~ was ~1.0000000000000002 cm²~: the
+  conversion factor is now computed after merging equal units
 * v0.4.8
 - fixes ~sqrt~ such that it works correctly when something is a
   perfect square in *SI base units* and not just if the compound unit
